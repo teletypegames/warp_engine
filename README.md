@@ -4,6 +4,13 @@ Mountable Rails engine: a retro software catalog with a CI-pipeline-callable
 release updater, a public read-only JSON API, and ActiveAdmin resources that
 load into the host application's admin.
 
+> **Development happens in the `tools/teletypegames` monorepo** under
+> `libs/ruby/warp_engine`. The standalone `tools/warp_engine` repository is a
+> **read-only split mirror** published by CI on every master push — do not
+> push to it directly. Tagged releases (`warp_engine-vX.Y.Z`) are also
+> published as a gem to the Forgejo rubygems registry
+> (`https://git.teletypegames.org/api/packages/tools/rubygems`).
+
 ## What it provides
 
 - **Models**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
