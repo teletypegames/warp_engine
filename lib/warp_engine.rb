@@ -1,4 +1,5 @@
 require "blueprinter"
+require "apipie-rails"
 
 require "warp_engine/version"
 require "warp_engine/configuration"

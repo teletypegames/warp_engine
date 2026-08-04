@@ -20,4 +20,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rails", ">= 8.0"
   spec.add_dependency "blueprinter"
   spec.add_dependency "rubyzip", "~> 2.3"
+  spec.add_dependency "apipie-rails"
 end
