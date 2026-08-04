@@ -1,41 +1,54 @@
 # WarpEngine
 
-Mountable Rails engine: a retro software catalog with a CI-pipeline-callable
-release updater, a public read-only JSON API, and ActiveAdmin resources that
-load into the host application's admin.
+A mountable Rails engine that turns any Rails application into a retro
+software catalog: catalog models, a CI-pipeline-callable release updater, a
+public read-only JSON API, and optional ActiveAdmin resources that plug into
+your app's existing admin.
 
-> **Development happens in the `tools/teletypegames` monorepo** under
-> `libs/ruby/warp_engine`. The standalone `tools/warp_engine` repository is a
-> **read-only split mirror** published by CI on every master push — do not
-> push to it directly. Tagged releases (`warp_engine-vX.Y.Z`) are also
-> published as a gem to the Forgejo rubygems registry
-> (`https://git.teletypegames.org/api/packages/tools/rubygems`).
+Repository: `https://git.teletypegames.org/tools/warp_engine`
 
-## What it provides
+## Features
 
-- **Models**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
-  `PlatformLink`, `Image`, `SoftwareImage`, `Download` (all under
-  `WarpEngine::`, with unprefixed table names)
-- **Updater**: `GET /update?platform=&name=&version=` (auth via the
-  `X-Update-Secret` header or `?secret=`) — CI copies build artifacts under
-  `file_container_path` using the `<name>-<version>*` naming convention, then
-  calls the endpoint; the updater extracts archives, parses metadata, and
-  upserts the Software/Release/ReleaseAsset/ExternalLink records.
-  Supported platforms: tic80, ebitengine, love, c64, godot, bevy, phaser.
-- **Public API**: `/api/software`, `/api/software/highlighted`, `/api/builds`,
-  `/api/softwares/:name/builds`, `/api/image/:id`, `/api/download?path=`,
-  `/file/*path`
-- **Admin**: ActiveAdmin resource files (softwares with a 3-level nested form,
-  releases, external links, platform links, images with orphan management, a
-  Files file-manager page with picker mode, download stats) — loaded into the
-  host's single ActiveAdmin instance.
+- **Catalog domain**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
+  `PlatformLink`, `Image`, `SoftwareImage`, `Download` models with soft-delete
+  semantics and download statistics.
+- **CI-callable updater**: your build pipeline drops artifacts into a
+  directory and calls one endpoint — WarpEngine extracts archives, parses
+  metadata and upserts the catalog records. Supported platforms out of the
+  box: TIC-80, Ebitengine, LÖVE, C64, Godot, Bevy, Phaser.
+- **Public JSON API**: catalog listing, highlighted title, per-platform build
+  matrix, image serving, download tracking, and a static file server for
+  web-playable builds.
+- **Admin (optional)**: if the host runs ActiveAdmin, WarpEngine contributes
+  ready-made resources — a catalog editor with nested release/asset forms, an
+  image library with orphan cleanup, a file manager with a picker mode, and
+  download statistics. Without ActiveAdmin the engine runs headless
+  (API + updater only).
+
+## Requirements
+
+- Rails >= 8.0
+- A relational database (developed and tested against MySQL 8)
+- Optional: ActiveAdmin + Devise in the host app for the admin UI
 
 ## Installation
 
+From the git repository:
+
 ```ruby
 # Gemfile
-gem "warp_engine", path: "../../libs/ruby/warp_engine"
+gem "warp_engine", git: "https://git.teletypegames.org/tools/warp_engine.git"
 ```
+
+Or from the Forgejo rubygems registry (tagged releases):
+
+```ruby
+source "https://git.teletypegames.org/api/packages/tools/rubygems" do
+  gem "warp_engine"
+end
+```
+
+Then:
 
 ```sh
 rails g warp_engine:install   # initializer + create_warp_engine_tables migration
@@ -43,54 +56,103 @@ rails db:migrate
 ```
 
 ```ruby
-# config/routes.rb — keep it the last entry so host routes win
+# config/routes.rb — keep it the last entry so your own routes win
 mount WarpEngine::Engine => "/"
 ```
 
 ## Configuration
 
 ```ruby
+# config/initializers/warp_engine.rb
 Rails.application.config.to_prepare do
   WarpEngine.configure do |c|
+    # Where CI drops build artifacts and where images are stored
     c.file_container_path  = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
     c.image_container_path = ENV.fetch("IMAGE_CONTAINER_PATH", "/images")
-    c.update_secret        = ENV["UPDATE_SECRET"] # nil => /update rejects everything
-    # If host models also reference catalog images:
-    c.image_owners = [
-      {
-        label: "member",
-        image_ids: -> { Member.where.not(image_id: nil).distinct.pluck(:image_id) },
-        usage_label: ->(image) { "member" if Member.where(image_id: image.id).exists? }
-      }
-    ]
+
+    # Shared secret for the /update endpoint.
+    # nil => the endpoint rejects every request.
+    c.update_secret = ENV["UPDATE_SECRET"]
+
+    # If your app's own models reference catalog images, register them so the
+    # admin Images page counts them as "in use":
+    # c.image_owners = [
+    #   {
+    #     label: "member",
+    #     image_ids: -> { Member.where.not(image_id: nil).distinct.pluck(:image_id) },
+    #     usage_label: ->(image) { "member" if Member.where(image_id: image.id).exists? }
+    #   }
+    # ]
   end
 end
 ```
 
-## Host expectations
+## The updater contract
 
-- **ActiveAdmin + Devise live in the host**: authentication, theme, assets and
-  the `/admin` routes are the host's responsibility; the engine only appends
-  its resource files to `ActiveAdmin.application.load_paths`.
-- **Files picker JS**: the file-picker next to release-asset path inputs relies
-  on a few lines of JS in the host's `active_admin.js` (an iframe pointing at
-  `/admin/files?picker=1&field=<dom_id>`) — copy that over to a new host too.
-- **apipie**: if the host generates apipie docs, add the engine to the matcher:
-  `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"`.
+Publishing a release from CI is two steps:
+
+1. **Upload** build artifacts into `file_container_path`, named by convention:
+   `<name>-<version>.metadata.json`, `<name>-<version>.html.zip`,
+   `<name>-<version>-win-x64.zip`, `<name>-<version>.tic`, ... (each platform
+   declares which asset kinds it expects — see `GET /api/builds`).
+2. **Call the endpoint**:
+
+   ```sh
+   curl -H "X-Update-Secret: $UPDATE_SECRET" \
+     "https://your-host/update?platform=tic80&name=mygame&version=1.2.0"
+   ```
+
+WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
+comment header for TIC-80), and upserts the `Software`, `ExternalLink`,
+`Release` and `ReleaseAsset` records in a single transaction. Previously
+deleted records are resurrected on re-ingest.
+
+## Public API
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/software` | Full catalog with releases, assets, links, download counts |
+| `GET /api/software/highlighted` | The currently highlighted title |
+| `GET /api/builds` | Expected asset kinds per platform (build matrix) |
+| `GET /api/softwares/:name/builds` | Actual vs. missing build assets per release |
+| `GET /api/image/:id` | Serves catalog images |
+| `GET /api/download?path=` | Serves an artifact and logs a download record |
+| `GET /file/*path` | Serves static build output (web-playable games, docs) |
+
+## Admin integration
+
+The host owns the single ActiveAdmin instance — authentication (Devise),
+theme, assets and the `/admin` routes. WarpEngine only appends its resource
+files to `ActiveAdmin.application.load_paths`. Two things to copy into a new
+host:
+
+- the small file-picker JS for release-asset path inputs (an iframe pointing
+  at `/admin/files?picker=1&field=<dom_id>`) in your `active_admin.js`;
+- if you generate apipie docs, add
+  `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"` to your
+  `api_controllers_matcher`.
 
 ## Behavioral notes
 
-- Every model is soft-deleted (`default_scope { where(deleted_at: nil) }`);
-  the updater "resurrects" re-submitted, previously deleted records via
-  `.unscoped`.
-- The JSON shape is intentionally bug-compatible with the former Go backend
-  (Go zero-time timestamps, camelCase keys, legacy flat path fields).
+- Every model is soft-deleted (`default_scope { where(deleted_at: nil) }`).
+- The JSON shape is stable and intentionally bug-compatible with the project's
+  former Go backend (Go zero-time timestamps, camelCase keys, legacy flat
+  path fields).
 - Model extension points: `ActiveSupport.on_load(:warp_engine_<model>)` hooks.
 
 ## Tests
 
+The engine ships an RSpec suite running against a bundled dummy app:
+
 ```sh
 bundle install
-bundle exec rake app:db:prepare RAILS_ENV=test   # warp_engine_test DB for the dummy app
+bundle exec rake app:db:prepare RAILS_ENV=test
 bundle exec rspec
 ```
+
+## Development
+
+This repository is a **read-only split mirror** — development happens in the
+[`tools/teletypegames`](https://git.teletypegames.org/tools/teletypegames)
+monorepo under `libs/ruby/warp_engine`, and CI republishes the mirror on every
+change. Please do not open pull requests against the mirror.
