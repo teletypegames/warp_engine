@@ -1,3 +1,5 @@
+require "blueprinter"
+
 require "warp_engine/version"
 require "warp_engine/configuration"
 
