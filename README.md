@@ -1,24 +1,29 @@
 # WarpEngine
 
-Mountable Rails engine: retro szoftverkatalógus CI-pipeline-ból hívható release-updaterrel,
-publikus read-only JSON API-val és a host adminjába betöltődő ActiveAdmin erőforrásokkal.
+Mountable Rails engine: a retro software catalog with a CI-pipeline-callable
+release updater, a public read-only JSON API, and ActiveAdmin resources that
+load into the host application's admin.
 
-## Mit ad
+## What it provides
 
-- **Modellek**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`, `PlatformLink`,
-  `Image`, `SoftwareImage`, `Download` (mind `WarpEngine::` alatt, prefix nélküli táblákkal)
-- **Updater**: `GET /update?platform=&name=&version=` (`X-Update-Secret` fejléc vagy
-  `?secret=`) — a CI a build-artifactokat a `file_container_path` alá másolja
-  (`<name>-<version>*` konvencióval), majd meghívja az endpointot; az updater kicsomagol,
-  metadatát parse-ol, és upserteli a Software/Release/ReleaseAsset/ExternalLink rekordokat.
-  Támogatott platformok: tic80, ebitengine, love, c64, godot, bevy, phaser.
-- **Publikus API**: `/api/software`, `/api/software/highlighted`, `/api/builds`,
-  `/api/softwares/:name/builds`, `/api/image/:id`, `/api/download?path=`, `/file/*path`
-- **Admin**: ActiveAdmin resource-fájlok (softwares a 3 szintű beágyazott formmal,
-  releases, external links, platform links, images orphan-kezeléssel, Files fájlkezelő
-  picker móddal, download stats) — a host ActiveAdmin példányába töltődnek be.
+- **Models**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
+  `PlatformLink`, `Image`, `SoftwareImage`, `Download` (all under
+  `WarpEngine::`, with unprefixed table names)
+- **Updater**: `GET /update?platform=&name=&version=` (auth via the
+  `X-Update-Secret` header or `?secret=`) — CI copies build artifacts under
+  `file_container_path` using the `<name>-<version>*` naming convention, then
+  calls the endpoint; the updater extracts archives, parses metadata, and
+  upserts the Software/Release/ReleaseAsset/ExternalLink records.
+  Supported platforms: tic80, ebitengine, love, c64, godot, bevy, phaser.
+- **Public API**: `/api/software`, `/api/software/highlighted`, `/api/builds`,
+  `/api/softwares/:name/builds`, `/api/image/:id`, `/api/download?path=`,
+  `/file/*path`
+- **Admin**: ActiveAdmin resource files (softwares with a 3-level nested form,
+  releases, external links, platform links, images with orphan management, a
+  Files file-manager page with picker mode, download stats) — loaded into the
+  host's single ActiveAdmin instance.
 
-## Telepítés
+## Installation
 
 ```ruby
 # Gemfile
@@ -26,24 +31,24 @@ gem "warp_engine", path: "../../libs/ruby/warp_engine"
 ```
 
 ```sh
-rails g warp_engine:install   # initializer + create_warp_engine_tables migráció
+rails g warp_engine:install   # initializer + create_warp_engine_tables migration
 rails db:migrate
 ```
 
 ```ruby
-# config/routes.rb — utolsó sorként, hogy a host route-jai nyerjenek
+# config/routes.rb — keep it the last entry so host routes win
 mount WarpEngine::Engine => "/"
 ```
 
-## Konfiguráció
+## Configuration
 
 ```ruby
 Rails.application.config.to_prepare do
   WarpEngine.configure do |c|
     c.file_container_path  = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
     c.image_container_path = ENV.fetch("IMAGE_CONTAINER_PATH", "/images")
-    c.update_secret        = ENV["UPDATE_SECRET"] # nil => /update mindig elutasít
-    # Ha a host modelljei is használnak katalógus-képeket:
+    c.update_secret        = ENV["UPDATE_SECRET"] # nil => /update rejects everything
+    # If host models also reference catalog images:
     c.image_owners = [
       {
         label: "member",
@@ -55,28 +60,30 @@ Rails.application.config.to_prepare do
 end
 ```
 
-## Host-elvárások
+## Host expectations
 
-- **ActiveAdmin + Devise a hostban él**: auth, téma, assetek és a `/admin` route-ok a
-  host dolga; az engine csak resource-fájlokat ad a `ActiveAdmin.application.load_paths`-hoz.
-- **Files picker JS**: a release-asset path-mezők melletti fájlkiválasztó a host
-  `active_admin.js`-ében élő pár soros JS-re támaszkodik (iframe a
-  `/admin/files?picker=1&field=<dom_id>` címre) — új hostba ezt is át kell venni.
-- **apipie**: ha a host apipie-dokut generál, vegye fel a matcherbe:
+- **ActiveAdmin + Devise live in the host**: authentication, theme, assets and
+  the `/admin` routes are the host's responsibility; the engine only appends
+  its resource files to `ActiveAdmin.application.load_paths`.
+- **Files picker JS**: the file-picker next to release-asset path inputs relies
+  on a few lines of JS in the host's `active_admin.js` (an iframe pointing at
+  `/admin/files?picker=1&field=<dom_id>`) — copy that over to a new host too.
+- **apipie**: if the host generates apipie docs, add the engine to the matcher:
   `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"`.
 
-## Viselkedési megjegyzések
+## Behavioral notes
 
-- Minden modell soft-delete-es (`default_scope { where(deleted_at: nil) }`); az updater
-  `.unscoped`-dal "feltámasztja" az újra beküldött, korábban törölt rekordokat.
-- A JSON-formátum szándékosan bug-kompatibilis az egykori Go backenddel
-  (Go zero-time timestampek, camelCase kulcsok, legacy flat path mezők).
-- Modell-kiterjesztési pontok: `ActiveSupport.on_load(:warp_engine_<model>)` hookok.
+- Every model is soft-deleted (`default_scope { where(deleted_at: nil) }`);
+  the updater "resurrects" re-submitted, previously deleted records via
+  `.unscoped`.
+- The JSON shape is intentionally bug-compatible with the former Go backend
+  (Go zero-time timestamps, camelCase keys, legacy flat path fields).
+- Model extension points: `ActiveSupport.on_load(:warp_engine_<model>)` hooks.
 
-## Tesztek
+## Tests
 
 ```sh
 bundle install
-bundle exec rake app:db:prepare RAILS_ENV=test   # warp_engine_test DB a dummy apphoz
+bundle exec rake app:db:prepare RAILS_ENV=test   # warp_engine_test DB for the dummy app
 bundle exec rspec
 ```
