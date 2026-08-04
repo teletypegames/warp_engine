@@ -8,6 +8,16 @@ module WarpEngine
       Rails.autoloaders.main.ignore(Engine.root.join("app/admin"))
     end
 
+    # A jövőbeli katalógus-migrációk az engine db/migrate-jéből futnak a host
+    # rails db:migrate-jével, másolás nélkül.
+    initializer "warp_engine.append_migrations" do |app|
+      unless app.root.to_s.start_with?(root.to_s)
+        config.paths["db/migrate"].expanded.each do |path|
+          app.config.paths["db/migrate"] << path
+        end
+      end
+    end
+
     # Az admin erőforrásokat a HOST ActiveAdmin példánya tölti be; az engine csak
     # regisztrálja a saját app/admin könyvtárát. Auth/téma/route-ok a host dolga.
     initializer "warp_engine.active_admin" do |app|
