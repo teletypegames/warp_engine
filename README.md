@@ -184,6 +184,7 @@ Rails.application.config.to_prepare do
     #   :database — only WarpEngine::ApplicationToken records with the
     #               "update" scope are accepted; the shared secret stops
     #               working the moment you switch.
+    # Defaults to ENV["UPDATE_SECRET_SOURCE"] (:env when unset).
     # :database mode also requires the owner class every token belongs to:
     # c.update_secret_source = :database
     # c.application_token_owner_class = "AdminUser"

@@ -13,6 +13,7 @@ Rails.application.config.to_prepare do
     #   :env      — a fenti shared secret érvényes (default)
     #   :database — csak DB-tárolt WarpEngine::ApplicationToken érvényes
     #               ("update" scope-pal); a shared secret ilyenkor NEM működik.
+    # Default: ENV["UPDATE_SECRET_SOURCE"] (beállítatlanul :env).
     # A :database módhoz kötelező a tokenek tulajdonos-osztálya is:
     # c.update_secret_source = :database
     # c.application_token_owner_class = "AdminUser"

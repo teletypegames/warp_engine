@@ -20,7 +20,7 @@ module WarpEngine
       @file_container_path           = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
       @image_container_path          = ENV.fetch("IMAGE_CONTAINER_PATH", "/images")
       @update_secret                 = ENV["UPDATE_SECRET"]
-      @update_secret_source          = :env
+      @update_secret_source          = ENV.fetch("UPDATE_SECRET_SOURCE", "env").to_sym
       @application_token_owner_class = nil
       @image_owners                  = []
     end
