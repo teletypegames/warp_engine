@@ -1,4 +1,4 @@
-# Generált pipeline — WarpEngine /build/config (platform: love, name: <%= name %>)
+# Generated pipeline — WarpEngine /build/config (platform: love, name: <%= name %>)
 steps:
   - name: version
     image: alpine
@@ -34,8 +34,8 @@ steps:
           --exclude "metadata.json" \
           --exclude "*.zip"
         mkdir -p dist/web
-        # A love-builder CI image ide előre letölti a love.js-t; lokális
-        # buildnél GitHubról jön.
+        # The love-builder CI image pre-fetches love.js here; local builds
+        # fall back to GitHub.
         if [ -f /opt/lovejs.zip ]; then
           echo "==> Using cached love.js (/opt/lovejs.zip)"
           cp /opt/lovejs.zip dist/lovejs.zip
@@ -68,8 +68,8 @@ steps:
     commands:
       - |
         VERSION=$(cat .version)
-        # Az export step törölte a .love-ot, itt újraépítjük (make-ben a
-        # binary-* targetek love-prerequisite-je tette ugyanezt).
+        # The export step deleted the .love, rebuild it here (in make the
+        # binary-* targets' love prerequisite did the same).
         mkdir -p dist
         zip -r dist/<%= name %>.love . \
           --exclude "*.git*" \
@@ -79,8 +79,8 @@ steps:
           --exclude ".version" \
           --exclude "metadata.json" \
           --exclude "*.zip"
-        # A love-builder CI image a dist-fájlokat /opt/love-dist alá előre
-        # letölti; lokális buildnél GitHubról jönnek.
+        # The love-builder CI image pre-fetches the dist files to
+        # /opt/love-dist; local builds fall back to GitHub.
         fetch_love() {
           if [ -f "/opt/love-dist/$1" ]; then
             echo "==> Using cached $1"
@@ -117,10 +117,10 @@ steps:
         zip -qry "$PKG_DIR.zip" "$PKG_DIR"
         rm -rf "$PKG_DIR" dist/macos
         echo "==> $PKG_DIR.zip kesz"
-        # Az AppImage runtime glibc-dinamikus, alpine (musl) alatt nem
-        # futtatható, ezért nem a runtime-ot futtatjuk: az offsetet readelf-ből
-        # számoljuk (shoff + shentsize*shnum), a squashfs-t unsquashfs -o
-        # bontja ki.
+        # The AppImage runtime is glibc-dynamic and cannot run on alpine
+        # (musl), so we do not run the runtime: the offset is computed from
+        # readelf (shoff + shentsize*shnum) and the squashfs is extracted
+        # with unsquashfs -o.
         echo "==> Fusing linux AppImage"
         fetch_love love-11.5-x86_64.AppImage
         PKG_DIR="<%= name %>-$VERSION-linux-x64"

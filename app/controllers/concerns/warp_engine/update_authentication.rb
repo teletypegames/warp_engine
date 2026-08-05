@@ -1,7 +1,7 @@
 module WarpEngine
-  # Token-hitelesítés a publikáló (/build/*) endpointokhoz.
-  # A hitelesítési forrás kizárólagos: :database módban a shared secret nem
-  # érvényes, :env módban a DB-tokenek nem.
+  # Token authentication for the publishing (/build/*) endpoints.
+  # The auth source is exclusive: in :database mode the shared secret is not
+  # accepted, in :env mode DB tokens are not.
   module UpdateAuthentication
     extend ActiveSupport::Concern
 
@@ -9,8 +9,8 @@ module WarpEngine
 
     attr_reader :current_application_token
 
-    # A token kizárólag az X-Update-Secret headerből jöhet — URL-ben a secret
-    # proxy- és access-logokba szivárogna.
+    # The token is accepted from the X-Update-Secret header only — in the URL
+    # it would leak into proxy and access logs.
     def update_authorized?(required_scope:)
       token = request.headers["X-Update-Secret"].presence
       return false if token.blank?
@@ -23,13 +23,13 @@ module WarpEngine
 
     def env_secret_authorized?(token)
       expected = WarpEngine.config.update_secret
-      # Konfigurálatlan secret esetén az endpoint zárva marad.
+      # With no secret configured the endpoint stays closed.
       expected.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected)
     end
 
     def database_token_authorized?(token, required_scope)
       if WarpEngine.config.application_token_owner_class.blank?
-        Rails.logger.error("[#{self.class.name}] application_token_source=:database, de application_token_owner_class nincs beállítva — minden kérés elutasítva")
+        Rails.logger.error("[#{self.class.name}] application_token_source=:database but application_token_owner_class is not set — rejecting every request")
         return false
       end
 
@@ -41,9 +41,9 @@ module WarpEngine
       true
     end
 
-    # Owner-kényszer: csak :database módban (van token) és bekapcsolt
-    # enforce_software_ownership mellett szűr. Owner nélküli software a
-    # backfillig szabad préda — a kényszer bekapcsolása előtt kell backfillelni.
+    # Ownership enforcement applies only in :database mode (there is a token)
+    # with enforce_software_ownership on. An ownerless software is up for grabs
+    # until the backfill — backfill before enabling the enforcement.
     def software_ownership_authorized?(name)
       return true unless WarpEngine.config.enforce_software_ownership
 
@@ -56,8 +56,8 @@ module WarpEngine
       software.owner_type == token.owner_type && software.owner_id == token.owner_id
     end
 
-    # Az először publikált (vagy backfill előtti, gazdátlan) software a beküldő
-    # token ownerét kapja. Unrestricted (belső) token nem foglal ownert.
+    # A first-published (or pre-backfill, ownerless) software gets the
+    # submitting token's owner. Unrestricted (internal) tokens claim nothing.
     def claim_software_ownership(name)
       token = current_application_token
       return if token.nil? || token.unrestricted?

@@ -3,9 +3,9 @@ require "base64"
 require "net/http"
 
 module WarpEngine
-  # A Woodpecker configuration-extension kéréseinek httpsig-ellenőrzése
-  # (draft-cavage http-signatures, ed25519). A szerver az aláírt headerek
-  # listáját a Signature headerben küldi — tipikusan "(request-target) date".
+  # Verifies the httpsig signature of Woodpecker configuration-extension
+  # requests (draft-cavage http-signatures, ed25519). The server sends the
+  # signed header list in the Signature header — typically "(request-target) date".
   class CiSignatureVerifier
     SIGNATURE_PARAM = /(\w+)="([^"]*)"/
 
@@ -13,7 +13,7 @@ module WarpEngine
     @key_mutex = Mutex.new
 
     class << self
-      # A letöltött kulcs process-szinten cache-elt (URL-enként).
+      # The downloaded key is cached process-wide (per URL).
       def fetch_public_key(url)
         @key_mutex.synchronize do
           @key_cache[url] ||= Net::HTTP.get(URI.parse(url))
@@ -32,7 +32,7 @@ module WarpEngine
     def valid?
       pem = public_key_pem
       if pem.blank?
-        Rails.logger.error("[CiSignatureVerifier] nincs ci_extension_public_key(_url) konfigurálva — kérés elutasítva")
+        Rails.logger.error("[CiSignatureVerifier] no ci_extension_public_key(_url) configured — rejecting request")
         return false
       end
 
@@ -58,11 +58,11 @@ module WarpEngine
 
       self.class.fetch_public_key(config.ci_extension_public_key_url)
     rescue StandardError => e
-      Rails.logger.error("[CiSignatureVerifier] kulcs-letöltés sikertelen: #{e.class}: #{e.message}")
+      Rails.logger.error("[CiSignatureVerifier] public key fetch failed: #{e.class}: #{e.message}")
       nil
     end
 
-    # A Signature header (vagy az "Authorization: Signature ..." forma) paraméterei.
+    # Parameters of the Signature header (or the "Authorization: Signature ..." form).
     def signature_params
       header = @request.headers["Signature"].presence
       if header.nil?

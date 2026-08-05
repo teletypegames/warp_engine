@@ -7,8 +7,8 @@ module WarpEngine
     UPDATE_SCOPE = "update".freeze
     UPLOAD_SCOPE = "upload".freeze
 
-    # A generált token csak létrehozáskor, memóriában érhető el — a DB-ben
-    # kizárólag a SHA256 digest és a nem-titkos prefix tárolódik.
+    # The generated token is only available in memory at creation time — the DB
+    # stores nothing but the SHA256 digest and the non-secret prefix.
     attr_reader :plain_token
 
     belongs_to :owner, polymorphic: true
@@ -30,7 +30,7 @@ module WarpEngine
       Digest::SHA256.hexdigest(token)
     end
 
-    # Az élő (nem törölt, nem lejárt), a kért scope-pal rendelkező token, különben nil.
+    # The live (not deleted, not expired) token carrying the required scope, else nil.
     def self.authenticate(token, required_scope: nil)
       return nil if token.blank?
 
@@ -45,7 +45,7 @@ module WarpEngine
       expires_at.present? && expires_at <= Time.current
     end
 
-    # Visszavonás = soft delete, az audit-nyom megmarad.
+    # Revocation = soft delete, the audit trail stays.
     def revoke!
       update_column(:deleted_at, Time.current)
     end
@@ -54,7 +54,7 @@ module WarpEngine
       update_column(:last_used_at, Time.current)
     end
 
-    # Admin form: vesszővel elválasztott scope-lista
+    # Admin form: comma separated scope list
     def scopes_string
       Array(scopes).join(", ")
     end
@@ -67,7 +67,7 @@ module WarpEngine
       %w[created_at deleted_at expires_at id last_used_at name owner_id owner_type token_prefix unrestricted updated_at]
     end
 
-    # A polimorf owner asszociációra a Ransack nem tud szűrni.
+    # Ransack cannot filter on the polymorphic owner association.
     def self.ransackable_associations(auth_object = nil)
       []
     end

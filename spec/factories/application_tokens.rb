@@ -1,5 +1,5 @@
-# A TestOwner csak a dummy appban létezik — host-oldali használatnál az owner-t
-# felül kell írni (pl. owner: create(:admin_user)).
+# TestOwner exists only in the dummy app — host-side usage must override the
+# owner (e.g. owner: create(:admin_user)).
 FactoryBot.define do
   factory :test_owner, class: "TestOwner" do
     name { "test owner" }

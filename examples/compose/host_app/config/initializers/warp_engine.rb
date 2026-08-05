@@ -3,7 +3,7 @@ Rails.application.config.to_prepare do
     c.file_container_path  = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
     c.image_container_path = ENV.fetch("IMAGE_CONTAINER_PATH", "/images")
 
-    # Beállítatlan secret esetén a /build/* endpointok minden kérést elutasítanak.
+    # With no secret configured the /build/* endpoints reject every request.
     c.update_secret = ENV["UPDATE_SECRET"]
   end
 end

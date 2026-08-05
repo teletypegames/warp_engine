@@ -1,4 +1,4 @@
-# Generált pipeline — WarpEngine /build/config (platform: godot, name: <%= name %>)
+# Generated pipeline — WarpEngine /build/config (platform: godot, name: <%= name %>)
 steps:
   - name: version
     image: alpine
@@ -32,8 +32,8 @@ steps:
         rm -rf dist/web
       - |
         VERSION=$(cat .version)
-        # win/linux target exportja + zip egyetlen gyökérmappával (embed_pck
-        # miatt az export egyetlen futtatható fájl)
+        # exports a win/linux target + zips it with a single root folder
+        # (embed_pck makes the export a single executable)
         binary_build() {
           B_PRESET="$1"; B_EXT="$2"; B_TARGET="$3"
           PKG_DIR="<%= name %>-$VERSION-$B_TARGET"
@@ -47,9 +47,9 @@ steps:
           rm -rf "$PKG_DIR"
           echo "==> $PKG_DIR.zip kesz"
         }
-        # mac: a Godot linuxról csak .zip-be tud macOS-t exportálni (benne a
-        # .app), átcsomagoljuk a gyökérmappás konvencióra (zip -ry: exec bitek
-        # és symlinkek megmaradnak)
+        # mac: from linux Godot can only export macOS into a .zip (holding the
+        # .app); repackage it to the root-folder convention (zip -ry keeps
+        # exec bits and symlinks)
         binary_build_mac() {
           B_PRESET="$1"; B_TARGET="$2"
           PKG_DIR="<%= name %>-$VERSION-$B_TARGET"

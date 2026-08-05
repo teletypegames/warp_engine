@@ -1,13 +1,13 @@
 require "erb"
 
 module WarpEngine
-  # A /build/config platform-template-jeinek renderelése: a pipeline-logika
-  # a lib/warp_engine/ci_templates/<platform>.yaml.erb fájlokban él, a
-  # platformonkénti builder image-eket a WarpEngine.config.ci_platforms adja.
+  # Renders the /build/config platform templates: the pipeline logic lives in
+  # lib/warp_engine/ci_templates/<platform>.yaml.erb, the per-platform builder
+  # images come from WarpEngine.config.ci_platforms.
   class CiConfigService
     PLATFORM_FORMAT = /\A[a-z0-9_-]+\z/
 
-    # A renderelt pipeline YAML, vagy nil, ha a platform nem kiszolgált.
+    # The rendered pipeline YAML, or nil when the platform is not served.
     def render(platform:, name:, update_server:)
       platform = platform.to_s
       return nil unless platform.match?(PLATFORM_FORMAT)

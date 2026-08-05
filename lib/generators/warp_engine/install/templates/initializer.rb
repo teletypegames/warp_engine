@@ -1,43 +1,44 @@
 Rails.application.config.to_prepare do
   WarpEngine.configure do |c|
-    # A build-artifactok és képek tárolási helye (defaultok az env-ből:
-    # FILE_CONTAINER_PATH ill. IMAGE_CONTAINER_PATH).
+    # Storage locations for build artifacts and images (defaults from ENV:
+    # FILE_CONTAINER_PATH and IMAGE_CONTAINER_PATH).
     # c.file_container_path  = "/softwares"
     # c.image_container_path = "/images"
 
-    # A /build/* endpointok shared secretje (default: ENV["UPDATE_SECRET"]).
-    # Beállítatlan secret esetén az endpointok minden kérést elutasítanak.
+    # Shared secret of the /build/* endpoints (default: ENV["UPDATE_SECRET"]).
+    # With no secret configured the endpoints reject every request.
     # c.update_secret = ENV["UPDATE_SECRET"]
 
-    # A /build/* hitelesítési forrása — kizárólagos választás:
-    #   :env      — a fenti shared secret érvényes (default)
-    #   :database — csak DB-tárolt WarpEngine::ApplicationToken érvényes
-    #               ("update" scope-pal); a shared secret ilyenkor NEM működik.
-    # A :database módhoz kötelező a tokenek tulajdonos-osztálya is:
+    # Auth source of the /build/* endpoints — an exclusive choice:
+    #   :env      — the shared secret above is accepted (default)
+    #   :database — only DB-stored WarpEngine::ApplicationToken records are
+    #               accepted (with the "update" scope); the shared secret
+    #               stops working the moment you switch.
+    # :database mode also requires the owner class every token belongs to:
     # c.application_token_source = :database
     # c.application_token_owner_class = "AdminUser"
 
-    # Woodpecker configuration extension (/build/config): a kiszolgált
-    # platformok builder image-ei és a CI-szerver aláíró kulcsa. Üres
-    # ci_platforms (default) = a feature inaktív.
+    # Woodpecker configuration extension (/build/config): builder images of
+    # the served platforms and the CI server's signing key. An empty
+    # ci_platforms (default) keeps the feature inactive.
     # c.ci_platforms = {
     #   "godot" => { builder: "registry.example/godot-builder:4.6" },
     #   "tic80" => { builder: "registry.example/tic80-builder:1.0",
     #                exporter: "registry.example/tic80pro:1.0" }
     # }
     # c.ci_extension_public_key_url = "https://ci.example.org/api/signature/public-key"
-    # c.ci_update_server = nil # nil: a kérés base_url-je
+    # c.ci_update_server = nil # nil: the request base_url
 
-    # A /build/upload (és az admin file manager) méretplafonja bájtban (default: 500MB).
+    # Size cap in bytes for /build/upload (and the admin file manager, default: 500MB).
     # c.max_upload_size = 500 * 1024 * 1024
 
-    # Owner-izoláció: DB-token csak a saját ownerének szoftvereit
-    # uploadolhatja/publisholhatja (unrestricted token kivétel). Csak azután
-    # kapcsold be, hogy a meglévő szoftverek ownert kaptak (backfill)!
+    # Owner isolation: a DB token may only upload/publish its own owner's
+    # softwares (unrestricted tokens are exempt). Enable only after existing
+    # softwares got an owner (backfill)!
     # c.enforce_software_ownership = true
 
-    # Ha a host modelljei is hivatkoznak katalógus-képekre, regisztráld őket,
-    # hogy az admin Images oldal orphan-detektálása figyelembe vegye:
+    # If host models also reference catalog images, register them so the
+    # admin Images page's orphan detection takes them into account:
     # c.image_owners = [
     #   {
     #     label: "member",

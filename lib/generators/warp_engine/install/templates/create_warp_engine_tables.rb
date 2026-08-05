@@ -11,8 +11,8 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.string :site
       t.string :status, limit: 20, default: "development"
       t.boolean :highlighted, default: false
-      # A publikáló token ownere (enforce_software_ownership) — nem lehet FK,
-      # az owner osztályát a host adja.
+      # Owner of the publishing token (enforce_software_ownership) — no FK,
+      # the owner class comes from the host.
       t.string :owner_type, limit: 128
       t.bigint :owner_id
       t.datetime :deleted_at, precision: 3
@@ -87,7 +87,7 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.string :token_digest, limit: 64, null: false
       t.string :token_prefix, limit: 12, null: false
       t.json :scopes
-      # Belső token: az enforce_software_ownership nem vonatkozik rá.
+      # Internal token: exempt from enforce_software_ownership.
       t.boolean :unrestricted, default: false, null: false
       t.datetime :expires_at, precision: 3
       t.datetime :last_used_at, precision: 3

@@ -1,8 +1,8 @@
 module WarpEngine
   module Build
-    # Woodpecker configuration-extension endpoint: a CI-szerver pipeline-indításkor
-    # POST-olja a repo marker-fájlját, és a platformhoz tartozó teljes pipeline
-    # YAML-t kapja vissza. A GET ugyanazt rendereli previewként.
+    # Woodpecker configuration-extension endpoint: on every pipeline start the
+    # CI server POSTs the repo's marker file and receives the platform's full
+    # pipeline YAML. GET renders the same thing as a preview.
     class ConfigsController < ApiController
       resource_description do
         short "Woodpecker CI pipeline configs"
@@ -58,9 +58,9 @@ module WarpEngine
         )
       end
 
-      # Az első beküldött config, ami markernek parse-olható (Hash `platform` kulccsal).
-      # A doksi szerint a kulcs "configuration", az example-config-service "configs"-ot
-      # használ — mindkettőt elfogadjuk.
+      # The first submitted config that parses as a marker (Hash with a `platform`
+      # key). The docs call the key "configuration", the example-config-service
+      # uses "configs" — accept both.
       def find_marker
         configs = params[:configuration].presence || params[:configs].presence || []
         configs.each do |config|

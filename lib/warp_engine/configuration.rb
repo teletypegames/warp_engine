@@ -1,25 +1,25 @@
 module WarpEngine
   class Configuration
-    # Owner kontraktus az image_owners elemeire:
+    # Owner contract for image_owners elements:
     #   label:       String
-    #   image_ids:   -> { Array<Integer> }         — az owner által használt image id-k
-    #   usage_label: ->(image) { String vagy nil } — megjelenítendő címke, ha használja
-    # application_token_source: a /build/* endpointok hitelesítési forrása, kizárólagos.
-    #   :env      — a shared secret (update_secret) érvényes, a DB-tokenek nem
-    #   :database — csak WarpEngine::ApplicationToken érvényes, a shared secret nem
-    # application_token_owner_class: a tokenek kötelező tulajdonosának osztályneve
-    # (pl. "AdminUser"); nil esetén a :database mód minden kérést elutasít.
-    # max_upload_size: a /build/upload (és az admin file manager) fájlméret-plafonja bájtban.
-    # enforce_software_ownership: ha true, egy DB-token csak a saját ownerének
-    # szoftvereit uploadolhatja/publisholhatja (unrestricted token kivétel).
-    # Bekapcsolás CSAK backfill után: gazdátlan software-t bármely token elvihet.
-    # ci_platforms: a /build/config által kiszolgált platformok:
+    #   image_ids:   -> { Array<Integer> }        — image ids used by the owner
+    #   usage_label: ->(image) { String or nil }  — label to display when in use
+    # application_token_source: auth source of the /build/* endpoints, exclusive.
+    #   :env      — the shared secret (update_secret) is accepted, DB tokens are not
+    #   :database — only WarpEngine::ApplicationToken is accepted, the shared secret is not
+    # application_token_owner_class: class name of the mandatory token owner
+    # (e.g. "AdminUser"); nil makes :database mode reject every request.
+    # max_upload_size: file size cap in bytes for /build/upload (and the admin file manager).
+    # enforce_software_ownership: when true, a DB token may only upload/publish
+    # its own owner's softwares (unrestricted tokens are exempt).
+    # Enable ONLY after the backfill: any token can claim an ownerless software.
+    # ci_platforms: platforms served by /build/config:
     #   { "godot" => { builder: "<image>" }, "tic80" => { builder: ..., exporter: ... } }
-    #   Üres map = a feature inaktív (POST → 204, GET → 404).
-    # ci_extension_public_key(_url): a Woodpecker httpsig ed25519 publikus kulcsa
-    #   PEM-ben, vagy URL, ahonnan letölthető (pl. https://ci.../api/signature/public-key).
-    #   Egyik sincs beállítva → a POST /build/config minden kérést elutasít.
-    # ci_update_server: az upload/publish stepekbe írt szerver-URL; nil → a kérés base_url-je.
+    #   Empty map = the feature is inactive (POST → 204, GET → 404).
+    # ci_extension_public_key(_url): the Woodpecker httpsig ed25519 public key as
+    #   PEM, or a URL to fetch it from (e.g. https://ci.../api/signature/public-key).
+    #   With neither set, POST /build/config rejects every request.
+    # ci_update_server: server URL written into the upload/publish steps; nil → the request's base_url.
     attr_accessor :file_container_path,
                   :image_container_path,
                   :update_secret,

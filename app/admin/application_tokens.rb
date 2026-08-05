@@ -39,29 +39,29 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
                   include_blank: false
         else
           f.template.concat(f.template.content_tag(:li,
-            "application_token_owner_class nincs beállítva — token nem hozható létre.",
+            "application_token_owner_class is not configured — tokens cannot be created.",
             class: "flash flash_error"))
         end
       end
       f.input :name
       f.input :scopes_string, label: "Scopes (comma separated)",
-              hint: %(A /build/publish (és a legacy /update) végponthoz az "update", a /build/upload-hoz az "upload" scope kell.)
-      f.input :unrestricted, hint: "Belső token: az owner-izoláció (enforce_software_ownership) nem vonatkozik rá."
-      f.input :expires_at, hint: "Üresen hagyva sosem jár le."
+              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload.)
+      f.input :unrestricted, hint: "Internal token: exempt from owner isolation (enforce_software_ownership)."
+      f.input :expires_at, hint: "Leave empty for a token that never expires."
     end
     f.actions
   end
 
   show do
     if (plain = controller.instance_variable_get(:@plain_token))
-      panel "⚠️ Token — csak most látható, másold ki!" do
+      panel "⚠️ Token — shown only once, copy it now!" do
         pre plain, style: "font-family:monospace;font-size:14px;padding:8px;background:#fff3cd;user-select:all;"
       end
     end
     attributes_table do
       row :id
       row :name
-      row("Token") { |t| code "#{t.token_prefix}… (SHA256 digest tárolva)" }
+      row("Token") { |t| code "#{t.token_prefix}… (SHA256 digest stored)" }
       row("Owner") { |t| "#{t.owner_type} ##{t.owner_id} — #{t.owner.try(:email) || t.owner.try(:name)}" }
       row("Scopes") { |t| t.scopes_string }
       row :unrestricted
@@ -73,9 +73,9 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   end
 
   controller do
-    # A plain token csak közvetlenül a létrehozás után létezik; a session-ön át
-    # jut el az egyszeri megjelenítésig (a flash nem jó: az AA layout minden
-    # flash kulcsot üzenetsávként renderel).
+    # The plain token only exists right after creation; it travels via the
+    # session to its one-time display (flash is unsuitable: the AA layout
+    # renders every flash key as a message bar).
     def create
       create! do |success, _failure|
         success.html do

@@ -1,6 +1,7 @@
-# Generált pipeline — WarpEngine /build/config (platform: tic80, name: <%= name %>)
-# A verzió a forrásból jön (inc/meta/meta.header.lua "-- version:" komment) — a
-# WarpEngine is a Lua headerből parsolja a tic80-metadatát, ezért nincs metadata.json.
+# Generated pipeline — WarpEngine /build/config (platform: tic80, name: <%= name %>)
+# The version comes from the source (inc/meta/meta.header.lua "-- version:"
+# comment) — WarpEngine parses tic80 metadata from the Lua header too, hence
+# no metadata.json.
 steps:
   - name: version
     image: alpine
@@ -136,7 +137,7 @@ steps:
         echo "==> Exporting native players for version $VERSION"
         tic80 --cli --skip --fs=. \
           --cmd="load <%= name %>.lua & export win <%= name %>-win & export linux <%= name %>-linux & export mac <%= name %>-mac & exit"
-        # unixos zip őrzi a végrehajtási bitet
+        # unix zip preserves the executable bit
         pack_binary() {
           SLUG="$1"; SRC_FILE="$2"; DST_FILE="$3"
           PKG_DIR="<%= name %>-$VERSION-$SLUG"

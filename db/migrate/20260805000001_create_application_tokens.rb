@@ -3,8 +3,8 @@ class CreateApplicationTokens < ActiveRecord::Migration[8.1]
     create_table :application_tokens, id: { type: :bigint, unsigned: true },
                                       charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci" do |t|
       t.string :name, limit: 128, null: false
-      # Az owner osztályát a host adja (WarpEngine.config.application_token_owner_class),
-      # ezért nem lehet FK.
+      # The owner class comes from the host (WarpEngine.config.application_token_owner_class),
+      # so no FK.
       t.string :owner_type, limit: 128, null: false
       t.bigint :owner_id, null: false, unsigned: true
       t.string :token_digest, limit: 64, null: false

@@ -1,4 +1,4 @@
-# Generált pipeline — WarpEngine /build/config (platform: ebitengine, name: <%= name %>)
+# Generated pipeline — WarpEngine /build/config (platform: ebitengine, name: <%= name %>)
 steps:
   - name: version
     image: alpine
@@ -41,8 +41,8 @@ steps:
         VERSION=$(cat .version)
         # win-x86 / win-x64: pure Go cross-compile (Windowson nem kell cgo)
         # linux-x64: cgo build, linux/amd64 hoston fut (builder image, X11/GL dev libekkel)
-        # belső helper: egy target buildje + zip egyetlen gyökérmappával
-        # (a zipet unixos zip készíti, így a végrehajtási bit megmarad)
+        # helper: builds one target + zips it with a single root folder
+        # (unix zip keeps the executable bit)
         binary_build() {
           B_GOOS="$1"; B_GOARCH="$2"; B_CGO="$3"; B_EXT="$4"; B_TARGET="$5"
           PKG_DIR="<%= name %>-$VERSION-$B_TARGET"
@@ -56,7 +56,7 @@ steps:
           rm -rf "$PKG_DIR"
           echo "==> $PKG_DIR.zip kesz"
         }
-        # a CI (linux builder) ezt a hármat építi:
+        # CI (linux builder) builds these three:
         binary_build "windows" "386" "0" ".exe" "win-x86"
         binary_build "windows" "amd64" "0" ".exe" "win-x64"
         binary_build "linux" "amd64" "1" "" "linux-x64"
