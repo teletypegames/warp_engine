@@ -13,7 +13,7 @@ module WarpEngine
       # <name>-<version>-<target>.zip — az updater is ezeket keresi.
       NAME_FORMAT = /\A[A-Za-z0-9._-]+\z/
 
-      api :POST, "/build/upload", "Upload a build artifact into the drop area"
+      api :POST, "/build/upload", "Upload a build artifact into the artifact directory"
       header "X-Update-Secret", "Shared secret or application token (upload scope)", required: true
       param :name, String, required: true, desc: "Software name (filename must be prefixed with <name>-<version>)"
       param :version, String, required: true, desc: "Version string"

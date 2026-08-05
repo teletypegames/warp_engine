@@ -3,12 +3,10 @@
 #   mysql             the catalog database
 #   app               a minimal Rails host with the engine mounted from this
 #                     repo checkout (headless: API + updater, no ActiveAdmin)
-#   droparea          SSH server where build pipelines drop artifacts; shares
-#                     the "softwares" volume with the app
 #   gitea             (profile "ci") the git forge
 #   woodpecker        (profile "ci") CI server + agent, wired to gitea
 #
-# Quickstart (catalog + drop area only):
+# Quickstart (catalog only):
 #   cp .env.example .env
 #   docker compose up --build
 #
@@ -50,24 +48,6 @@ services:
       - bundle:/usr/local/bundle
       - softwares:/softwares
       - images:/images
-
-  # SSH landing zone for build artifacts. Pipelines (or you, with scp) upload
-  # into ~/drop here; the app sees the same files under /softwares.
-  droparea:
-    image: linuxserver/openssh-server
-    environment:
-      PUID: 1
-      PGID: 1
-      SUDO_ACCESS: "false"
-      PASSWORD_ACCESS: "true"
-      USER_NAME: drop
-      USER_PASSWORD: ${DROP_PASSWORD:-drop}
-    ports:
-      - "${DROPAREA_SSH_PORT:-2222}:2222"
-    volumes:
-      # A subdir of the drop user's home (/config), so sshd's own state files
-      # never end up in the catalog directory.
-      - softwares:/config/drop
 
   # --- profile "ci": the forge + CI producing releases for the catalog ------
   #
@@ -113,7 +93,7 @@ services:
       WOODPECKER_SERVER: "woodpecker:9000"
       WOODPECKER_AGENT_SECRET: ${WOODPECKER_AGENT_SECRET:-example-agent-secret}
       # Attach pipeline containers to the stack network so steps can reach
-      # gitea, droparea and the app by service name.
+      # gitea and the app by service name.
       WOODPECKER_BACKEND_DOCKER_NETWORK: warp-example
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

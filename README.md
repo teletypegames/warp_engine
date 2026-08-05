@@ -12,9 +12,9 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
 - **Catalog domain**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
   `PlatformLink`, `Image`, `SoftwareImage`, `Download` models with soft-delete
   semantics and download statistics.
-- **CI-callable updater**: your build pipeline drops artifacts into a
-  directory and calls one endpoint — WarpEngine extracts archives, parses
-  metadata and upserts the catalog records. Supported platforms out of the
+- **CI-callable updater**: your build pipeline uploads artifacts over HTTP
+  and calls one endpoint — WarpEngine extracts archives, parses metadata
+  and upserts the catalog records. Supported platforms out of the
   box: TIC-80, Ebitengine, LÖVE, C64, Godot, Bevy, Phaser. Authenticated by
   a shared secret or by per-owner database tokens with expiry and scopes
   (`ApplicationToken`, managed in the admin).
@@ -36,19 +36,18 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
 ## Example stack (docker compose)
 
 `examples/compose` boots everything the engine's workflow assumes, end to
-end: the catalog app itself, the SSH drop area the updater contract feeds
-from and — behind a compose profile — a Gitea forge with Woodpecker CI, so
-you can watch a pipeline publish a release into the catalog.
+end: the catalog app itself and — behind a compose profile — a Gitea forge
+with Woodpecker CI, so you can watch a pipeline publish a release into the
+catalog.
 
 | Service | Role | Where |
 | --- | --- | --- |
 | `app` | Minimal Rails host with the engine mounted as a path gem (headless: API + updater) | `http://localhost:8080` |
 | `mysql` | Catalog database | internal |
-| `droparea` | SSH server where pipelines drop build artifacts; shares the `softwares` volume with `app` | `ssh drop@localhost -p 2222` |
 | `gitea` | Git forge (profile `ci`) | `http://gitea:3000` |
 | `woodpecker` + agent | CI wired to gitea (profile `ci`) | `http://woodpecker:8000` |
 
-### Quickstart — catalog + drop area
+### Quickstart — catalog only
 
 ```sh
 cd examples/compose
@@ -88,10 +87,6 @@ done
 curl -X POST -H "X-Update-Secret: example-update-secret" \
   "http://localhost:8080/build/publish?platform=love&name=demo&version=0.1.0"
 ```
-
-(Dropping the files in over the SSH drop area — `scp -P 2222 demo-0.1.0.*
-drop@localhost:drop/`, password `DROP_PASSWORD` from `.env` — works just as
-well; the updater only cares that the files end up in `file_container_path`.)
 
 `GET /api/software` now lists *Demo Game* with `html` and `win_x64` assets,
 `http://localhost:8080/file/demo-0.1.0/index.html` serves the extracted web
@@ -221,8 +216,7 @@ Publishing a release from CI is two steps:
 1. **Upload** build artifacts into `file_container_path`, named by convention:
    `<name>-<version>.metadata.json`, `<name>-<version>.html.zip`,
    `<name>-<version>-win-x64.zip`, `<name>-<version>.tic`, ... (each platform
-   declares which asset kinds it expects — see `GET /api/builds`). Either
-   drop the files in over the shared volume (SSH drop area), or push them
+   declares which asset kinds it expects — see `GET /api/builds`). Push them
    over HTTP — one request per file, `upload` scope, optional `sha256`
    integrity check:
 
