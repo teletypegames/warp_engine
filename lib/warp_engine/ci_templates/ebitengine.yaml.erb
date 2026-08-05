@@ -1,0 +1,95 @@
+# Generált pipeline — WarpEngine /build/config (platform: ebitengine, name: <%= name %>)
+steps:
+  - name: version
+    image: alpine
+    commands:
+      - apk add --no-cache git jq
+      - |
+        if [ -f metadata.json ]; then
+          VERSION=$(jq -r '.version' metadata.json)
+        else
+          VERSION=$(git rev-parse --short HEAD)
+        fi
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
+          VERSION="dev-$VERSION-$BRANCH"
+        fi
+        echo "VERSION is: $VERSION"
+        echo $VERSION > .version
+
+  - name: build
+    image: <%= builder %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+        mkdir -p dist
+        GOOS=js GOARCH=wasm go build -o dist/game.wasm .
+        cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/wasm_exec.js
+        echo "==> Downloading index.html"
+        curl -sSL https://git.teletypegames.org/tools/ebitengine-tools/raw/branch/master/web/index.html -o dist/index.html
+        echo "==> Packaging HTML/WASM for $VERSION"
+        zip -r "<%= name %>-$VERSION.html.zip" -j dist/game.wasm dist/wasm_exec.js dist/index.html
+        echo "==> Cleaning temporary files"
+        rm -f dist/game.wasm dist/wasm_exec.js dist/index.html
+
+  - name: binaries
+    image: <%= builder %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+        # win-x86 / win-x64: pure Go cross-compile (Windowson nem kell cgo)
+        # linux-x64: cgo build, linux/amd64 hoston fut (builder image, X11/GL dev libekkel)
+        # belső helper: egy target buildje + zip egyetlen gyökérmappával
+        # (a zipet unixos zip készíti, így a végrehajtási bit megmarad)
+        binary_build() {
+          B_GOOS="$1"; B_GOARCH="$2"; B_CGO="$3"; B_EXT="$4"; B_TARGET="$5"
+          PKG_DIR="<%= name %>-$VERSION-$B_TARGET"
+          echo "==> Building $PKG_DIR"
+          rm -rf "$PKG_DIR" "$PKG_DIR.zip"
+          mkdir -p "$PKG_DIR"
+          CGO_ENABLED=$B_CGO GOOS=$B_GOOS GOARCH=$B_GOARCH go build -o "$PKG_DIR/<%= name %>$B_EXT" .
+          if [ -f LICENSE ]; then cp LICENSE "$PKG_DIR/"; fi
+          if [ -f README.md ]; then cp README.md "$PKG_DIR/"; fi
+          zip -r "$PKG_DIR.zip" "$PKG_DIR" >/dev/null
+          rm -rf "$PKG_DIR"
+          echo "==> $PKG_DIR.zip kesz"
+        }
+        # a CI (linux builder) ezt a hármat építi:
+        binary_build "windows" "386" "0" ".exe" "win-x86"
+        binary_build "windows" "amd64" "0" ".exe" "win-x64"
+        binary_build "linux" "amd64" "1" "" "linux-x64"
+
+  - name: artifact
+    image: alpine
+    environment:
+      UPDATE_SERVER: <%= update_server %>
+      UPDATE_SECRET:
+        from_secret: application_token
+    commands:
+      - apk add --no-cache curl
+      - |
+        VERSION=$(cat .version)
+        FILE="<%= name %>-$VERSION.html.zip"
+        META_SRC="metadata.json"
+        META_DST="<%= name %>-$VERSION.metadata.json"
+        BINS=$(ls <%= name %>-$VERSION-*.zip 2>/dev/null || true)
+        cp $META_SRC $META_DST
+        for f in $FILE $META_DST $BINS; do
+          curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
+            -F "file=@$f" \
+            "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
+        done
+
+  - name: publish
+    image: alpine
+    environment:
+      UPDATE_SERVER: <%= update_server %>
+      UPDATE_SECRET:
+        from_secret: application_token
+    commands:
+      - apk add --no-cache curl
+      - |
+        VERSION=$(cat .version)
+        curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=ebitengine&version=$VERSION"

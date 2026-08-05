@@ -258,6 +258,33 @@ accepts both:
 When switching to `:database`, create the tokens and move your pipelines to
 them first — the flip invalidates the shared secret immediately.
 
+## CI pipeline configs (Woodpecker)
+
+WarpEngine can act as a [Woodpecker configuration extension](https://woodpecker-ci.org/docs/usage/extensions/configuration-extension):
+instead of a copy-pasted `.woodpecker.yaml` in every game repo, the repo holds a
+one-line marker and the engine serves the full per-platform pipeline
+(version → build → upload → publish, calling `/build/upload` + `/build/publish`
+with the `application_token` Woodpecker secret):
+
+```yaml
+# .woodpecker.yaml in a game repo
+platform: godot
+```
+
+- `POST /build/config` — the extension endpoint Woodpecker calls on every
+  pipeline start (httpsig/ed25519-signed request, verified against
+  `ci_extension_public_key(_url)`). Non-marker configs get a `204` so the
+  repo's own YAML keeps running — opt-in migration, and putting a full
+  pipeline back into the repo is the opt-out.
+- `GET /build/config?platform=godot` — renders the same pipeline as a preview.
+
+Configuration: `ci_platforms` maps platform names to builder images
+(`{ "godot" => { builder: "..." }, "tic80" => { builder: ..., exporter: ... } }`);
+an empty map (default) disables the feature. Set the Woodpecker side with
+`WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
+per-repo in Settings → Extensions). Templates live in
+`lib/warp_engine/ci_templates/*.yaml.erb`.
+
 ## Public API
 
 | Endpoint | Purpose |

@@ -17,6 +17,17 @@ Rails.application.config.to_prepare do
     # c.application_token_source = :database
     # c.application_token_owner_class = "AdminUser"
 
+    # Woodpecker configuration extension (/build/config): a kiszolgált
+    # platformok builder image-ei és a CI-szerver aláíró kulcsa. Üres
+    # ci_platforms (default) = a feature inaktív.
+    # c.ci_platforms = {
+    #   "godot" => { builder: "registry.example/godot-builder:4.6" },
+    #   "tic80" => { builder: "registry.example/tic80-builder:1.0",
+    #                exporter: "registry.example/tic80pro:1.0" }
+    # }
+    # c.ci_extension_public_key_url = "https://ci.example.org/api/signature/public-key"
+    # c.ci_update_server = nil # nil: a kérés base_url-je
+
     # A /build/upload (és az admin file manager) méretplafonja bájtban (default: 500MB).
     # c.max_upload_size = 500 * 1024 * 1024
 

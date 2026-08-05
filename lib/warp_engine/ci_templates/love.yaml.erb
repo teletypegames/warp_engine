@@ -1,0 +1,174 @@
+# Generált pipeline — WarpEngine /build/config (platform: love, name: <%= name %>)
+steps:
+  - name: version
+    image: alpine
+    commands:
+      - apk add --no-cache git jq
+      - |
+        if [ -f metadata.json ]; then
+          VERSION=$(jq -r '.version' metadata.json)
+        else
+          VERSION=$(git rev-parse --short HEAD)
+        fi
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
+          VERSION="dev-$VERSION-$BRANCH"
+        fi
+        echo "VERSION is: $VERSION"
+        echo $VERSION > .version
+
+  - name: export
+    image: <%= builder %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+        mkdir -p dist
+        echo "==> Building .love package"
+        zip -r dist/<%= name %>.love . \
+          --exclude "*.git*" \
+          --exclude "bin/*" \
+          --exclude "dist/*" \
+          --exclude "Makefile" \
+          --exclude ".version" \
+          --exclude "metadata.json" \
+          --exclude "*.zip"
+        mkdir -p dist/web
+        # A love-builder CI image ide előre letölti a love.js-t; lokális
+        # buildnél GitHubról jön.
+        if [ -f /opt/lovejs.zip ]; then
+          echo "==> Using cached love.js (/opt/lovejs.zip)"
+          cp /opt/lovejs.zip dist/lovejs.zip
+        else
+          echo "==> Downloading love.js (2dengine)"
+          curl -sSL https://github.com/2dengine/love.js/archive/refs/heads/master.zip -o dist/lovejs.zip
+        fi
+        unzip -o dist/lovejs.zip -d dist/lovejs-src
+        rm -f dist/lovejs.zip
+        echo "==> Assembling web bundle"
+        cp -r dist/lovejs-src/*/. dist/web/
+        rm -rf dist/lovejs-src
+        cp dist/<%= name %>.love dist/web/<%= name %>.love
+        echo "==> Patching player.js"
+        sed -i.bak "s|uri = 'nogame\.love'|uri = '<%= name %>.love'|g" dist/web/player.js && rm dist/web/player.js.bak
+        echo "==> Patching index.html"
+        sed -i.bak 's|<base href="/play/">|<base href="/file/<%= name %>-'"$VERSION"'/">|g' dist/web/index.html && rm dist/web/index.html.bak
+        echo "==> Web build ready in dist/web"
+        echo "==> Packaging Love2D for $VERSION"
+        zip -r <%= name %>-$VERSION.love.zip dist/<%= name %>.love
+        echo "==> Packaging web build for $VERSION"
+        (cd dist/web && zip -r ../../<%= name %>-$VERSION.html.zip .)
+        echo "==> Cleaning temporary files"
+        rm -f dist/<%= name %>.love
+        rm -rf dist/web
+
+  - name: binaries
+    image: <%= builder %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+        # Az export step törölte a .love-ot, itt újraépítjük (make-ben a
+        # binary-* targetek love-prerequisite-je tette ugyanezt).
+        mkdir -p dist
+        zip -r dist/<%= name %>.love . \
+          --exclude "*.git*" \
+          --exclude "bin/*" \
+          --exclude "dist/*" \
+          --exclude "Makefile" \
+          --exclude ".version" \
+          --exclude "metadata.json" \
+          --exclude "*.zip"
+        # A love-builder CI image a dist-fájlokat /opt/love-dist alá előre
+        # letölti; lokális buildnél GitHubról jönnek.
+        fetch_love() {
+          if [ -f "/opt/love-dist/$1" ]; then
+            echo "==> Using cached $1"
+            cp "/opt/love-dist/$1" "dist/$1"
+          elif [ ! -f "dist/$1" ]; then
+            echo "==> Downloading $1"
+            curl -sSL "https://github.com/love2d/love/releases/download/11.5/$1" -o "dist/$1"
+          fi
+        }
+        echo "==> Fusing windows binary"
+        fetch_love love-11.5-win64.zip
+        PKG_DIR="<%= name %>-$VERSION-win-x64"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip" dist/win64
+        unzip -q dist/love-11.5-win64.zip -d dist/win64
+        SRC=$(dirname $(find dist/win64 -name love.exe | head -n 1))
+        mkdir -p "$PKG_DIR"
+        cat "$SRC/love.exe" dist/<%= name %>.love > "$PKG_DIR/<%= name %>.exe"
+        cp "$SRC"/*.dll "$PKG_DIR/"
+        cp "$SRC/license.txt" "$PKG_DIR/" 2>/dev/null || true
+        zip -qr "$PKG_DIR.zip" "$PKG_DIR"
+        rm -rf "$PKG_DIR" dist/win64
+        echo "==> $PKG_DIR.zip kesz"
+        echo "==> Fusing macOS app bundle"
+        fetch_love love-11.5-macos.zip
+        PKG_DIR="<%= name %>-$VERSION-mac-universal"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip" dist/macos
+        unzip -q dist/love-11.5-macos.zip -d dist/macos
+        mkdir -p "$PKG_DIR"
+        mv dist/macos/love.app "$PKG_DIR/<%= name %>.app"
+        cp dist/<%= name %>.love "$PKG_DIR/<%= name %>.app/Contents/Resources/"
+        PLIST="$PKG_DIR/<%= name %>.app/Contents/Info.plist"
+        sed -i.bak "s|<string>LÖVE</string>|<string><%= name %></string>|g" "$PLIST" && rm "$PLIST.bak"
+        sed -i.bak "s|org\.love2d\.love|org.teletypegames.<%= name %>|g" "$PLIST" && rm "$PLIST.bak"
+        zip -qry "$PKG_DIR.zip" "$PKG_DIR"
+        rm -rf "$PKG_DIR" dist/macos
+        echo "==> $PKG_DIR.zip kesz"
+        # Az AppImage runtime glibc-dinamikus, alpine (musl) alatt nem
+        # futtatható, ezért nem a runtime-ot futtatjuk: az offsetet readelf-ből
+        # számoljuk (shoff + shentsize*shnum), a squashfs-t unsquashfs -o
+        # bontja ki.
+        echo "==> Fusing linux AppImage"
+        fetch_love love-11.5-x86_64.AppImage
+        PKG_DIR="<%= name %>-$VERSION-linux-x64"
+        APPIMAGE="dist/love-11.5-x86_64.AppImage"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip" squashfs-root dist/game.squashfs dist/runtime
+        OFFSET=$(readelf -h "$APPIMAGE" | awk '/Start of section headers/{o=$5} /Size of section headers/{s=$5} /Number of section headers/{n=$5} END{print o+s*n}')
+        unsquashfs -q -o $OFFSET -d squashfs-root "$APPIMAGE" >/dev/null
+        cat squashfs-root/bin/love dist/<%= name %>.love > squashfs-root/bin/love.fused
+        mv squashfs-root/bin/love.fused squashfs-root/bin/love
+        chmod +x squashfs-root/bin/love
+        mksquashfs squashfs-root dist/game.squashfs -root-owned -noappend -quiet -comp gzip
+        head -c $OFFSET "$APPIMAGE" > dist/runtime
+        mkdir -p "$PKG_DIR"
+        cat dist/runtime dist/game.squashfs > "$PKG_DIR/<%= name %>.AppImage"
+        chmod +x "$PKG_DIR/<%= name %>.AppImage"
+        zip -qr "$PKG_DIR.zip" "$PKG_DIR"
+        rm -rf "$PKG_DIR" squashfs-root dist/game.squashfs dist/runtime
+        echo "==> $PKG_DIR.zip kesz"
+
+  - name: upload
+    image: alpine
+    environment:
+      UPDATE_SERVER: <%= update_server %>
+      UPDATE_SECRET:
+        from_secret: application_token
+    commands:
+      - apk add --no-cache curl
+      - |
+        VERSION=$(cat .version)
+        cp metadata.json "<%= name %>-$VERSION.metadata.json"
+        BINS=""
+        for slug in win-x64 mac-universal linux-x64; do
+          [ -f "<%= name %>-$VERSION-$slug.zip" ] && BINS="$BINS <%= name %>-$VERSION-$slug.zip"
+        done
+        for f in "<%= name %>-$VERSION.love.zip" "<%= name %>-$VERSION.html.zip" "<%= name %>-$VERSION.metadata.json" $BINS; do
+          curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
+            -F "file=@$f" \
+            "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
+        done
+
+  - name: publish
+    image: alpine
+    environment:
+      UPDATE_SERVER: <%= update_server %>
+      UPDATE_SECRET:
+        from_secret: application_token
+    commands:
+      - apk add --no-cache curl
+      - |
+        VERSION=$(cat .version)
+        curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=love&version=$VERSION"

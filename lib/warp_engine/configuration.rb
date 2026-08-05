@@ -13,6 +13,13 @@ module WarpEngine
     # enforce_software_ownership: ha true, egy DB-token csak a saját ownerének
     # szoftvereit uploadolhatja/publisholhatja (unrestricted token kivétel).
     # Bekapcsolás CSAK backfill után: gazdátlan software-t bármely token elvihet.
+    # ci_platforms: a /build/config által kiszolgált platformok:
+    #   { "godot" => { builder: "<image>" }, "tic80" => { builder: ..., exporter: ... } }
+    #   Üres map = a feature inaktív (POST → 204, GET → 404).
+    # ci_extension_public_key(_url): a Woodpecker httpsig ed25519 publikus kulcsa
+    #   PEM-ben, vagy URL, ahonnan letölthető (pl. https://ci.../api/signature/public-key).
+    #   Egyik sincs beállítva → a POST /build/config minden kérést elutasít.
+    # ci_update_server: az upload/publish stepekbe írt szerver-URL; nil → a kérés base_url-je.
     attr_accessor :file_container_path,
                   :image_container_path,
                   :update_secret,
@@ -20,6 +27,10 @@ module WarpEngine
                   :application_token_owner_class,
                   :max_upload_size,
                   :enforce_software_ownership,
+                  :ci_platforms,
+                  :ci_extension_public_key,
+                  :ci_extension_public_key_url,
+                  :ci_update_server,
                   :image_owners
 
     def initialize
@@ -30,6 +41,10 @@ module WarpEngine
       @application_token_owner_class = nil
       @max_upload_size               = 500 * 1024 * 1024
       @enforce_software_ownership    = false
+      @ci_platforms                  = {}
+      @ci_extension_public_key       = nil
+      @ci_extension_public_key_url   = nil
+      @ci_update_server              = nil
       @image_owners                  = []
     end
   end

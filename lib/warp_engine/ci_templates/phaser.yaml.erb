@@ -1,0 +1,69 @@
+# Generált pipeline — WarpEngine /build/config (platform: phaser, name: <%= name %>)
+steps:
+  - name: version
+    image: alpine
+    commands:
+      - apk add --no-cache git jq
+      - |
+        if [ -f metadata.json ]; then
+          VERSION=$(jq -r '.version' metadata.json)
+        else
+          VERSION=$(git rev-parse --short HEAD)
+        fi
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
+          VERSION="dev-$VERSION-$BRANCH"
+        fi
+        echo "VERSION is: $VERSION"
+        echo $VERSION > .version
+
+  - name: build
+    image: <%= builder %>
+    commands:
+      - |
+        VERSION=$(cat .version)
+        echo "==> Checking JS syntax"
+        for f in src/*.js; do node --check $f; done
+        mkdir -p dist/web
+        echo "==> Downloading Phaser 3.90.0"
+        curl -sSL https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js -o dist/web/phaser.min.js
+        echo "==> Downloading index.html"
+        curl -sSL https://git.teletypegames.org/tools/phaser-tools/raw/branch/master/web/index.html -o dist/web/index.html
+        echo "==> Bundling game sources"
+        cat src/*.js > dist/web/game.js
+        echo "==> Packaging web build for $VERSION"
+        (cd dist/web && zip -r "../../<%= name %>-$VERSION.html.zip" .)
+        echo "==> Cleaning temporary files"
+        rm -rf dist/web
+
+  - name: upload
+    image: alpine
+    environment:
+      UPDATE_SERVER: <%= update_server %>
+      UPDATE_SECRET:
+        from_secret: application_token
+    commands:
+      - apk add --no-cache curl
+      - |
+        VERSION=$(cat .version)
+        FILE="<%= name %>-$VERSION.html.zip"
+        META_SRC="metadata.json"
+        META_DST="<%= name %>-$VERSION.metadata.json"
+        cp $META_SRC $META_DST
+        for f in $FILE $META_DST; do
+          curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
+            -F "file=@$f" \
+            "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
+        done
+
+  - name: publish
+    image: alpine
+    environment:
+      UPDATE_SERVER: <%= update_server %>
+      UPDATE_SECRET:
+        from_secret: application_token
+    commands:
+      - apk add --no-cache curl
+      - |
+        VERSION=$(cat .version)
+        curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=phaser&version=$VERSION"
