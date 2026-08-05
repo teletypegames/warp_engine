@@ -15,7 +15,7 @@ module WarpEngine
     end
 
     api :GET, "/update", "Update software version in database"
-    param :secret, String, required: true, desc: "Authorization secret"
+    param :secret, String, required: true, desc: "Shared secret or application token (X-Update-Secret header preferred)"
     param :platform, String, required: false, desc: "Platform (tic80, love, ebitengine, c64, godot, bevy, phaser)"
     param :name, String, required: false, desc: "Software name"
     param :version, String, required: true, desc: "Version string"
@@ -39,11 +39,35 @@ module WarpEngine
 
     private
 
+    # A hitelesítési forrás kizárólagos: :database módban a shared secret nem
+    # érvényes, :env módban a DB-tokenek nem.
     def authorized?
-      secret = request.headers["X-Update-Secret"].presence || params[:secret]
+      token = request.headers["X-Update-Secret"].presence || params[:secret].presence
+      return false if token.blank?
+
+      case WarpEngine.config.update_secret_source
+      when :database then database_token_authorized?(token)
+      else env_secret_authorized?(token)
+      end
+    end
+
+    def env_secret_authorized?(token)
       expected = WarpEngine.config.update_secret
       # Konfigurálatlan secret esetén az endpoint zárva marad.
-      expected.present? && secret == expected
+      expected.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected)
+    end
+
+    def database_token_authorized?(token)
+      if WarpEngine.config.application_token_owner_class.blank?
+        Rails.logger.error("[UpdateController] update_secret_source=:database, de application_token_owner_class nincs beállítva — minden kérés elutasítva")
+        return false
+      end
+
+      record = WarpEngine::ApplicationToken.authenticate(token, required_scope: WarpEngine::ApplicationToken::UPDATE_SCOPE)
+      return false if record.nil?
+
+      record.touch_last_used!
+      true
     end
   end
 end

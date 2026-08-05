@@ -15,7 +15,9 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
 - **CI-callable updater**: your build pipeline drops artifacts into a
   directory and calls one endpoint — WarpEngine extracts archives, parses
   metadata and upserts the catalog records. Supported platforms out of the
-  box: TIC-80, Ebitengine, LÖVE, C64, Godot, Bevy, Phaser.
+  box: TIC-80, Ebitengine, LÖVE, C64, Godot, Bevy, Phaser. Authenticated by
+  a shared secret or by per-owner database tokens with expiry and scopes
+  (`ApplicationToken`, managed in the admin).
 - **Public JSON API**: catalog listing, highlighted title, per-platform build
   matrix, image serving, download tracking, and a static file server for
   web-playable builds.
@@ -177,6 +179,15 @@ Rails.application.config.to_prepare do
     # nil => the endpoint rejects every request.
     c.update_secret = ENV["UPDATE_SECRET"]
 
+    # Authentication source for /update — an exclusive choice:
+    #   :env      — the shared secret above is accepted (default)
+    #   :database — only WarpEngine::ApplicationToken records with the
+    #               "update" scope are accepted; the shared secret stops
+    #               working the moment you switch.
+    # :database mode also requires the owner class every token belongs to:
+    # c.update_secret_source = :database
+    # c.application_token_owner_class = "AdminUser"
+
     # If your app's own models reference catalog images, register them so the
     # admin Images page counts them as "in use":
     # c.image_owners = [
@@ -209,6 +220,25 @@ WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
 comment header for TIC-80), and upserts the `Software`, `ExternalLink`,
 `Release` and `ReleaseAsset` records in a single transaction. Previously
 deleted records are resurrected on re-ingest.
+
+### Updater authentication
+
+The `X-Update-Secret` header (or the `?secret=` query param) carries one of
+two credentials, selected by `update_secret_source` — the modes are
+exclusive, the endpoint never accepts both:
+
+- **`:env`** (default): the single shared secret from `update_secret`.
+- **`:database`**: `WarpEngine::ApplicationToken` records. Each token
+  belongs to an owner (the class named by `application_token_owner_class`,
+  e.g. `AdminUser`), carries a free-form scope list — `/update` requires the
+  `"update"` scope — and an optional expiry. Tokens are created in the admin
+  (*App Tokens*): the plain token is generated server-side and shown exactly
+  once after creation; only its SHA256 digest is stored. Deleting a token in
+  the admin revokes it (soft delete), and `last_used_at` records when each
+  token last authenticated successfully.
+
+When switching to `:database`, create the tokens and move your pipelines to
+them first — the flip invalidates the shared secret immediately.
 
 ## Public API
 

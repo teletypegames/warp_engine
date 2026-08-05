@@ -9,6 +9,14 @@ Rails.application.config.to_prepare do
     # Beállítatlan secret esetén az endpoint minden kérést elutasít.
     # c.update_secret = ENV["UPDATE_SECRET"]
 
+    # A /update hitelesítési forrása — kizárólagos választás:
+    #   :env      — a fenti shared secret érvényes (default)
+    #   :database — csak DB-tárolt WarpEngine::ApplicationToken érvényes
+    #               ("update" scope-pal); a shared secret ilyenkor NEM működik.
+    # A :database módhoz kötelező a tokenek tulajdonos-osztálya is:
+    # c.update_secret_source = :database
+    # c.application_token_owner_class = "AdminUser"
+
     # Ha a host modelljei is hivatkoznak katalógus-képekre, regisztráld őket,
     # hogy az admin Images oldal orphan-detektálása figyelembe vegye:
     # c.image_owners = [

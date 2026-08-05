@@ -75,6 +75,22 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.index [ :software_id, :position ]
     end
 
+    create_table :application_tokens do |t|
+      t.string :name, limit: 128, null: false
+      t.string :owner_type, limit: 128, null: false
+      t.bigint :owner_id, null: false
+      t.string :token_digest, limit: 64, null: false
+      t.string :token_prefix, limit: 12, null: false
+      t.json :scopes
+      t.datetime :expires_at, precision: 3
+      t.datetime :last_used_at, precision: 3
+      t.datetime :deleted_at, precision: 3
+      t.timestamps precision: 3, null: true
+      t.index :token_digest, unique: true
+      t.index [ :owner_type, :owner_id ]
+      t.index :deleted_at
+    end
+
     create_table :downloads do |t|
       t.string :file_path, null: false
       t.references :release, foreign_key: { on_delete: :nullify }, index: false

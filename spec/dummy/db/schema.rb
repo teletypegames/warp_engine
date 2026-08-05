@@ -1,5 +1,33 @@
-# A katalógus-táblák a host schema.rb-vel megegyező definícióval.
-ActiveRecord::Schema[8.1].define(version: 1) do
+# This file is auto-generated from the current state of the database. Instead
+# of editing this file, please use the migrations feature of Active Record to
+# incrementally modify your database, and then regenerate this schema definition.
+#
+# This file is the source Rails uses to define your schema when running `bin/rails
+# db:schema:load`. When creating a new database, `bin/rails db:schema:load` tends to
+# be faster and is potentially less error prone than running all of your
+# migrations from scratch. Old migrations may fail to apply correctly if those
+# migrations use external dependencies or application code.
+#
+# It's strongly recommended that you check this file into your version control system.
+
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_000002) do
+  create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.datetime "expires_at", precision: 3
+    t.datetime "last_used_at", precision: 3
+    t.string "name", limit: 128, null: false
+    t.bigint "owner_id", null: false, unsigned: true
+    t.string "owner_type", limit: 128, null: false
+    t.json "scopes"
+    t.string "token_digest", limit: 64, null: false
+    t.string "token_prefix", limit: 12, null: false
+    t.datetime "updated_at", precision: 3
+    t.index ["deleted_at"], name: "idx_application_tokens_deleted_at"
+    t.index ["owner_type", "owner_id"], name: "idx_application_tokens_owner"
+    t.index ["token_digest"], name: "idx_application_tokens_token_digest", unique: true
+  end
+
   create_table "downloads", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -97,6 +125,12 @@ ActiveRecord::Schema[8.1].define(version: 1) do
     t.datetime "updated_at", precision: 3
     t.index ["deleted_at"], name: "idx_softwares_deleted_at"
     t.index ["name"], name: "idx_softwares_name", unique: true
+  end
+
+  create_table "test_owners", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3
+    t.string "name", limit: 128
+    t.datetime "updated_at", precision: 3
   end
 
   add_foreign_key "downloads", "releases", name: "fk_downloads_release", on_delete: :nullify
