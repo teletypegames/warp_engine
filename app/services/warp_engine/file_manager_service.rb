@@ -22,10 +22,9 @@ module WarpEngine
       end
     end
 
-    MAX_UPLOAD_SIZE = 100 * 1024 * 1024 # 100MB
-
     def upload(relative_dir, uploaded_file)
-      raise ArgumentError, "File too large (max 100MB)" if uploaded_file.size > MAX_UPLOAD_SIZE
+      max = WarpEngine.config.max_upload_size
+      raise ArgumentError, "File too large (max #{max / (1024 * 1024)}MB)" if uploaded_file.size > max
       dir = safe_path!(relative_dir)
       raise ArgumentError, "Not a directory" unless dir.directory?
 

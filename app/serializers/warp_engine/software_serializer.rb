@@ -14,6 +14,8 @@ module WarpEngine
     field(:license)      { |sw| sw.license.to_s }
     field :platform
     field :status
+    # Publikus owner-azonosító — az /api/software?owner_id= szűrőhöz.
+    field(:ownerId) { |sw| sw.owner_id }
     field(:highlighted)  { |sw| sw.highlighted ? true : false }
     field(:externalLinks) { |sw| ExternalLinkSerializer.render_as_hash(sw.external_links) }
     field(:platformLinks) { |sw| PlatformLinkSerializer.render_as_hash(WarpEngine::PlatformLink.for_platform(sw.platform)) }

@@ -5,6 +5,7 @@ module WarpEngine
     self.table_name = "application_tokens"
 
     UPDATE_SCOPE = "update".freeze
+    UPLOAD_SCOPE = "upload".freeze
 
     # A generált token csak létrehozáskor, memóriában érhető el — a DB-ben
     # kizárólag a SHA256 digest és a nem-titkos prefix tárolódik.
@@ -63,7 +64,7 @@ module WarpEngine
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[created_at deleted_at expires_at id last_used_at name owner_id owner_type token_prefix updated_at]
+      %w[created_at deleted_at expires_at id last_used_at name owner_id owner_type token_prefix unrestricted updated_at]
     end
 
     # A polimorf owner asszociációra a Ransack nem tud szűrni.

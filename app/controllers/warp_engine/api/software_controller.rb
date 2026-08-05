@@ -29,6 +29,7 @@ module WarpEngine
     end
 
     api :GET, "/api/software", "List all software entries with releases"
+    param :owner_id, :number, required: false, desc: "Filter to the softwares of one owner (publisher)"
     returns code: 200, desc: "Wrapper object with softwares array" do
       property :softwares, Array, desc: "Array of software entries" do
         property :ID, Integer, desc: "Software ID"
@@ -55,7 +56,7 @@ module WarpEngine
       end
     end
     def index
-      render json: WarpEngine::SoftwareService.new.index
+      render json: WarpEngine::SoftwareService.new.index(owner_id: params[:owner_id])
     end
   end
 end

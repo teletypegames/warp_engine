@@ -2,6 +2,10 @@ module WarpEngine
   class Software < ApplicationRecord
     self.table_name = "softwares"
 
+    # A publikáló token ownere (pl. AdminUser) — 3rd party izolációhoz, ld.
+    # enforce_software_ownership. nil = belső / backfill előtti software.
+    belongs_to :owner, polymorphic: true, optional: true
+
     has_many :software_images, foreign_key: :software_id, dependent: :destroy
     has_many :images, through: :software_images
     has_many :releases, foreign_key: :software_id
@@ -19,7 +23,7 @@ module WarpEngine
     default_scope { where(deleted_at: nil) }
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[author created_at desc highlighted id license name platform site status story title updated_at]
+      %w[author created_at desc highlighted id license name owner_id owner_type platform site status story title updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)

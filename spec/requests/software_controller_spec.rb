@@ -30,6 +30,21 @@ RSpec.describe "GET /api/software", type: :request do
       expect(counts[other.id]).to eq(1)
     end
 
+    it "filters by owner_id and exposes ownerId" do
+      owner = create(:test_owner)
+      mine  = create(:software, name: "mine", owner: owner)
+      create(:software, name: "other", owner: create(:test_owner))
+      create(:software, name: "ownerless")
+
+      get "/api/software", params: { owner_id: owner.id }
+
+      json = JSON.parse(response.body)
+      expect(json["softwares"].length).to eq(1)
+      expect(json["softwares"].first["software"]["name"]).to eq("mine")
+      expect(json["softwares"].first["software"]["ownerId"]).to eq(owner.id)
+      expect(mine.reload.owner).to eq(owner)
+    end
+
     it "excludes soft-deleted software" do
       create(:software, deleted_at: Time.current)
 

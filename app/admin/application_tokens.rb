@@ -1,6 +1,6 @@
 ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   actions :index, :show, :new, :create, :edit, :update, :destroy
-  permit_params :name, :owner_id, :expires_at, :scopes_string
+  permit_params :name, :owner_id, :expires_at, :scopes_string, :unrestricted
 
   menu priority: 9, label: "🎟️ App Tokens"
 
@@ -17,6 +17,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
     column("Token") { |t| code "#{t.token_prefix}…", style: "font-family:monospace;" }
     column("Owner") { |t| t.owner.try(:email) || t.owner.try(:name) || "#{t.owner_type} ##{t.owner_id}" }
     column("Scopes") { |t| t.scopes_string }
+    column :unrestricted
     column :expires_at
     column :last_used_at
     column :created_at
@@ -44,7 +45,8 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       end
       f.input :name
       f.input :scopes_string, label: "Scopes (comma separated)",
-              hint: %(A /update végponthoz az "update" scope kell.)
+              hint: %(A /build/publish (és a legacy /update) végponthoz az "update", a /build/upload-hoz az "upload" scope kell.)
+      f.input :unrestricted, hint: "Belső token: az owner-izoláció (enforce_software_ownership) nem vonatkozik rá."
       f.input :expires_at, hint: "Üresen hagyva sosem jár le."
     end
     f.actions
@@ -62,6 +64,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       row("Token") { |t| code "#{t.token_prefix}… (SHA256 digest tárolva)" }
       row("Owner") { |t| "#{t.owner_type} ##{t.owner_id} — #{t.owner.try(:email) || t.owner.try(:name)}" }
       row("Scopes") { |t| t.scopes_string }
+      row :unrestricted
       row :expires_at
       row :last_used_at
       row :created_at

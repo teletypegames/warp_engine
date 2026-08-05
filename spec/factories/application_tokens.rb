@@ -13,5 +13,9 @@ FactoryBot.define do
     trait :expired do
       expires_at { 1.hour.ago }
     end
+
+    trait :unrestricted do
+      unrestricted { true }
+    end
   end
 end

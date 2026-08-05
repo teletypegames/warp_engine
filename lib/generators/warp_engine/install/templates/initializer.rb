@@ -5,17 +5,25 @@ Rails.application.config.to_prepare do
     # c.file_container_path  = "/softwares"
     # c.image_container_path = "/images"
 
-    # A /update endpoint shared secretje (default: ENV["UPDATE_SECRET"]).
-    # Beállítatlan secret esetén az endpoint minden kérést elutasít.
+    # A /build/* endpointok shared secretje (default: ENV["UPDATE_SECRET"]).
+    # Beállítatlan secret esetén az endpointok minden kérést elutasítanak.
     # c.update_secret = ENV["UPDATE_SECRET"]
 
-    # A /update hitelesítési forrása — kizárólagos választás:
+    # A /build/* hitelesítési forrása — kizárólagos választás:
     #   :env      — a fenti shared secret érvényes (default)
     #   :database — csak DB-tárolt WarpEngine::ApplicationToken érvényes
     #               ("update" scope-pal); a shared secret ilyenkor NEM működik.
     # A :database módhoz kötelező a tokenek tulajdonos-osztálya is:
     # c.application_token_source = :database
     # c.application_token_owner_class = "AdminUser"
+
+    # A /build/upload (és az admin file manager) méretplafonja bájtban (default: 500MB).
+    # c.max_upload_size = 500 * 1024 * 1024
+
+    # Owner-izoláció: DB-token csak a saját ownerének szoftvereit
+    # uploadolhatja/publisholhatja (unrestricted token kivétel). Csak azután
+    # kapcsold be, hogy a meglévő szoftverek ownert kaptak (backfill)!
+    # c.enforce_software_ownership = true
 
     # Ha a host modelljei is hivatkoznak katalógus-képekre, regisztráld őket,
     # hogy az admin Images oldal orphan-detektálása figyelembe vegye:

@@ -8,6 +8,8 @@ WarpEngine::Engine.routes.draw do
     get "softwares/:name/builds", to: "software_builds#show"
   end
 
-  get "update",     to: "update#update"
+  post "build/upload",  to: "build/uploads#create"
+  post "build/publish", to: "build/publish#create"
+
   get "file/*path", to: "files#show", format: false
 end

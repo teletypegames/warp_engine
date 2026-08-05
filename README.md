@@ -66,8 +66,8 @@ The first boot takes a few minutes: the app container bundles, runs
 
 ### Publish a release by hand
 
-The updater contract needs nothing but files in the drop area and one HTTP
-call, so you can play the role of the CI pipeline yourself:
+The updater contract is nothing but a handful of HTTP calls, so you can play
+the role of the CI pipeline yourself:
 
 ```sh
 # 1. Fake a build: metadata, a web build and a windows artifact, named by
@@ -78,13 +78,20 @@ JSON
 echo '<h1>demo</h1>' > index.html && zip demo-0.1.0.html.zip index.html
 echo hello > game.bin && zip demo-0.1.0-win-x64.zip game.bin
 
-# 2. Drop them (password: DROP_PASSWORD from .env, default "drop")
-scp -P 2222 demo-0.1.0.* drop@localhost:drop/
+# 2. Upload them (one request per file)
+for f in demo-0.1.0.*; do
+  curl -fs -H "X-Update-Secret: example-update-secret" \
+    -F "file=@$f" "http://localhost:8080/build/upload?name=demo&version=0.1.0"
+done
 
-# 3. Trigger the updater
-curl -H "X-Update-Secret: example-update-secret" \
-  "http://localhost:8080/update?platform=love&name=demo&version=0.1.0"
+# 3. Publish the release
+curl -X POST -H "X-Update-Secret: example-update-secret" \
+  "http://localhost:8080/build/publish?platform=love&name=demo&version=0.1.0"
 ```
+
+(Dropping the files in over the SSH drop area — `scp -P 2222 demo-0.1.0.*
+drop@localhost:drop/`, password `DROP_PASSWORD` from `.env` — works just as
+well; the updater only cares that the files end up in `file_container_path`.)
 
 `GET /api/software` now lists *Demo Game* with `html` and `win_x64` assets,
 `http://localhost:8080/file/demo-0.1.0/index.html` serves the extracted web
@@ -110,7 +117,7 @@ echo "127.0.0.1 gitea woodpecker" | sudo tee -a /etc/hosts
    `http://woodpecker:8000` (OAuth via gitea) and enable your repository.
 
 A pipeline publishes a release exactly like the by-hand steps above — build,
-`scp` to `droparea`, call `/update`:
+upload, publish:
 
 ```yaml
 # .woodpecker.yaml in a game repo hosted on the example gitea
@@ -118,19 +125,17 @@ steps:
   publish:
     image: alpine
     environment:
-      DROP_PASSWORD:
-        from_secret: drop_password
       UPDATE_SECRET:
         from_secret: update_secret
     commands:
-      - apk add --no-cache openssh-client sshpass curl zip
+      - apk add --no-cache curl zip
       - # ... build your game, produce mygame-1.0.0.metadata.json + artifacts ...
-      - sshpass -p "$DROP_PASSWORD" scp -P 2222 -o StrictHostKeyChecking=no mygame-1.0.0.* drop@droparea:drop/
-      - curl -fs -H "X-Update-Secret: $UPDATE_SECRET" "http://app:3000/update?platform=love&name=mygame&version=1.0.0"
+      - for f in mygame-1.0.0.*; do curl -fs -H "X-Update-Secret: $UPDATE_SECRET" -F "file=@$f" "http://app:3000/build/upload?name=mygame&version=1.0.0"; done
+      - curl -fs -X POST -H "X-Update-Secret: $UPDATE_SECRET" "http://app:3000/build/publish?platform=love&name=mygame&version=1.0.0"
 ```
 
-(The agent attaches pipeline containers to the stack network, so `droparea`
-and `app` resolve. For real projects, the per-platform
+(The agent attaches pipeline containers to the stack network, so `app`
+resolves. For real projects, the per-platform
 [`tools/*-tools`](https://git.teletypegames.org) repos ship ready-made
 Makefile + pipeline templates implementing this contract.)
 
@@ -175,11 +180,11 @@ Rails.application.config.to_prepare do
     c.file_container_path  = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
     c.image_container_path = ENV.fetch("IMAGE_CONTAINER_PATH", "/images")
 
-    # Shared secret for the /update endpoint.
-    # nil => the endpoint rejects every request.
+    # Shared secret for the /build/* endpoints.
+    # nil => the endpoints reject every request.
     c.update_secret = ENV["UPDATE_SECRET"]
 
-    # Authentication source for /update — an exclusive choice:
+    # Authentication source for /build/* — an exclusive choice:
     #   :env      — the shared secret above is accepted (default)
     #   :database — only WarpEngine::ApplicationToken records with the
     #               "update" scope are accepted; the shared secret stops
@@ -187,6 +192,14 @@ Rails.application.config.to_prepare do
     # :database mode also requires the owner class every token belongs to:
     # c.application_token_source = :database
     # c.application_token_owner_class = "AdminUser"
+
+    # Size cap for /build/upload and the admin file manager, in bytes (default 500MB).
+    # c.max_upload_size = 500 * 1024 * 1024
+
+    # Owner isolation: a database token may only upload/publish softwares
+    # owned by its own owner (unrestricted tokens are exempt). Enable only
+    # after backfilling owners — ownerless softwares are claimable by anyone.
+    # c.enforce_software_ownership = true
 
     # If your app's own models reference catalog images, register them so the
     # admin Images page counts them as "in use":
@@ -208,12 +221,22 @@ Publishing a release from CI is two steps:
 1. **Upload** build artifacts into `file_container_path`, named by convention:
    `<name>-<version>.metadata.json`, `<name>-<version>.html.zip`,
    `<name>-<version>-win-x64.zip`, `<name>-<version>.tic`, ... (each platform
-   declares which asset kinds it expects — see `GET /api/builds`).
-2. **Call the endpoint**:
+   declares which asset kinds it expects — see `GET /api/builds`). Either
+   drop the files in over the shared volume (SSH drop area), or push them
+   over HTTP — one request per file, `upload` scope, optional `sha256`
+   integrity check:
 
    ```sh
    curl -H "X-Update-Secret: $UPDATE_SECRET" \
-     "https://your-host/update?platform=tic80&name=mygame&version=1.2.0"
+     -F "file=@mygame-1.2.0.html.zip" \
+     "https://your-host/build/upload?name=mygame&version=1.2.0"
+   ```
+
+2. **Publish the release**:
+
+   ```sh
+   curl -X POST -H "X-Update-Secret: $UPDATE_SECRET" \
+     "https://your-host/build/publish?platform=tic80&name=mygame&version=1.2.0"
    ```
 
 WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
@@ -223,15 +246,16 @@ deleted records are resurrected on re-ingest.
 
 ### Updater authentication
 
-The `X-Update-Secret` header (or the `?secret=` query param) carries one of
-two credentials, selected by `application_token_source` — the modes are
-exclusive, the endpoint never accepts both:
+The `X-Update-Secret` header carries one of two credentials, selected by
+`application_token_source` — the modes are exclusive, the endpoint never
+accepts both:
 
 - **`:env`** (default): the single shared secret from `update_secret`.
 - **`:database`**: `WarpEngine::ApplicationToken` records. Each token
   belongs to an owner (the class named by `application_token_owner_class`,
-  e.g. `AdminUser`), carries a free-form scope list — `/update` requires the
-  `"update"` scope — and an optional expiry. Tokens are created in the admin
+  e.g. `AdminUser`), carries a free-form scope list — publishing requires
+  the `"update"` scope, `/build/upload` the `"upload"` scope — and an
+  optional expiry. Tokens are created in the admin
   (*App Tokens*): the plain token is generated server-side and shown exactly
   once after creation; only its SHA256 digest is stored. Deleting a token in
   the admin revokes it (soft delete), and `last_used_at` records when each
@@ -244,7 +268,7 @@ them first — the flip invalidates the shared secret immediately.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/software` | Full catalog with releases, assets, links, download counts |
+| `GET /api/software` | Full catalog with releases, assets, links, download counts; `?owner_id=` filters to one publisher |
 | `GET /api/software/highlighted` | The currently highlighted title |
 | `GET /api/builds` | Expected asset kinds per platform (build matrix) |
 | `GET /api/softwares/:name/builds` | Actual vs. missing build assets per release |

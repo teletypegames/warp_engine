@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_000003) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -22,6 +22,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000002) do
     t.json "scopes"
     t.string "token_digest", limit: 64, null: false
     t.string "token_prefix", limit: 12, null: false
+    t.boolean "unrestricted", default: false, null: false
     t.datetime "updated_at", precision: 3
     t.index ["deleted_at"], name: "idx_application_tokens_deleted_at"
     t.index ["owner_type", "owner_id"], name: "idx_application_tokens_owner"
@@ -117,6 +118,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000002) do
     t.boolean "highlighted", default: false
     t.string "license", limit: 128
     t.string "name", limit: 128
+    t.bigint "owner_id", unsigned: true
+    t.string "owner_type", limit: 128
     t.string "platform", limit: 128
     t.string "site"
     t.string "status", limit: 20, default: "development"
@@ -125,6 +128,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000002) do
     t.datetime "updated_at", precision: 3
     t.index ["deleted_at"], name: "idx_softwares_deleted_at"
     t.index ["name"], name: "idx_softwares_name", unique: true
+    t.index ["owner_type", "owner_id"], name: "idx_softwares_owner"
   end
 
   create_table "test_owners", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
