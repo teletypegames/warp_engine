@@ -184,9 +184,8 @@ Rails.application.config.to_prepare do
     #   :database — only WarpEngine::ApplicationToken records with the
     #               "update" scope are accepted; the shared secret stops
     #               working the moment you switch.
-    # Defaults to ENV["UPDATE_SECRET_SOURCE"] (:env when unset).
     # :database mode also requires the owner class every token belongs to:
-    # c.update_secret_source = :database
+    # c.application_token_source = :database
     # c.application_token_owner_class = "AdminUser"
 
     # If your app's own models reference catalog images, register them so the
@@ -225,7 +224,7 @@ deleted records are resurrected on re-ingest.
 ### Updater authentication
 
 The `X-Update-Secret` header (or the `?secret=` query param) carries one of
-two credentials, selected by `update_secret_source` — the modes are
+two credentials, selected by `application_token_source` — the modes are
 exclusive, the endpoint never accepts both:
 
 - **`:env`** (default): the single shared secret from `update_secret`.

@@ -45,7 +45,7 @@ module WarpEngine
       token = request.headers["X-Update-Secret"].presence || params[:secret].presence
       return false if token.blank?
 
-      case WarpEngine.config.update_secret_source
+      case WarpEngine.config.application_token_source
       when :database then database_token_authorized?(token)
       else env_secret_authorized?(token)
       end
@@ -59,7 +59,7 @@ module WarpEngine
 
     def database_token_authorized?(token)
       if WarpEngine.config.application_token_owner_class.blank?
-        Rails.logger.error("[UpdateController] update_secret_source=:database, de application_token_owner_class nincs beállítva — minden kérés elutasítva")
+        Rails.logger.error("[UpdateController] application_token_source=:database, de application_token_owner_class nincs beállítva — minden kérés elutasítva")
         return false
       end
 

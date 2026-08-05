@@ -54,9 +54,9 @@ RSpec.describe "GET /update", type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
-  context "with update_secret_source :database" do
+  context "with application_token_source :database" do
     before do
-      allow(WarpEngine.config).to receive(:update_secret_source).and_return(:database)
+      allow(WarpEngine.config).to receive(:application_token_source).and_return(:database)
       allow(WarpEngine.config).to receive(:application_token_owner_class).and_return("TestOwner")
     end
 
