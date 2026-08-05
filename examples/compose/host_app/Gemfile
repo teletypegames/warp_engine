@@ -1,0 +1,10 @@
+source "https://rubygems.org"
+
+gem "rails", "~> 8.0.0"
+gem "mysql2", "~> 0.5"
+gem "puma"
+
+# In this example stack the engine comes straight from the repo checkout the
+# compose file mounts at /warp_engine. A real host would use the git source or
+# the Forgejo rubygems registry instead — see the engine README.
+gem "warp_engine", path: ENV.fetch("WARP_ENGINE_PATH", "/warp_engine")

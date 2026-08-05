@@ -31,6 +31,109 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
 - A relational database (developed and tested against MySQL 8)
 - Optional: ActiveAdmin + Devise in the host app for the admin UI
 
+## Example stack (docker compose)
+
+`examples/compose` boots everything the engine's workflow assumes, end to
+end: the catalog app itself, the SSH drop area the updater contract feeds
+from and — behind a compose profile — a Gitea forge with Woodpecker CI, so
+you can watch a pipeline publish a release into the catalog.
+
+| Service | Role | Where |
+| --- | --- | --- |
+| `app` | Minimal Rails host with the engine mounted as a path gem (headless: API + updater) | `http://localhost:8080` |
+| `mysql` | Catalog database | internal |
+| `droparea` | SSH server where pipelines drop build artifacts; shares the `softwares` volume with `app` | `ssh drop@localhost -p 2222` |
+| `gitea` | Git forge (profile `ci`) | `http://gitea:3000` |
+| `woodpecker` + agent | CI wired to gitea (profile `ci`) | `http://woodpecker:8000` |
+
+### Quickstart — catalog + drop area
+
+```sh
+cd examples/compose
+cp .env.example .env   # defaults work for a throwaway local demo
+docker compose up --build
+```
+
+The first boot takes a few minutes: the app container bundles, runs
+`rails g warp_engine:install` and `rails db:prepare`, then serves on
+`http://localhost:8080`:
+
+- `http://localhost:8080/api/software` — the (empty) catalog
+- `http://localhost:8080/api/builds` — the platform build matrix
+- `http://localhost:8080/api/docs` — apipie API docs
+
+### Publish a release by hand
+
+The updater contract needs nothing but files in the drop area and one HTTP
+call, so you can play the role of the CI pipeline yourself:
+
+```sh
+# 1. Fake a build: metadata, a web build and a windows artifact, named by
+#    convention (the love platform requires the .html.zip web build)
+cat > demo-0.1.0.metadata.json <<'JSON'
+{ "name": "demo", "title": "Demo Game", "author": "You", "desc": "Hello", "license": "MIT" }
+JSON
+echo '<h1>demo</h1>' > index.html && zip demo-0.1.0.html.zip index.html
+echo hello > game.bin && zip demo-0.1.0-win-x64.zip game.bin
+
+# 2. Drop them (password: DROP_PASSWORD from .env, default "drop")
+scp -P 2222 demo-0.1.0.* drop@localhost:drop/
+
+# 3. Trigger the updater
+curl -H "X-Update-Secret: example-update-secret" \
+  "http://localhost:8080/update?platform=love&name=demo&version=0.1.0"
+```
+
+`GET /api/software` now lists *Demo Game* with `html` and `win_x64` assets,
+`http://localhost:8080/file/demo-0.1.0/index.html` serves the extracted web
+build, and `GET /api/download?path=demo-0.1.0-win-x64.zip` serves the
+artifact while logging a download record.
+
+### Full loop — forge + CI (profile `ci`)
+
+gitea and woodpecker address each other by service name, so let your browser
+resolve those names too:
+
+```sh
+echo "127.0.0.1 gitea woodpecker" | sudo tee -a /etc/hosts
+```
+
+1. `docker compose --profile ci up -d gitea`, open `http://gitea:3000`,
+   finish the install wizard (SQLite is fine) and create your admin user.
+2. In gitea: *Settings → Applications → Manage OAuth2 Applications*, create
+   an app with redirect URI `http://woodpecker:8000/authorize`; copy the
+   client id/secret into `WOODPECKER_GITEA_CLIENT` / `WOODPECKER_GITEA_SECRET`
+   in `.env`.
+3. `docker compose --profile ci up -d` — then log in at
+   `http://woodpecker:8000` (OAuth via gitea) and enable your repository.
+
+A pipeline publishes a release exactly like the by-hand steps above — build,
+`scp` to `droparea`, call `/update`:
+
+```yaml
+# .woodpecker.yaml in a game repo hosted on the example gitea
+steps:
+  publish:
+    image: alpine
+    environment:
+      DROP_PASSWORD:
+        from_secret: drop_password
+      UPDATE_SECRET:
+        from_secret: update_secret
+    commands:
+      - apk add --no-cache openssh-client sshpass curl zip
+      - # ... build your game, produce mygame-1.0.0.metadata.json + artifacts ...
+      - sshpass -p "$DROP_PASSWORD" scp -P 2222 -o StrictHostKeyChecking=no mygame-1.0.0.* drop@droparea:drop/
+      - curl -fs -H "X-Update-Secret: $UPDATE_SECRET" "http://app:3000/update?platform=love&name=mygame&version=1.0.0"
+```
+
+(The agent attaches pipeline containers to the stack network, so `droparea`
+and `app` resolve. For real projects, the per-platform
+[`tools/*-tools`](https://git.teletypegames.org) repos ship ready-made
+Makefile + pipeline templates implementing this contract.)
+
+Tear the stack down with `docker compose --profile ci down -v`.
+
 ## Installation
 
 From the git repository:

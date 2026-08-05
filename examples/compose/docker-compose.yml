@@ -1,0 +1,131 @@
+# Example stack: everything WarpEngine needs to come alive, end to end.
+#
+#   mysql             the catalog database
+#   app               a minimal Rails host with the engine mounted from this
+#                     repo checkout (headless: API + updater, no ActiveAdmin)
+#   droparea          SSH server where build pipelines drop artifacts; shares
+#                     the "softwares" volume with the app
+#   gitea             (profile "ci") the git forge
+#   woodpecker        (profile "ci") CI server + agent, wired to gitea
+#
+# Quickstart (catalog + drop area only):
+#   cp .env.example .env
+#   docker compose up --build
+#
+# Full loop with forge + CI:
+#   docker compose --profile ci up --build
+#
+# See ../../README.md ("Example stack") or the WarpEngine wiki page for the
+# full walkthrough, including the one-time gitea/woodpecker OAuth wiring.
+
+services:
+  mysql:
+    image: mysql:8
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-warpengine}
+      MYSQL_DATABASE: warp_engine_example
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  app:
+    build: ./host_app
+    ports:
+      - "${APP_PORT:-8080}:3000"
+    environment:
+      RAILS_ENV: development
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-warpengine}
+      UPDATE_SECRET: ${UPDATE_SECRET:-example-update-secret}
+      FILE_CONTAINER_PATH: /softwares
+      IMAGE_CONTAINER_PATH: /images
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./host_app:/app
+      - ../..:/warp_engine # the engine itself, consumed as a path gem
+      - bundle:/usr/local/bundle
+      - softwares:/softwares
+      - images:/images
+
+  # SSH landing zone for build artifacts. Pipelines (or you, with scp) upload
+  # into ~/drop here; the app sees the same files under /softwares.
+  droparea:
+    image: linuxserver/openssh-server
+    environment:
+      PUID: 1
+      PGID: 1
+      SUDO_ACCESS: "false"
+      PASSWORD_ACCESS: "true"
+      USER_NAME: drop
+      USER_PASSWORD: ${DROP_PASSWORD:-drop}
+    ports:
+      - "${DROPAREA_SSH_PORT:-2222}:2222"
+    volumes:
+      # A subdir of the drop user's home (/config), so sshd's own state files
+      # never end up in the catalog directory.
+      - softwares:/config/drop
+
+  # --- profile "ci": the forge + CI producing releases for the catalog ------
+  #
+  # gitea and woodpecker refer to each other by their service names, so your
+  # browser needs to resolve those names too:
+  #   echo "127.0.0.1 gitea woodpecker" | sudo tee -a /etc/hosts
+  # gitea:    http://gitea:3000       woodpecker: http://woodpecker:8000
+
+  gitea:
+    image: gitea/gitea:1.27.0
+    profiles: ["ci"]
+    environment:
+      DISABLE_REGISTRATION: "true"
+      ROOT_URL: "http://gitea:3000"
+    ports:
+      - "3000:3000"
+      - "${GITEA_SSH_PORT:-2223}:22"
+    volumes:
+      - gitea-data:/data
+
+  woodpecker:
+    image: woodpeckerci/woodpecker-server:v3.16.0
+    profiles: ["ci"]
+    environment:
+      WOODPECKER_HOST: "http://woodpecker:8000"
+      WOODPECKER_OPEN: "true"
+      WOODPECKER_GITEA: "true"
+      WOODPECKER_GITEA_URL: "http://gitea:3000"
+      # Create an OAuth2 app in gitea first — see the README walkthrough.
+      WOODPECKER_GITEA_CLIENT: ${WOODPECKER_GITEA_CLIENT:-}
+      WOODPECKER_GITEA_SECRET: ${WOODPECKER_GITEA_SECRET:-}
+      WOODPECKER_SERVER_ADDR: ":8000"
+      WOODPECKER_AGENT_SECRET: ${WOODPECKER_AGENT_SECRET:-example-agent-secret}
+    ports:
+      - "8000:8000"
+    volumes:
+      - woodpecker-data:/var/lib/woodpecker
+
+  woodpecker-agent:
+    image: woodpeckerci/woodpecker-agent:v3.16.0
+    profiles: ["ci"]
+    environment:
+      WOODPECKER_SERVER: "woodpecker:9000"
+      WOODPECKER_AGENT_SECRET: ${WOODPECKER_AGENT_SECRET:-example-agent-secret}
+      # Attach pipeline containers to the stack network so steps can reach
+      # gitea, droparea and the app by service name.
+      WOODPECKER_BACKEND_DOCKER_NETWORK: warp-example
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  default:
+    name: warp-example
+
+volumes:
+  mysql-data:
+  bundle:
+  softwares:
+  images:
+  gitea-data:
+  woodpecker-data:

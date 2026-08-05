@@ -1,0 +1,6 @@
+# Generated on first boot by the entrypoint (install generator + db:prepare).
+db/migrate/
+db/schema.rb
+log/
+tmp/
+Gemfile.lock
