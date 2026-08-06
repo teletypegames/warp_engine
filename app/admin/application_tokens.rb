@@ -2,7 +2,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   actions :index, :show, :new, :create, :edit, :update, :destroy
   permit_params :name, :owner_id, :expires_at, :scopes_string, :unrestricted
 
-  menu priority: 9, label: "🎟️ App Tokens"
+  menu parent: "WarpEngine", priority: 9, label: "🎟️ App Tokens"
 
   config.sort_order = "created_at_desc"
   config.batch_actions = false

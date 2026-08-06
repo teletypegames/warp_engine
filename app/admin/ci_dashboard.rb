@@ -1,5 +1,5 @@
 ActiveAdmin.register_page "CI Dashboard" do
-  menu priority: 11, label: "🚀 CI Dashboard"
+  menu parent: "WarpEngine", priority: 11, label: "🚀 CI Dashboard"
 
   content do
     if WarpEngine.woodpecker_configured?

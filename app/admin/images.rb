@@ -1,7 +1,7 @@
 ActiveAdmin.register WarpEngine::Image, as: "Image" do
   permit_params :file_upload
 
-  menu priority: 5, label: "🖼️ Images"
+  menu parent: "WarpEngine", priority: 5, label: "🖼️ Images"
 
   # SoftwareImage a natív használó; a hoston regisztrált image_owners
   # (WarpEngine.config) további használókat adhat hozzá (pl. TTG Member).
