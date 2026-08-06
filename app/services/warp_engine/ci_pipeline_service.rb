@@ -9,7 +9,7 @@ module WarpEngine
     end
 
     # Fetches one page of a repo's pipelines; the newest one refreshes the
-    # repo's cached last_pipeline_* columns (CI Repos index and the CI API).
+    # repo's cached last_pipeline_* columns (Pipelines index and the CI API).
     def list_pipelines(repo, page: 1)
       pipelines = @client.list_pipelines(repo.woodpecker_repo_id, page: page)
       refresh_last_pipeline(repo, pipelines.first) if page == 1 && pipelines.is_a?(Array)

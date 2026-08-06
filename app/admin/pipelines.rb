@@ -1,7 +1,7 @@
-ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
+ActiveAdmin.register WarpEngine::CiRepository, as: "Pipeline" do
   actions :index, :show, :edit, :update
 
-  menu parent: "🌀 WarpEngine", priority: 10, label: "🔧 CI Repos"
+  menu parent: "🌀 WarpEngine", priority: 10, label: "🚀 Pipelines"
 
   config.sort_order = "repo_name_asc"
   config.batch_actions = false
@@ -20,7 +20,7 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
     column :repo_name
     column :platform
     column("Software") { |r| r.software ? link_to(r.software.title, admin_software_path(r.software)) : "-" }
-    column(:active) { |r| status_tag(r.active ? "active" : "inactive", class: r.active ? "ok" : "warning") }
+    column(:active) { |r| status_tag(r.active ? "active" : "inactive", class: r.active ? "yes" : "no") }
     column("Pipeline") { |r|
       if r.last_pipeline_status
         status_tag r.last_pipeline_status,
@@ -32,7 +32,7 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
     column :last_pipeline_at
     actions defaults: true do |repo|
       if repo.active && WarpEngine.woodpecker_configured?
-        item "Trigger", trigger_admin_ci_repository_path(repo), method: :post, class: "member_link"
+        item "Trigger", trigger_admin_pipeline_path(repo), method: :post, class: "member_link"
       end
     end
   end
@@ -51,23 +51,30 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
     f.actions
   end
 
-  show do
-    attributes_table do
+  sidebar "Details", only: :show do
+    attributes_table_for resource do
       row :id
       row :woodpecker_repo_id
       row :repo_owner
       row :repo_name
       row :platform
       row("Software") { |r| r.software ? link_to(r.software.title, admin_software_path(r.software)) : "-" }
-      row(:active) { |r| status_tag(r.active ? "active" : "inactive") }
+      row(:active) { |r| status_tag(r.active ? "active" : "inactive", class: r.active ? "yes" : "no") }
       row :last_pipeline_status
       row :last_pipeline_at
       row :created_at
       row :updated_at
     end
+  end
 
-    if WarpEngine.woodpecker_configured? && resource.active
-      panel "Recent Pipelines" do
+  show do
+    panel "Pipelines" do
+      if !WarpEngine.woodpecker_configured?
+        para "Woodpecker is not configured. Set woodpecker_url and woodpecker_api_token in the WarpEngine initializer.",
+             style: "color:#999;"
+      elsif !resource.active
+        para "This repository is inactive.", style: "color:#999;"
+      else
         begin
           pipelines = WarpEngine::CiPipelineService.new.list_pipelines(resource, page: 1)
           if pipelines.is_a?(Array) && pipelines.any?
@@ -107,7 +114,7 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
 
   action_item :sync_repos, only: :index do
     if WarpEngine.woodpecker_configured?
-      link_to "Sync from Woodpecker", sync_admin_ci_repositories_path, method: :post
+      link_to "Sync from Woodpecker", sync_admin_pipelines_path, method: :post
     end
   end
 
