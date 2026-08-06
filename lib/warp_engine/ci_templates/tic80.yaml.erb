@@ -17,8 +17,12 @@ steps:
         echo $VERSION > .version
 
   - name: lint
-    image: <%= builder %>
+    image: alpine
     commands:
+      - apk add --no-cache lua5.4 lua5.4-dev luarocks gcc musl-dev
+      - ln -sf /usr/bin/lua5.4 /usr/bin/lua
+      - ln -sf /usr/bin/luarocks-5.4 /usr/bin/luarocks
+      - luarocks install luacheck
       - |
         echo "==> Merging..."
         rm -f /tmp/_lint_combined.lua /tmp/_lint_map.txt
@@ -83,8 +87,10 @@ steps:
         rm -f /tmp/_lint_combined.lua /tmp/_lint_map.txt
 
   - name: minify
-    image: <%= builder %>
+    image: alpine
     commands:
+      - apk add --no-cache lua5.4 curl
+      - ln -sf /usr/bin/lua5.4 /usr/bin/lua
       - |
         rm -f <%= name %>.lua
         sed 's/\r$//' <%= name %>.inc | while read f; do
@@ -97,8 +103,12 @@ steps:
         lua minify.lua minify <%= name %>.original.lua > <%= name %>.lua
 
   - name: docs
-    image: <%= builder %>
+    image: alpine
     commands:
+      - apk add --no-cache lua5.4 lua5.4-dev luarocks gcc musl-dev zip
+      - ln -sf /usr/bin/lua5.4 /usr/bin/lua
+      - ln -sf /usr/bin/luarocks-5.4 /usr/bin/luarocks
+      - luarocks install ldoc
       - |
         VERSION=$(cat .version)
         echo "==> Generating docs from <%= name %>.original.lua"
@@ -109,7 +119,7 @@ steps:
         echo "==> Docs zip created"
 
   - name: export
-    image: <%= exporter %>
+    image: <%= builder %>
     environment:
       XDG_RUNTIME_DIR: /tmp
     commands:
@@ -128,7 +138,7 @@ steps:
         ls -lh <%= name %>-$VERSION.* <%= name %>.tic <%= name %>.html.zip 2>/dev/null || true
 
   - name: binaries
-    image: <%= exporter %>
+    image: <%= builder %>
     environment:
       XDG_RUNTIME_DIR: /tmp
     commands:
