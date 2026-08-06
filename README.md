@@ -26,6 +26,10 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
   image library with orphan cleanup, a file manager with a picker mode, and
   download statistics. Without ActiveAdmin the engine runs headless
   (API + updater only).
+- **Woodpecker CI management (optional)**: with a Woodpecker API token
+  configured, the admin also gains repo sync, a pipeline dashboard with
+  manual triggers, and automatic provisioning of application tokens as
+  Woodpecker secrets.
 
 ## Requirements
 
@@ -284,6 +288,41 @@ an empty map (default) disables the feature. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
 per-repo in Settings → Extensions). Templates live in
 `app/services/warp_engine/platforms/<platform>/pipeline.yaml.erb`.
+
+## Woodpecker CI management
+
+Beyond serving pipeline configs, WarpEngine can drive the Woodpecker REST API
+itself. Set `woodpecker_url` and `woodpecker_api_token` — while either is nil
+(the default), every management feature stays inactive and the admin pages
+hide themselves:
+
+```ruby
+c.woodpecker_url        = ENV["WOODPECKER_URL"]        # e.g. "https://ci.example.org"
+c.woodpecker_api_token  = ENV["WOODPECKER_API_TOKEN"]  # PAT of a Woodpecker *instance admin*
+c.woodpecker_repo_owner = ENV["WOODPECKER_REPO_OWNER"] # forge org the game repos live under
+```
+
+What it unlocks (all surfaced in the admin):
+
+- **Repo sync** (*CI Repos → Sync from Woodpecker*): mirrors the Woodpecker
+  repo list into `CiRepository` records, auto-matching each repo to a catalog
+  `Software` by name; repos that disappear from Woodpecker are deactivated.
+  Platform and software links are editable by hand afterwards.
+- **CI dashboard**: the latest pipeline status of every active repo, grouped
+  by platform, with a manual *Trigger* action; each repo's page lists its
+  recent pipelines.
+- **Secret provisioning**: database application tokens are pushed to the
+  repos as the `application_token` Woodpecker secret — creating a token
+  provisions it to its owner's repos (unrestricted tokens to all active
+  repos), deleting a token removes the secret, and *Rotate* creates a
+  replacement token, provisions it everywhere and revokes the old one in a
+  single step.
+
+The API token must belong to a Woodpecker **instance admin** — listing the
+server's repos is an admin-only endpoint (anything less yields
+`403 User not authorized`). Add the user to `WOODPECKER_ADMIN` on the
+Woodpecker server, then log out and back in: the admin flag is written to
+the user record at login, a server restart alone is not enough.
 
 ## Public API
 
