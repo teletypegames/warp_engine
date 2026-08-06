@@ -283,7 +283,7 @@ Configuration: `ci_platforms` maps platform names to builder images
 an empty map (default) disables the feature. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
 per-repo in Settings → Extensions). Templates live in
-`lib/warp_engine/ci_templates/*.yaml.erb`.
+`app/services/warp_engine/platforms/<platform>/pipeline.yaml.erb`.
 
 ## Public API
 
