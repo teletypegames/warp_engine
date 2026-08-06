@@ -24,7 +24,7 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
     column("Pipeline") { |r|
       if r.last_pipeline_status
         status_tag r.last_pipeline_status,
-                   class: r.last_pipeline_status == "success" ? "ok" : "error"
+                   class: r.last_pipeline_status == "success" ? "yes" : "no"
       else
         "-"
       end
@@ -73,10 +73,11 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
           if pipelines.is_a?(Array) && pipelines.any?
             table_for pipelines.first(10) do
               column("Number") { |p| p["number"] }
-              column("Status") { |p| status_tag p["status"], class: p["status"] == "success" ? "ok" : "error" }
+              column("Status") { |p| status_tag p["status"], class: p["status"] == "success" ? "yes" : "no" }
               column("Branch") { |p| p["branch"] }
               column("Message") { |p| p["message"]&.truncate(60) }
-              column("Created") { |p| p["created_at"] }
+              # Woodpecker returns unix epoch seconds in "created"
+              column("Created") { |p| p["created"] ? Time.zone.at(p["created"]).strftime("%Y-%m-%d %H:%M") : "-" }
             end
           else
             para "No pipelines found.", style: "color:#999;"

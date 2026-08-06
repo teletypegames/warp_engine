@@ -27,9 +27,9 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
   download statistics. Without ActiveAdmin the engine runs headless
   (API + updater only).
 - **Woodpecker CI management (optional)**: with a Woodpecker API token
-  configured, the admin also gains repo sync, a pipeline dashboard with
-  manual triggers, and automatic provisioning of application tokens as
-  Woodpecker secrets.
+  configured, the admin also gains repo sync, per-repo pipeline history
+  with manual triggers, and automatic provisioning of application tokens
+  as Woodpecker secrets.
 
 ## Requirements
 
@@ -308,9 +308,10 @@ What it unlocks (all surfaced in the admin):
   repo list into `CiRepository` records, auto-matching each repo to a catalog
   `Software` by name; repos that disappear from Woodpecker are deactivated.
   Platform and software links are editable by hand afterwards.
-- **CI dashboard**: the latest pipeline status of every active repo, grouped
-  by platform, with a manual *Trigger* action; each repo's page lists its
-  recent pipelines.
+- **Pipeline history**: each CI repo's page lists its recent pipelines with
+  a manual *Trigger* action; the newest run refreshes the repo's cached
+  last-pipeline status shown on the CI Repos index. The software's admin
+  page links to its CI repo from the Quick Links sidebar.
 - **Secret provisioning**: database application tokens are pushed to the
   repos as the `application_token` Woodpecker secret — creating a token
   provisions it to its owner's repos (unrestricted tokens to all active

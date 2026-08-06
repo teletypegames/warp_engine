@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_06_000001) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -27,6 +27,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000003) do
     t.index ["deleted_at"], name: "idx_application_tokens_deleted_at"
     t.index ["owner_type", "owner_id"], name: "idx_application_tokens_owner"
     t.index ["token_digest"], name: "idx_application_tokens_token_digest", unique: true
+  end
+
+  create_table "ci_repositories", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.datetime "last_pipeline_at", precision: 3
+    t.string "last_pipeline_status", limit: 32
+    t.string "platform", limit: 32, null: false
+    t.string "repo_name", limit: 128, null: false
+    t.string "repo_owner", limit: 128, null: false
+    t.bigint "software_id", unsigned: true
+    t.datetime "updated_at", precision: 3
+    t.bigint "woodpecker_repo_id", null: false, unsigned: true
+    t.index ["deleted_at"], name: "idx_ci_repos_deleted"
+    t.index ["repo_owner", "repo_name"], name: "idx_ci_repos_owner_name", unique: true
+    t.index ["software_id"], name: "idx_ci_repos_software"
+    t.index ["woodpecker_repo_id"], name: "idx_ci_repos_wp_id", unique: true
   end
 
   create_table "downloads", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -137,6 +155,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000003) do
     t.datetime "updated_at", precision: 3
   end
 
+  add_foreign_key "ci_repositories", "softwares", name: "fk_ci_repos_software", on_delete: :nullify
   add_foreign_key "downloads", "releases", name: "fk_downloads_release", on_delete: :nullify
   add_foreign_key "external_links", "softwares", name: "fk_softwares_external_links", on_delete: :cascade
   add_foreign_key "release_assets", "releases", name: "fk_releases_release_assets", on_delete: :cascade
