@@ -1,13 +1,17 @@
 require "openssl"
 require "base64"
 require "net/http"
+require "digest"
 
 module WarpEngine
-  # Verifies the httpsig signature of Woodpecker configuration-extension
-  # requests (draft-cavage http-signatures, ed25519). The server sends the
-  # signed header list in the Signature header — typically "(request-target) date".
+  # Verifies the signature of Woodpecker configuration-extension requests.
+  # Woodpecker 3.x signs with RFC 9421 HTTP message signatures (ed25519, via
+  # yaronf/httpsign): Signature-Input + Signature + Content-Digest headers,
+  # covered components "@request-target" and "content-digest". Older versions
+  # used draft-cavage http-signatures (a single Signature header) — kept as a
+  # fallback.
   class CiSignatureVerifier
-    SIGNATURE_PARAM = /(\w+)="([^"]*)"/
+    CAVAGE_PARAM = /(\w+)="([^"]*)"/
 
     @key_cache = {}
     @key_mutex = Mutex.new
@@ -36,14 +40,12 @@ module WarpEngine
         return false
       end
 
-      params = signature_params
-      return false if params.nil? || params["signature"].blank?
-
-      signing_string = build_signing_string(params.fetch("headers", "date"))
-      return false if signing_string.nil?
-
       key = OpenSSL::PKey.read(pem)
-      key.verify(nil, Base64.decode64(params["signature"]), signing_string)
+      if @request.headers["Signature-Input"].present?
+        rfc9421_valid?(key)
+      else
+        cavage_valid?(key)
+      end
     rescue OpenSSL::PKey::PKeyError, ArgumentError => e
       Rails.logger.error("[CiSignatureVerifier] #{e.class}: #{e.message}")
       false
@@ -62,8 +64,70 @@ module WarpEngine
       nil
     end
 
+    # --- RFC 9421 ---
+
+    def rfc9421_valid?(key)
+      input = @request.headers["Signature-Input"].to_s
+      match = input.match(/\A\s*([\w.-]+)=(\(.*)\z/m)
+      return false if match.nil?
+
+      label, inner = match[1], match[2]
+      components = inner[/\((.*?)\)/m, 1].to_s.scan(/"([^"]*)"/).flatten
+      return false if components.empty?
+
+      signature = @request.headers["Signature"].to_s[/#{Regexp.escape(label)}=:([A-Za-z0-9+\/=]+):/, 1]
+      return false if signature.blank?
+      return false unless content_digest_valid?(components)
+
+      lines = components.map do |component|
+        value = component_value(component)
+        return false if value.nil?
+        %("#{component}": #{value})
+      end
+      lines << %("@signature-params": #{inner})
+
+      key.verify(nil, Base64.decode64(signature), lines.join("\n"))
+    end
+
+    def component_value(name)
+      case name
+      when "@request-target" then @request.fullpath
+      when "@method"         then @request.request_method
+      when "@target-uri"     then @request.original_url
+      when "@authority"      then @request.host_with_port
+      when "@path"           then @request.path
+      when "@query"          then "?#{@request.query_string}"
+      when /\A@/             then nil
+      else @request.headers[name]
+      end
+    end
+
+    # When content-digest is a covered component, the body itself must match
+    # the digest header — this is what ties the signature to the payload.
+    def content_digest_valid?(components)
+      return true unless components.include?("content-digest")
+
+      digest = @request.headers["Content-Digest"].to_s[/sha-256=:([A-Za-z0-9+\/=]+):/, 1]
+      return false if digest.blank?
+
+      expected = Digest::SHA256.base64digest(@request.raw_post)
+      ActiveSupport::SecurityUtils.secure_compare(digest, expected)
+    end
+
+    # --- draft-cavage fallback ---
+
+    def cavage_valid?(key)
+      params = cavage_params
+      return false if params.nil? || params["signature"].blank?
+
+      signing_string = cavage_signing_string(params.fetch("headers", "date"))
+      return false if signing_string.nil?
+
+      key.verify(nil, Base64.decode64(params["signature"]), signing_string)
+    end
+
     # Parameters of the Signature header (or the "Authorization: Signature ..." form).
-    def signature_params
+    def cavage_params
       header = @request.headers["Signature"].presence
       if header.nil?
         auth = @request.headers["Authorization"].to_s
@@ -71,10 +135,10 @@ module WarpEngine
       end
       return nil if header.blank?
 
-      header.scan(SIGNATURE_PARAM).to_h
+      header.scan(CAVAGE_PARAM).to_h
     end
 
-    def build_signing_string(headers_list)
+    def cavage_signing_string(headers_list)
       lines = headers_list.split(" ").map do |name|
         if name == "(request-target)"
           "(request-target): #{@request.request_method.downcase} #{@request.fullpath}"

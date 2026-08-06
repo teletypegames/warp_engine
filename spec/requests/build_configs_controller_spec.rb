@@ -15,7 +15,26 @@ RSpec.describe "Build configs endpoint", type: :request do
     allow(WarpEngine.config).to receive(:ci_extension_public_key).and_return(signing_key.public_to_pem)
   end
 
-  def signed_headers(method: "post", path: "/build/config")
+  # Woodpecker 3.x-style RFC 9421 signature over @request-target + content-digest.
+  def signed_headers(body, path: "/build/config", digest_body: nil)
+    digest = "sha-256=:#{Digest::SHA256.base64digest(digest_body || body)}:"
+    inner = %{("@request-target" "content-digest");created=#{Time.now.to_i};alg="ed25519"}
+    base = [
+      %("@request-target": #{path}),
+      %("content-digest": #{digest}),
+      %("@signature-params": #{inner})
+    ].join("\n")
+    signature = Base64.strict_encode64(signing_key.sign(nil, base))
+    {
+      "Content-Digest" => digest,
+      "Signature-Input" => "woodpecker-ci-extensions=#{inner}",
+      "Signature" => "woodpecker-ci-extensions=:#{signature}:",
+      "Content-Type" => "application/json"
+    }
+  end
+
+  # Legacy draft-cavage signature (single Signature header).
+  def cavage_signed_headers(method: "post", path: "/build/config")
     date = Time.now.httpdate
     signing_string = "(request-target): #{method} #{path}\ndate: #{date}"
     signature = Base64.strict_encode64(signing_key.sign(nil, signing_string))
@@ -68,8 +87,8 @@ RSpec.describe "Build configs endpoint", type: :request do
 
   describe "POST /build/config" do
     it "returns the rendered pipeline for a marker config" do
-      post "/build/config", params: extension_payload("platform: godot\n"),
-                            headers: signed_headers
+      payload = extension_payload("platform: godot\n")
+      post "/build/config", params: payload, headers: signed_headers(payload)
 
       expect(response).to have_http_status(:ok)
       configs = response.parsed_body["configs"]
@@ -81,8 +100,8 @@ RSpec.describe "Build configs endpoint", type: :request do
     end
 
     it "uses the marker's name override instead of the repo name" do
-      post "/build/config", params: extension_payload("platform: godot\nname: othername\n"),
-                            headers: signed_headers
+      payload = extension_payload("platform: godot\nname: othername\n")
+      post "/build/config", params: payload, headers: signed_headers(payload)
 
       expect(response.parsed_body["configs"].first["data"]).to include("othername")
       expect(response.parsed_body["configs"].first["data"]).not_to include("mygame")
@@ -92,40 +111,55 @@ RSpec.describe "Build configs endpoint", type: :request do
       payload = { repo: { name: "mygame" },
                   configs: [ { name: ".woodpecker.yaml", data: "platform: godot\n" } ] }.to_json
 
-      post "/build/config", params: payload, headers: signed_headers
+      post "/build/config", params: payload, headers: signed_headers(payload)
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "accepts a legacy draft-cavage signed request" do
+      payload = extension_payload("platform: godot\n")
+      post "/build/config", params: payload, headers: cavage_signed_headers
 
       expect(response).to have_http_status(:ok)
     end
 
     it "returns 204 for a non-marker config" do
-      full_pipeline = "steps:\n  - name: build\n    image: alpine\n"
-
-      post "/build/config", params: extension_payload(full_pipeline),
-                            headers: signed_headers
+      payload = extension_payload("steps:\n  - name: build\n    image: alpine\n")
+      post "/build/config", params: payload, headers: signed_headers(payload)
 
       expect(response).to have_http_status(:no_content)
     end
 
     it "returns 204 when no configuration is sent" do
-      post "/build/config", params: { repo: { name: "mygame" } }.to_json,
-                            headers: signed_headers
+      payload = { repo: { name: "mygame" } }.to_json
+      post "/build/config", params: payload, headers: signed_headers(payload)
 
       expect(response).to have_http_status(:no_content)
     end
 
     it "returns 422 for a marker with an unknown platform" do
-      post "/build/config", params: extension_payload("platform: amiga\n"),
-                            headers: signed_headers
+      payload = extension_payload("platform: amiga\n")
+      post "/build/config", params: payload, headers: signed_headers(payload)
 
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
     it "rejects a request with an invalid signature" do
-      headers = signed_headers
+      payload = extension_payload("platform: godot\n")
+      headers = signed_headers(payload)
       other_key = OpenSSL::PKey.generate_key("ed25519")
       allow(WarpEngine.config).to receive(:ci_extension_public_key).and_return(other_key.public_to_pem)
 
-      post "/build/config", params: extension_payload("platform: godot\n"), headers: headers
+      post "/build/config", params: payload, headers: headers
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "rejects a request whose body does not match the signed content-digest" do
+      payload = extension_payload("platform: godot\n")
+      tampered = signed_headers(payload, digest_body: "something else")
+
+      post "/build/config", params: payload, headers: tampered
 
       expect(response).to have_http_status(:forbidden)
     end
@@ -141,8 +175,8 @@ RSpec.describe "Build configs endpoint", type: :request do
       allow(WarpEngine.config).to receive(:ci_extension_public_key).and_return(nil)
       allow(WarpEngine.config).to receive(:ci_extension_public_key_url).and_return(nil)
 
-      post "/build/config", params: extension_payload("platform: godot\n"),
-                            headers: signed_headers
+      payload = extension_payload("platform: godot\n")
+      post "/build/config", params: payload, headers: signed_headers(payload)
 
       expect(response).to have_http_status(:forbidden)
     end
