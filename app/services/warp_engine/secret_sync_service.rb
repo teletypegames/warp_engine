@@ -1,40 +1,40 @@
 module WarpEngine
-  class CiSecretSyncService
+  class SecretSyncService
     SECRET_NAME = "application_token".freeze
 
     def initialize(client: WoodpeckerClient.new)
       @client = client
     end
 
-    def provision(plain_token, repos:)
+    def provision(plain_token, pipelines:)
       results = { synced: [], failed: [] }
 
-      repos.each do |repo|
-        if secret_exists?(repo.woodpecker_repo_id)
-          @client.update_secret(repo.woodpecker_repo_id, SECRET_NAME, value: plain_token)
+      pipelines.each do |pipeline|
+        if secret_exists?(pipeline.woodpecker_repo_id)
+          @client.update_secret(pipeline.woodpecker_repo_id, SECRET_NAME, value: plain_token)
         else
-          @client.create_secret(repo.woodpecker_repo_id, name: SECRET_NAME, value: plain_token)
+          @client.create_secret(pipeline.woodpecker_repo_id, name: SECRET_NAME, value: plain_token)
         end
-        results[:synced] << repo
+        results[:synced] << pipeline
       rescue WoodpeckerClient::ApiError, WoodpeckerClient::ConnectionError => e
-        Rails.logger.error("[CiSecretSyncService] failed for #{repo.full_name}: #{e.message}")
-        results[:failed] << { repo: repo, error: e.message }
+        Rails.logger.error("[SecretSyncService] failed for #{pipeline.full_name}: #{e.message}")
+        results[:failed] << { pipeline: pipeline, error: e.message }
       end
 
       results
     end
 
     def deprovision(application_token)
-      repos_for_token(application_token).each do |repo|
-        @client.delete_secret(repo.woodpecker_repo_id, SECRET_NAME)
+      pipelines_for_token(application_token).each do |pipeline|
+        @client.delete_secret(pipeline.woodpecker_repo_id, SECRET_NAME)
       rescue WoodpeckerClient::ApiError => e
-        Rails.logger.warn("[CiSecretSyncService] delete failed for #{repo.full_name}: #{e.message}")
+        Rails.logger.warn("[SecretSyncService] delete failed for #{pipeline.full_name}: #{e.message}")
       end
     end
 
     def rotate(application_token)
-      repos = repos_for_token(application_token)
-      return { rotated: false, reason: "no repos" } if repos.empty?
+      pipelines = pipelines_for_token(application_token)
+      return { rotated: false, reason: "no pipelines" } if pipelines.empty?
 
       new_token = ApplicationToken.create!(
         name:         "#{application_token.name} (rotated #{Date.current})",
@@ -45,26 +45,26 @@ module WarpEngine
         unrestricted: application_token.unrestricted?
       )
 
-      result = provision(new_token.plain_token, repos: repos)
+      result = provision(new_token.plain_token, pipelines: pipelines)
 
       if result[:synced].any?
         application_token.revoke!
         { rotated: true, new_token: new_token, sync_result: result }
       else
         new_token.revoke!
-        { rotated: false, reason: "all repos failed", sync_result: result }
+        { rotated: false, reason: "all pipelines failed", sync_result: result }
       end
     end
 
-    def repos_for_token(application_token)
+    def pipelines_for_token(application_token)
       if application_token.unrestricted?
-        CiRepository.active.to_a
+        Pipeline.active.to_a
       else
         software_ids = Software.where(
           owner_type: application_token.owner_type,
           owner_id:   application_token.owner_id
         ).pluck(:id)
-        CiRepository.active.where(software_id: software_ids).to_a
+        Pipeline.active.where(software_id: software_ids).to_a
       end
     end
 

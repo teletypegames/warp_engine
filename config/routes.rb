@@ -7,9 +7,9 @@ WarpEngine::Engine.routes.draw do
     get "builds",                 to: "builds#index"
     get "softwares/:name/builds", to: "software_builds#show"
 
-    get  "ci/repos",              to: "ci#repos"
-    get  "ci/repos/:id/status",   to: "ci#status"
-    post "ci/repos/:id/trigger",  to: "ci#trigger"
+    get  "ci/pipelines",             to: "ci#pipelines"
+    get  "ci/pipelines/:id/status",  to: "ci#status"
+    post "ci/pipelines/:id/trigger", to: "ci#trigger"
   end
 
   post "build/upload",  to: "build/uploads#create"

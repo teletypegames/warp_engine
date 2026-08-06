@@ -7,11 +7,11 @@ RSpec.describe "CI API", type: :request do
     allow(WarpEngine.config).to receive(:update_secret).and_return("s3cret")
   end
 
-  describe "GET /api/ci/repos" do
+  describe "GET /api/ci/pipelines" do
     it "returns active repos" do
-      repo = create(:ci_repository, repo_name: "mygame", platform: "tic80")
+      repo = create(:pipeline, repo_name: "mygame", platform: "tic80")
 
-      get "/api/ci/repos"
+      get "/api/ci/pipelines"
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
@@ -22,45 +22,45 @@ RSpec.describe "CI API", type: :request do
     it "returns 503 when woodpecker not configured" do
       allow(WarpEngine.config).to receive(:woodpecker_url).and_return(nil)
 
-      get "/api/ci/repos"
+      get "/api/ci/pipelines"
 
       expect(response).to have_http_status(:service_unavailable)
     end
   end
 
-  describe "GET /api/ci/repos/:id/status" do
+  describe "GET /api/ci/pipelines/:id/status" do
     it "returns repo with pipeline status" do
-      repo = create(:ci_repository, repo_owner: "org", repo_name: "game")
+      repo = create(:pipeline, repo_owner: "org", repo_name: "game")
       client = instance_double(WarpEngine::WoodpeckerClient)
       allow(WarpEngine::WoodpeckerClient).to receive(:new).and_return(client)
       allow(client).to receive(:get_pipeline)
         .and_return({ "number" => 1, "status" => "success" })
 
-      get "/api/ci/repos/#{repo.id}/status"
+      get "/api/ci/pipelines/#{repo.id}/status"
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
-      expect(json["repo"]["repo_name"]).to eq("game")
+      expect(json["pipeline"]["repo_name"]).to eq("game")
     end
   end
 
-  describe "POST /api/ci/repos/:id/trigger" do
+  describe "POST /api/ci/pipelines/:id/trigger" do
     it "requires authentication" do
-      repo = create(:ci_repository)
+      repo = create(:pipeline)
 
-      post "/api/ci/repos/#{repo.id}/trigger"
+      post "/api/ci/pipelines/#{repo.id}/trigger"
 
       expect(response).to have_http_status(:unauthorized)
     end
 
     it "triggers a pipeline with valid secret" do
-      repo = create(:ci_repository, repo_owner: "org", repo_name: "game")
+      repo = create(:pipeline, repo_owner: "org", repo_name: "game")
       client = instance_double(WarpEngine::WoodpeckerClient)
       allow(WarpEngine::WoodpeckerClient).to receive(:new).and_return(client)
       allow(client).to receive(:trigger_pipeline)
         .and_return({ "number" => 7, "status" => "pending" })
 
-      post "/api/ci/repos/#{repo.id}/trigger",
+      post "/api/ci/pipelines/#{repo.id}/trigger",
            headers: { "X-Update-Secret" => "s3cret" }
 
       expect(response).to have_http_status(:ok)

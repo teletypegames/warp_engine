@@ -1,6 +1,10 @@
 module WarpEngine
-  class CiRepository < ApplicationRecord
-    self.table_name = "ci_repositories"
+  class Pipeline < ApplicationRecord
+    self.table_name = "pipelines"
+
+    # Repos synced from Woodpecker without a matching Software land here
+    # until a platform is assigned by hand.
+    UNKNOWN_PLATFORM = "unknown".freeze
 
     belongs_to :software, class_name: "WarpEngine::Software", optional: true
 
@@ -10,7 +14,7 @@ module WarpEngine
     validates :repo_owner, presence: true
     validates :repo_name, presence: true
     validates :platform, presence: true,
-              inclusion: { in: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS }
+              inclusion: { in: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS + [ UNKNOWN_PLATFORM ] }
 
     scope :active, -> { where(active: true) }
 
@@ -27,6 +31,6 @@ module WarpEngine
       %w[software]
     end
 
-    ActiveSupport.run_load_hooks(:warp_engine_ci_repository, self)
+    ActiveSupport.run_load_hooks(:warp_engine_pipeline, self)
   end
 end

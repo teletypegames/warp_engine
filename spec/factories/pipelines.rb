@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :ci_repository, class: "WarpEngine::CiRepository" do
+  factory :pipeline, class: "WarpEngine::Pipeline" do
     sequence(:woodpecker_repo_id) { |n| n }
     repo_owner { "testorg" }
     sequence(:repo_name) { |n| "game-#{n}" }

@@ -53,9 +53,9 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
       end
     end
 
-    if resource.ci_repository
+    if resource.pipeline
       div style: "margin-bottom:8px;" do
-        a href: admin_pipeline_path(resource.ci_repository), style: "display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5850ec;" do
+        a href: admin_pipeline_path(resource.pipeline), style: "display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5850ec;" do
           span "🚀", style: "font-size:16px;"
           text_node "Pipelines"
         end

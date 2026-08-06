@@ -305,7 +305,7 @@ c.woodpecker_repo_owner = ENV["WOODPECKER_REPO_OWNER"] # forge org the game repo
 What it unlocks (all surfaced in the admin):
 
 - **Repo sync** (*Pipelines → Sync from Woodpecker*): mirrors the Woodpecker
-  repo list into `CiRepository` records, auto-matching each repo to a catalog
+  repo list into `Pipeline` records, auto-matching each repo to a catalog
   `Software` by name; repos that disappear from Woodpecker are deactivated.
   Platform and software links are editable by hand afterwards.
 - **Pipeline history**: each entry on the *Pipelines* page lists its recent

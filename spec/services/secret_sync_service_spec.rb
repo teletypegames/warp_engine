@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe WarpEngine::CiSecretSyncService do
+RSpec.describe WarpEngine::SecretSyncService do
   let(:client) { instance_double(WarpEngine::WoodpeckerClient) }
   let(:service) { described_class.new(client: client) }
 
@@ -11,11 +11,11 @@ RSpec.describe WarpEngine::CiSecretSyncService do
 
   describe "#provision" do
     it "creates secrets on repos that don't have one" do
-      repo = create(:ci_repository)
+      repo = create(:pipeline)
       allow(client).to receive(:list_secrets).with(repo.woodpecker_repo_id).and_return([])
       allow(client).to receive(:create_secret)
 
-      result = service.provision("plaintoken", repos: [ repo ])
+      result = service.provision("plaintoken", pipelines: [ repo ])
 
       expect(result[:synced]).to eq([ repo ])
       expect(client).to have_received(:create_secret).with(
@@ -24,12 +24,12 @@ RSpec.describe WarpEngine::CiSecretSyncService do
     end
 
     it "updates secrets on repos that already have one" do
-      repo = create(:ci_repository)
+      repo = create(:pipeline)
       allow(client).to receive(:list_secrets).with(repo.woodpecker_repo_id)
         .and_return([ { "name" => "application_token" } ])
       allow(client).to receive(:update_secret)
 
-      result = service.provision("newtoken", repos: [ repo ])
+      result = service.provision("newtoken", pipelines: [ repo ])
 
       expect(result[:synced]).to eq([ repo ])
       expect(client).to have_received(:update_secret).with(
@@ -38,12 +38,12 @@ RSpec.describe WarpEngine::CiSecretSyncService do
     end
 
     it "records failed repos without raising" do
-      repo = create(:ci_repository)
+      repo = create(:pipeline)
       allow(client).to receive(:list_secrets).and_raise(
         WarpEngine::WoodpeckerClient::ConnectionError, "unreachable"
       )
 
-      result = service.provision("tok", repos: [ repo ])
+      result = service.provision("tok", pipelines: [ repo ])
 
       expect(result[:synced]).to be_empty
       expect(result[:failed].size).to eq(1)
@@ -54,7 +54,7 @@ RSpec.describe WarpEngine::CiSecretSyncService do
     it "deletes secrets from all relevant repos" do
       token = create(:application_token)
       sw = create(:software, name: "game1", owner: token.owner)
-      repo = create(:ci_repository, :with_software, software: sw)
+      repo = create(:pipeline, :with_software, software: sw)
 
       allow(client).to receive(:delete_secret)
 
@@ -68,7 +68,7 @@ RSpec.describe WarpEngine::CiSecretSyncService do
     it "creates new token, provisions, revokes old" do
       token = create(:application_token)
       sw = create(:software, name: "game1", owner: token.owner)
-      repo = create(:ci_repository, :with_software, software: sw)
+      repo = create(:pipeline, :with_software, software: sw)
 
       allow(client).to receive(:list_secrets).and_return([])
       allow(client).to receive(:create_secret)
@@ -83,7 +83,7 @@ RSpec.describe WarpEngine::CiSecretSyncService do
     it "rolls back if all repos fail" do
       token = create(:application_token)
       sw = create(:software, name: "game1", owner: token.owner)
-      create(:ci_repository, :with_software, software: sw)
+      create(:pipeline, :with_software, software: sw)
 
       allow(client).to receive(:list_secrets).and_raise(
         WarpEngine::WoodpeckerClient::ConnectionError, "down"
@@ -101,17 +101,17 @@ RSpec.describe WarpEngine::CiSecretSyncService do
       result = service.rotate(token)
 
       expect(result[:rotated]).to be false
-      expect(result[:reason]).to eq("no repos")
+      expect(result[:reason]).to eq("no pipelines")
     end
   end
 
-  describe "#repos_for_token" do
+  describe "#pipelines_for_token" do
     it "returns all active repos for unrestricted tokens" do
       token = create(:application_token, :unrestricted)
-      repo1 = create(:ci_repository)
-      create(:ci_repository, :inactive)
+      repo1 = create(:pipeline)
+      create(:pipeline, :inactive)
 
-      repos = service.repos_for_token(token)
+      repos = service.pipelines_for_token(token)
 
       expect(repos).to eq([ repo1 ])
     end
@@ -120,10 +120,10 @@ RSpec.describe WarpEngine::CiSecretSyncService do
       token = create(:application_token)
       own_sw = create(:software, name: "mine", owner: token.owner)
       other_sw = create(:software, name: "theirs", owner: create(:test_owner))
-      own_repo = create(:ci_repository, :with_software, software: own_sw)
-      create(:ci_repository, :with_software, software: other_sw)
+      own_repo = create(:pipeline, :with_software, software: own_sw)
+      create(:pipeline, :with_software, software: other_sw)
 
-      repos = service.repos_for_token(token)
+      repos = service.pipelines_for_token(token)
 
       expect(repos).to eq([ own_repo ])
     end

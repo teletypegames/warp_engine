@@ -6,36 +6,36 @@ module WarpEngine
       before_action :require_woodpecker!
 
       resource_description do
-        short "CI repository and pipeline management"
+        short "CI pipeline management"
       end
 
-      api :GET, "/api/ci/repos", "List active CI repositories"
-      returns code: 200, desc: "JSON array of tracked repos"
+      api :GET, "/api/ci/pipelines", "List active pipelines"
+      returns code: 200, desc: "JSON array of tracked pipelines"
       error code: 503, desc: "Woodpecker not configured"
-      def repos
-        records = CiRepository.active.includes(:software)
-        render json: records.map { |r| repo_json(r) }
+      def pipelines
+        records = Pipeline.active.includes(:software)
+        render json: records.map { |p| pipeline_json(p) }
       end
 
-      api :GET, "/api/ci/repos/:id/status", "Get a CI repository with its latest pipeline"
-      param :id, :number, required: true, desc: "CiRepository id"
-      returns code: 200, desc: "JSON with repo and pipeline data"
+      api :GET, "/api/ci/pipelines/:id/status", "Get a pipeline with its latest run"
+      param :id, :number, required: true, desc: "Pipeline id"
+      returns code: 200, desc: "JSON with pipeline and latest run data"
       error code: 503, desc: "Woodpecker not configured"
       def status
-        repo = CiRepository.find(params[:id])
-        pipeline = begin
-          CiPipelineService.new.pipeline_detail(repo, "latest")
+        pipeline = Pipeline.find(params[:id])
+        latest_run = begin
+          PipelineService.new.pipeline_detail(pipeline, "latest")
         rescue WoodpeckerClient::ApiError
           nil
         end
-        render json: { repo: repo_json(repo), pipeline: pipeline }
+        render json: { pipeline: pipeline_json(pipeline), latest_run: latest_run }
       end
 
-      api :POST, "/api/ci/repos/:id/trigger", "Trigger a pipeline for a CI repository"
+      api :POST, "/api/ci/pipelines/:id/trigger", "Trigger a pipeline"
       header "X-Update-Secret", "Shared secret or application token (update scope)", required: true
-      param :id, :number, required: true, desc: "CiRepository id"
+      param :id, :number, required: true, desc: "Pipeline id"
       param :branch, String, required: false, desc: "Branch to build (default: main)"
-      returns code: 200, desc: "JSON with triggered pipeline data"
+      returns code: 200, desc: "JSON with triggered run data"
       error code: 401, desc: "Invalid secret"
       error code: 503, desc: "Woodpecker not configured"
       def trigger
@@ -43,8 +43,8 @@ module WarpEngine
           return render json: { error: "Unauthorized" }, status: :unauthorized
         end
 
-        repo = CiRepository.find(params[:id])
-        result = CiPipelineService.new.trigger(repo, branch: params[:branch] || "main")
+        pipeline = Pipeline.find(params[:id])
+        result = PipelineService.new.trigger(pipeline, branch: params[:branch] || "main")
         render json: { triggered: true, pipeline: result }
       end
 
@@ -56,17 +56,17 @@ module WarpEngine
         render json: { error: "Woodpecker not configured" }, status: :service_unavailable
       end
 
-      def repo_json(repo)
+      def pipeline_json(pipeline)
         {
-          id: repo.id,
-          woodpecker_repo_id: repo.woodpecker_repo_id,
-          repo_owner: repo.repo_owner,
-          repo_name: repo.repo_name,
-          platform: repo.platform,
-          active: repo.active,
-          software_name: repo.software&.name,
-          last_pipeline_status: repo.last_pipeline_status,
-          last_pipeline_at: repo.last_pipeline_at
+          id: pipeline.id,
+          woodpecker_repo_id: pipeline.woodpecker_repo_id,
+          repo_owner: pipeline.repo_owner,
+          repo_name: pipeline.repo_name,
+          platform: pipeline.platform,
+          active: pipeline.active,
+          software_name: pipeline.software&.name,
+          last_pipeline_status: pipeline.last_pipeline_status,
+          last_pipeline_at: pipeline.last_pipeline_at
         }
       end
     end

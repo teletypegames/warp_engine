@@ -1,4 +1,4 @@
-ActiveAdmin.register WarpEngine::CiRepository, as: "Pipeline" do
+ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
   actions :index, :show, :edit, :update
 
   menu parent: "🌀 WarpEngine", priority: 10, label: "🚀 Pipelines"
@@ -30,9 +30,9 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "Pipeline" do
       end
     }
     column :last_pipeline_at
-    actions defaults: true do |repo|
-      if repo.active && WarpEngine.woodpecker_configured?
-        item "Trigger", trigger_admin_pipeline_path(repo), method: :post, class: "member_link"
+    actions defaults: true do |pipeline|
+      if pipeline.active && WarpEngine.woodpecker_configured?
+        item "Trigger", trigger_admin_pipeline_path(pipeline), method: :post, class: "member_link"
       end
     end
   end
@@ -76,7 +76,7 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "Pipeline" do
         para "This repository is inactive.", style: "color:#999;"
       else
         begin
-          pipelines = WarpEngine::CiPipelineService.new.list_pipelines(resource, page: 1)
+          pipelines = WarpEngine::PipelineService.new.list_pipelines(resource, page: 1)
           if pipelines.is_a?(Array) && pipelines.any?
             table_for pipelines.first(10) do
               column("Number") { |p| p["number"] }
@@ -97,15 +97,15 @@ ActiveAdmin.register WarpEngine::CiRepository, as: "Pipeline" do
   end
 
   member_action :trigger, method: :post do
-    repo = WarpEngine::CiRepository.find(params[:id])
-    WarpEngine::CiPipelineService.new.trigger(repo)
-    redirect_to resource_path(repo), notice: "Pipeline triggered for #{repo.full_name}"
+    pipeline = WarpEngine::Pipeline.find(params[:id])
+    WarpEngine::PipelineService.new.trigger(pipeline)
+    redirect_to resource_path(pipeline), notice: "Pipeline triggered for #{pipeline.full_name}"
   rescue => e
-    redirect_to resource_path(repo), alert: "Trigger failed: #{e.message}"
+    redirect_to resource_path(pipeline), alert: "Trigger failed: #{e.message}"
   end
 
   collection_action :sync, method: :post do
-    result = WarpEngine::CiRepoSyncService.new.sync_all
+    result = WarpEngine::PipelineSyncService.new.sync_all
     redirect_to collection_path,
       notice: "Synced: #{result[:created].size} new, #{result[:updated].size} updated, #{result[:deactivated].size} deactivated"
   rescue => e

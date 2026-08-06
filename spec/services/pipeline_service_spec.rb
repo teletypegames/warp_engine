@@ -1,12 +1,12 @@
 require "rails_helper"
 
-RSpec.describe WarpEngine::CiPipelineService do
+RSpec.describe WarpEngine::PipelineService do
   let(:client) { instance_double(WarpEngine::WoodpeckerClient) }
   let(:service) { described_class.new(client: client) }
 
   describe "#trigger" do
     it "delegates to client" do
-      repo = build(:ci_repository, repo_owner: "org", repo_name: "game")
+      repo = build(:pipeline, repo_owner: "org", repo_name: "game")
       allow(client).to receive(:trigger_pipeline).and_return({ "number" => 6 })
 
       result = service.trigger(repo, branch: "main")
@@ -18,7 +18,7 @@ RSpec.describe WarpEngine::CiPipelineService do
 
   describe "#list_pipelines" do
     it "returns paginated pipelines and refreshes the repo's cached last pipeline" do
-      repo = create(:ci_repository, repo_owner: "org", repo_name: "game")
+      repo = create(:pipeline, repo_owner: "org", repo_name: "game")
       pipelines = [
         { "number" => 2, "status" => "failure", "created" => 1_754_500_000 },
         { "number" => 1, "status" => "success", "created" => 1_754_400_000 }
@@ -33,7 +33,7 @@ RSpec.describe WarpEngine::CiPipelineService do
     end
 
     it "does not touch the cache on later pages" do
-      repo = create(:ci_repository, repo_owner: "org", repo_name: "game",
+      repo = create(:pipeline, repo_owner: "org", repo_name: "game",
                     last_pipeline_status: "success")
       allow(client).to receive(:list_pipelines).with(repo.woodpecker_repo_id, page: 2)
         .and_return([{ "number" => 1, "status" => "failure", "created" => 1_754_400_000 }])
@@ -44,7 +44,7 @@ RSpec.describe WarpEngine::CiPipelineService do
     end
 
     it "leaves the cache alone when the repo has no pipelines" do
-      repo = create(:ci_repository, repo_owner: "org", repo_name: "game",
+      repo = create(:pipeline, repo_owner: "org", repo_name: "game",
                     last_pipeline_status: "success")
       allow(client).to receive(:list_pipelines).and_return([])
 

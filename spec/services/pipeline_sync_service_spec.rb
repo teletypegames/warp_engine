@@ -1,11 +1,11 @@
 require "rails_helper"
 
-RSpec.describe WarpEngine::CiRepoSyncService do
+RSpec.describe WarpEngine::PipelineSyncService do
   let(:client) { instance_double(WarpEngine::WoodpeckerClient) }
   let(:service) { described_class.new(client: client) }
 
   describe "#sync_all" do
-    it "creates new CiRepository records from Woodpecker" do
+    it "creates new Pipeline records from Woodpecker" do
       allow(client).to receive(:list_repos).and_return([
         { "id" => 1, "name" => "mygame", "owner" => "org", "active" => true }
       ])
@@ -20,7 +20,7 @@ RSpec.describe WarpEngine::CiRepoSyncService do
     end
 
     it "updates existing records" do
-      existing = create(:ci_repository, woodpecker_repo_id: 1, repo_name: "old", platform: "tic80")
+      existing = create(:pipeline, woodpecker_repo_id: 1, repo_name: "old", platform: "tic80")
       allow(client).to receive(:list_repos).and_return([
         { "id" => 1, "name" => "newname", "owner" => "org", "active" => true }
       ])
@@ -32,7 +32,7 @@ RSpec.describe WarpEngine::CiRepoSyncService do
     end
 
     it "deactivates repos missing from Woodpecker" do
-      orphan = create(:ci_repository, woodpecker_repo_id: 99, active: true)
+      orphan = create(:pipeline, woodpecker_repo_id: 99, active: true)
       allow(client).to receive(:list_repos).and_return([])
 
       result = service.sync_all
@@ -70,7 +70,7 @@ RSpec.describe WarpEngine::CiRepoSyncService do
 
   describe "#deactivate" do
     it "calls client and marks repo inactive" do
-      repo = create(:ci_repository, woodpecker_repo_id: 42, active: true)
+      repo = create(:pipeline, woodpecker_repo_id: 42, active: true)
       allow(client).to receive(:deactivate_repo).with(42)
 
       service.deactivate(42)

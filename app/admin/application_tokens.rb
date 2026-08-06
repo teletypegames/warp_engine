@@ -60,11 +60,11 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   end
 
   member_action :rotate, method: :post do
-    result = WarpEngine::CiSecretSyncService.new.rotate(resource)
+    result = WarpEngine::SecretSyncService.new.rotate(resource)
     if result[:rotated]
       session[:warp_engine_plain_token] = result[:new_token].plain_token
       redirect_to resource_path(result[:new_token]),
-        notice: "Token rotated and synced to #{result.dig(:sync_result, :synced)&.size || 0} repo(s)"
+        notice: "Token rotated and synced to #{result.dig(:sync_result, :synced)&.size || 0} pipeline(s)"
     else
       redirect_to resource_path(resource),
         alert: "Rotation failed: #{result[:reason]}"
@@ -101,13 +101,13 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
           session[:warp_engine_plain_token] = resource.plain_token
 
           if WarpEngine.woodpecker_configured?
-            service = WarpEngine::CiSecretSyncService.new
-            repos = service.repos_for_token(resource)
-            if repos.any?
-              result = service.provision(resource.plain_token, repos: repos)
-              flash[:notice] = "Token created and synced to #{result[:synced].size} repo(s)."
+            service = WarpEngine::SecretSyncService.new
+            pipelines = service.pipelines_for_token(resource)
+            if pipelines.any?
+              result = service.provision(resource.plain_token, pipelines: pipelines)
+              flash[:notice] = "Token created and synced to #{result[:synced].size} pipeline(s)."
               if result[:failed].any?
-                flash[:alert] = "Failed to sync to #{result[:failed].size} repo(s)."
+                flash[:alert] = "Failed to sync to #{result[:failed].size} pipeline(s)."
               end
             end
           end
@@ -124,7 +124,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
 
     def destroy
       if WarpEngine.woodpecker_configured?
-        WarpEngine::CiSecretSyncService.new.deprovision(resource)
+        WarpEngine::SecretSyncService.new.deprovision(resource)
       end
       resource.revoke!
       redirect_to collection_path, notice: "Token revoked and Woodpecker secrets cleaned up."
