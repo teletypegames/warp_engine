@@ -11,6 +11,7 @@ module WarpEngine
     has_many :releases, foreign_key: :software_id
     has_many :downloads, through: :releases
     has_many :external_links, foreign_key: :software_id
+    has_one :ci_repository, foreign_key: :software_id
 
     accepts_nested_attributes_for :software_images, allow_destroy: true
     accepts_nested_attributes_for :external_links, allow_destroy: true

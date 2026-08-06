@@ -20,6 +20,9 @@ module WarpEngine
     #   PEM, or a URL to fetch it from (e.g. https://ci.../api/signature/public-key).
     #   With neither set, POST /build/config rejects every request.
     # ci_update_server: server URL written into the upload/publish steps; nil → the request's base_url.
+    # woodpecker_url / woodpecker_api_token / woodpecker_repo_owner:
+    #   Woodpecker CI management (repo sync, secret provisioning, pipeline control).
+    #   All nil → the management features are inactive.
     attr_accessor :file_container_path,
                   :image_container_path,
                   :update_secret,
@@ -31,6 +34,9 @@ module WarpEngine
                   :ci_extension_public_key,
                   :ci_extension_public_key_url,
                   :ci_update_server,
+                  :woodpecker_url,
+                  :woodpecker_api_token,
+                  :woodpecker_repo_owner,
                   :image_owners
 
     def initialize
@@ -45,6 +51,9 @@ module WarpEngine
       @ci_extension_public_key       = nil
       @ci_extension_public_key_url   = nil
       @ci_update_server              = nil
+      @woodpecker_url                = ENV["WOODPECKER_URL"]
+      @woodpecker_api_token          = ENV["WOODPECKER_API_TOKEN"]
+      @woodpecker_repo_owner         = ENV["WOODPECKER_REPO_OWNER"]
       @image_owners                  = []
     end
   end

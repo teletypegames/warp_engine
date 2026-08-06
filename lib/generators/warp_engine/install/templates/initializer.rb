@@ -29,6 +29,12 @@ Rails.application.config.to_prepare do
     # c.ci_extension_public_key_url = "https://ci.example.org/api/signature/public-key"
     # c.ci_update_server = nil # nil: the request base_url
 
+    # Woodpecker CI management — repo sync, secret provisioning, pipeline control.
+    # All three must be set for the management features to activate.
+    # c.woodpecker_url        = ENV["WOODPECKER_URL"]        # e.g. "https://ci.example.org"
+    # c.woodpecker_api_token  = ENV["WOODPECKER_API_TOKEN"]  # Woodpecker PAT with admin access
+    # c.woodpecker_repo_owner = ENV["WOODPECKER_REPO_OWNER"] # forge org/user (e.g. "games")
+
     # Size cap in bytes for /build/upload (and the admin file manager, default: 500MB).
     # c.max_upload_size = 500 * 1024 * 1024
 

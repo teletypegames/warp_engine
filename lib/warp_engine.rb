@@ -19,6 +19,10 @@ module WarpEngine
   def self.configure
     yield(config)
   end
+
+  def self.woodpecker_configured?
+    config.woodpecker_url.present? && config.woodpecker_api_token.present?
+  end
 end
 
 require "warp_engine/engine"

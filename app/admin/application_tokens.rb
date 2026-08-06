@@ -52,6 +52,25 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
     f.actions
   end
 
+  action_item :rotate, only: :show do
+    if WarpEngine.woodpecker_configured?
+      link_to "Rotate Token", rotate_admin_application_token_path(resource),
+              method: :post, data: { confirm: "This will revoke the current token, create a new one, and push it to Woodpecker. Continue?" }
+    end
+  end
+
+  member_action :rotate, method: :post do
+    result = WarpEngine::CiSecretSyncService.new.rotate(resource)
+    if result[:rotated]
+      session[:warp_engine_plain_token] = result[:new_token].plain_token
+      redirect_to resource_path(result[:new_token]),
+        notice: "Token rotated and synced to #{result.dig(:sync_result, :synced)&.size || 0} repo(s)"
+    else
+      redirect_to resource_path(resource),
+        alert: "Rotation failed: #{result[:reason]}"
+    end
+  end
+
   show do
     if (plain = controller.instance_variable_get(:@plain_token))
       panel "⚠️ Token — shown only once, copy it now!" do
@@ -80,6 +99,19 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       create! do |success, _failure|
         success.html do
           session[:warp_engine_plain_token] = resource.plain_token
+
+          if WarpEngine.woodpecker_configured?
+            service = WarpEngine::CiSecretSyncService.new
+            repos = service.repos_for_token(resource)
+            if repos.any?
+              result = service.provision(resource.plain_token, repos: repos)
+              flash[:notice] = "Token created and synced to #{result[:synced].size} repo(s)."
+              if result[:failed].any?
+                flash[:alert] = "Failed to sync to #{result[:failed].size} repo(s)."
+              end
+            end
+          end
+
           redirect_to resource_path(resource) and return
         end
       end
@@ -90,10 +122,12 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       show!
     end
 
-    # Revoke = soft delete, audit-nyommal.
     def destroy
+      if WarpEngine.woodpecker_configured?
+        WarpEngine::CiSecretSyncService.new.deprovision(resource)
+      end
       resource.revoke!
-      redirect_to collection_path, notice: "Token revoked."
+      redirect_to collection_path, notice: "Token revoked and Woodpecker secrets cleaned up."
     end
   end
 end

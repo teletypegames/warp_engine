@@ -6,6 +6,10 @@ WarpEngine::Engine.routes.draw do
     get "download",               to: "downloads#show"
     get "builds",                 to: "builds#index"
     get "softwares/:name/builds", to: "software_builds#show"
+
+    get  "ci/repos",              to: "ci#repos"
+    get  "ci/repos/:id/status",   to: "ci#status"
+    post "ci/repos/:id/trigger",  to: "ci#trigger"
   end
 
   post "build/upload",  to: "build/uploads#create"
