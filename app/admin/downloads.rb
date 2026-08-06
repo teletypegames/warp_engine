@@ -1,7 +1,7 @@
 ActiveAdmin.register WarpEngine::Download, as: "Download" do
   actions :index, :show
 
-  menu parent: "WarpEngine", priority: 7, label: "📊 Download Stats"
+  menu parent: "🌀 WarpEngine", priority: 7, label: "📊 Download Stats"
 
   scope :all, default: true
   scope("Today")         { |scope| scope.where("downloads.created_at >= ?", Date.current.beginning_of_day) }

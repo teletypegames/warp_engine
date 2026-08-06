@@ -1,7 +1,7 @@
 ActiveAdmin.register WarpEngine::PlatformLink, as: "Platform Link" do
   permit_params :name, :url, :platform, :position
 
-  menu parent: "WarpEngine", priority: 5, label: "🔗 Platform Links"
+  menu parent: "🌀 WarpEngine", priority: 5, label: "🔗 Platform Links"
 
   config.sort_order = "platform_asc"
 

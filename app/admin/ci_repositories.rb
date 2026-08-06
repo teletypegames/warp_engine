@@ -1,7 +1,7 @@
 ActiveAdmin.register WarpEngine::CiRepository, as: "CI Repository" do
   actions :index, :show, :edit, :update
 
-  menu parent: "WarpEngine", priority: 10, label: "🔧 CI Repos"
+  menu parent: "🌀 WarpEngine", priority: 10, label: "🔧 CI Repos"
 
   config.sort_order = "repo_name_asc"
   config.batch_actions = false

@@ -6,7 +6,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
                 releases_attributes: [ :id, :version, :_destroy,
                                        { release_assets_attributes: [ :id, :kind, :path, :_destroy ] } ]
 
-  menu parent: "WarpEngine", priority: 2, label: "🎮 Softwares"
+  menu parent: "🌀 WarpEngine", priority: 2, label: "🎮 Softwares"
 
   actions :all, except: [ :edit ]
 

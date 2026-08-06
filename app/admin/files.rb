@@ -1,5 +1,5 @@
 ActiveAdmin.register_page "Files" do
-  menu parent: "WarpEngine", priority: 6, label: "📁 Files"
+  menu parent: "🌀 WarpEngine", priority: 6, label: "📁 Files"
 
   content do
     service = WarpEngine::FileManagerService.new
