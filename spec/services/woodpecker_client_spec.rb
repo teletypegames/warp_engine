@@ -67,23 +67,23 @@ RSpec.describe WarpEngine::WoodpeckerClient do
   describe "pipelines" do
     it "lists pipelines" do
       pipelines = [{ "number" => 1, "status" => "success" }]
-      stub_wp(:get, "/api/repos/org/game/pipelines?page=1&perPage=25", body: pipelines)
+      stub_wp(:get, "/api/repos/42/pipelines?page=1&perPage=25", body: pipelines)
 
-      expect(client.list_pipelines("org", "game")).to eq(pipelines)
+      expect(client.list_pipelines(42)).to eq(pipelines)
     end
 
     it "gets latest pipeline" do
       pipeline = { "number" => 5, "status" => "running" }
-      stub_wp(:get, "/api/repos/org/game/pipelines/latest", body: pipeline)
+      stub_wp(:get, "/api/repos/42/pipelines/latest", body: pipeline)
 
-      expect(client.latest_pipeline("org", "game")).to eq(pipeline)
+      expect(client.latest_pipeline(42)).to eq(pipeline)
     end
 
     it "triggers a pipeline" do
       pipeline = { "number" => 6, "status" => "pending" }
-      stub_wp(:post, "/api/repos/org/game/pipelines", body: pipeline)
+      stub_wp(:post, "/api/repos/42/pipelines", body: pipeline)
 
-      expect(client.trigger_pipeline("org", "game", branch: "main")).to eq(pipeline)
+      expect(client.trigger_pipeline(42, branch: "main")).to eq(pipeline)
     end
   end
 
@@ -114,6 +114,14 @@ RSpec.describe WarpEngine::WoodpeckerClient do
       stub_request(:get, "#{base_url}/api/repos").to_timeout
 
       expect { client.list_repos }.to raise_error(WarpEngine::WoodpeckerClient::ConnectionError)
+    end
+
+    it "raises ApiError when a 200 response is not JSON" do
+      stub_request(:get, "#{base_url}/api/repos")
+        .to_return(status: 200, body: "<!doctype html><html></html>",
+                   headers: { "Content-Type" => "text/html" })
+
+      expect { client.list_repos }.to raise_error(WarpEngine::WoodpeckerClient::ApiError, /Expected JSON/)
     end
   end
 end

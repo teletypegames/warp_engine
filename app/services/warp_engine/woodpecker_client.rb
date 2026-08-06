@@ -61,21 +61,21 @@ module WarpEngine
 
     # --- Pipelines ---
 
-    def list_pipelines(owner, repo_name, page: 1, per_page: 25)
-      get("/api/repos/#{owner}/#{repo_name}/pipelines",
+    def list_pipelines(repo_id, page: 1, per_page: 25)
+      get("/api/repos/#{repo_id}/pipelines",
           params: { page: page, perPage: per_page })
     end
 
-    def latest_pipeline(owner, repo_name)
-      get("/api/repos/#{owner}/#{repo_name}/pipelines/latest")
+    def latest_pipeline(repo_id)
+      get("/api/repos/#{repo_id}/pipelines/latest")
     end
 
-    def get_pipeline(owner, repo_name, number)
-      get("/api/repos/#{owner}/#{repo_name}/pipelines/#{number}")
+    def get_pipeline(repo_id, number)
+      get("/api/repos/#{repo_id}/pipelines/#{number}")
     end
 
-    def trigger_pipeline(owner, repo_name, branch: "main")
-      post("/api/repos/#{owner}/#{repo_name}/pipelines",
+    def trigger_pipeline(repo_id, branch: "main")
+      post("/api/repos/#{repo_id}/pipelines",
            body: { branch: branch })
     end
 
@@ -136,7 +136,16 @@ module WarpEngine
       case response
       when Net::HTTPSuccess, Net::HTTPNoContent
         return nil if response.body.blank?
-        JSON.parse(response.body)
+        begin
+          JSON.parse(response.body)
+        rescue JSON::ParserError
+          # A wrong path falls through to the Woodpecker SPA, which answers
+          # 200 with index.html — surface that as an API error, not a parse one.
+          raise ApiError.new(
+            "Expected JSON from #{uri.path} but got: #{response.body.truncate(80)}",
+            status: response.code.to_i, body: response.body
+          )
+        end
       when Net::HTTPNotFound
         raise ApiError.new("Not found: #{uri.path}", status: 404, body: response.body)
       else

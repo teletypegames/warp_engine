@@ -8,7 +8,7 @@ RSpec.describe WarpEngine::CiPipelineService do
     it "returns latest pipeline for each active repo" do
       repo = create(:ci_repository, repo_owner: "org", repo_name: "game")
       pipeline = { "number" => 5, "status" => "success", "created_at" => "2026-08-06T12:00:00Z" }
-      allow(client).to receive(:latest_pipeline).with("org", "game").and_return(pipeline)
+      allow(client).to receive(:latest_pipeline).with(repo.woodpecker_repo_id).and_return(pipeline)
 
       entries = service.dashboard
 
@@ -37,7 +37,7 @@ RSpec.describe WarpEngine::CiPipelineService do
       result = service.trigger(repo, branch: "main")
 
       expect(result["number"]).to eq(6)
-      expect(client).to have_received(:trigger_pipeline).with("org", "game", branch: "main")
+      expect(client).to have_received(:trigger_pipeline).with(repo.woodpecker_repo_id, branch: "main")
     end
   end
 
@@ -45,7 +45,7 @@ RSpec.describe WarpEngine::CiPipelineService do
     it "returns paginated pipelines" do
       repo = build(:ci_repository, repo_owner: "org", repo_name: "game")
       pipelines = [{ "number" => 1 }, { "number" => 2 }]
-      allow(client).to receive(:list_pipelines).with("org", "game", page: 1).and_return(pipelines)
+      allow(client).to receive(:list_pipelines).with(repo.woodpecker_repo_id, page: 1).and_return(pipelines)
 
       expect(service.list_pipelines(repo)).to eq(pipelines)
     end
