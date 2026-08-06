@@ -39,6 +39,9 @@ services:
       UPDATE_SECRET: ${UPDATE_SECRET:-example-update-secret}
       FILE_CONTAINER_PATH: /softwares
       IMAGE_CONTAINER_PATH: /images
+      WOODPECKER_URL: ${WOODPECKER_URL:-}
+      WOODPECKER_API_TOKEN: ${WOODPECKER_API_TOKEN:-}
+      WOODPECKER_REPO_OWNER: ${WOODPECKER_REPO_OWNER:-}
     depends_on:
       mysql:
         condition: service_healthy
