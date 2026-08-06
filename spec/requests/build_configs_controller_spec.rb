@@ -184,11 +184,11 @@ RSpec.describe "Build configs endpoint", type: :request do
 
   describe "shipped templates" do
     it "renders every template to valid YAML with non-empty steps" do
-      templates = Dir[WarpEngine::Engine.root.join("lib/warp_engine/ci_templates/*.yaml.erb")]
+      templates = Dir[WarpEngine::Engine.root.join("app/services/warp_engine/platforms/*/pipeline.yaml.erb")]
       expect(templates).not_to be_empty
 
       templates.each do |path|
-        platform = File.basename(path, ".yaml.erb")
+        platform = File.basename(File.dirname(path))
         allow(WarpEngine.config).to receive(:ci_platforms).and_return(
           platform => { builder: "registry.example/builder:1", exporter: "registry.example/exporter:1" }
         )

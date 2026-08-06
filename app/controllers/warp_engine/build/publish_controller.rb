@@ -29,13 +29,13 @@ module WarpEngine
           return render json: { error: "Forbidden" }, status: :forbidden
         end
 
-        input = WarpEngine::UpdateInputDto.new(
+        input = WarpEngine::PublishInputDto.new(
           platform: params[:platform],
           name:     params[:name],
           version:  params[:version]
         )
 
-        WarpEngine::UpdateService.new.update(input)
+        WarpEngine::PublishService.new.publish(input)
         claim_software_ownership(params[:name])
 
         render json: { published: true, name: params[:name], platform: params[:platform], version: params[:version] }

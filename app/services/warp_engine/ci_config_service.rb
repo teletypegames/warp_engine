@@ -2,8 +2,8 @@ require "erb"
 
 module WarpEngine
   # Renders the /build/config platform templates: the pipeline logic lives in
-  # lib/warp_engine/ci_templates/<platform>.yaml.erb, the per-platform builder
-  # images come from WarpEngine.config.ci_platforms.
+  # app/services/warp_engine/platforms/<platform>/pipeline.yaml.erb, the
+  # per-platform builder images come from WarpEngine.config.ci_platforms.
   class CiConfigService
     PLATFORM_FORMAT = /\A[a-z0-9_-]+\z/
 
@@ -15,7 +15,7 @@ module WarpEngine
       spec = platform_spec(platform)
       return nil if spec.nil?
 
-      path = templates_dir.join("#{platform}.yaml.erb")
+      path = templates_dir.join(platform, "pipeline.yaml.erb")
       return nil unless path.exist?
 
       ERB.new(path.read, trim_mode: "-").result_with_hash(
@@ -34,7 +34,7 @@ module WarpEngine
     end
 
     def templates_dir
-      WarpEngine::Engine.root.join("lib", "warp_engine", "ci_templates")
+      WarpEngine::Engine.root.join("app", "services", "warp_engine", "platforms")
     end
   end
 end

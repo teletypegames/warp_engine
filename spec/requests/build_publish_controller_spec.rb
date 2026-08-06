@@ -6,8 +6,8 @@ RSpec.describe "POST /build/publish", type: :request do
   end
 
   def stub_updater
-    updater = instance_double(WarpEngine::SoftwareUpdater::Tic80Service)
-    allow(WarpEngine::SoftwareUpdater::Tic80Service).to receive(:new).and_return(updater)
+    updater = instance_double(WarpEngine::Platforms::Tic80::Service)
+    allow(WarpEngine::Platforms::Tic80::Service).to receive(:new).and_return(updater)
     allow(updater).to receive(:update)
     updater
   end
