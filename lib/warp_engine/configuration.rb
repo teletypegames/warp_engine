@@ -9,6 +9,12 @@ module WarpEngine
     #   :database — only WarpEngine::ApplicationToken is accepted, the shared secret is not
     # application_token_owner_class: class name of the mandatory token owner
     # (e.g. "AdminUser"); nil makes :database mode reject every request.
+    # storage_adapter: where build artifacts are served from.
+    #   :local (default) — the local filesystem under file_container_path,
+    #                      byte for byte the previous behaviour;
+    #   any object       — must answer file?/directory?/locate, see
+    #                      WarpEngine::Storage. Serving only: uploads and
+    #                      archive extraction still write to the local disk.
     # max_upload_size: file size cap in bytes for /build/upload (and the admin file manager).
     # enforce_software_ownership: when true, a DB token may only upload/publish
     # its own owner's softwares (unrestricted tokens are exempt).
@@ -37,7 +43,8 @@ module WarpEngine
                   :woodpecker_url,
                   :woodpecker_api_token,
                   :woodpecker_repo_owner,
-                  :image_owners
+                  :image_owners,
+                  :storage_adapter
 
     def initialize
       @file_container_path           = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
@@ -55,6 +62,7 @@ module WarpEngine
       @woodpecker_api_token          = ENV["WOODPECKER_API_TOKEN"]
       @woodpecker_repo_owner         = ENV["WOODPECKER_REPO_OWNER"]
       @image_owners                  = []
+      @storage_adapter               = :local
     end
   end
 end

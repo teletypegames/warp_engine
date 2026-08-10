@@ -18,6 +18,12 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
   box: TIC-80, Ebitengine, LÖVE, C64, Godot, Bevy, Phaser. Authenticated by
   a shared secret or by per-owner database tokens with expiry and scopes
   (`ApplicationToken`, managed in the admin).
+- **Pluggable storage**: artifacts are served through a storage adapter
+  (`:local` by default); a host can serve them from an object store without
+  patching the engine.
+- **Publish events**: every published release emits
+  `ActiveSupport::Notifications` (`warp_engine.publish`), so hosts can react
+  to new builds without model callbacks.
 - **Public JSON API**: catalog listing, highlighted title, per-platform build
   matrix, image serving, download tracking, and a static file server for
   web-playable builds.
@@ -324,6 +330,62 @@ server's repos is an admin-only endpoint (anything less yields
 `403 User not authorized`). Add the user to `WOODPECKER_ADMIN` on the
 Woodpecker server, then log out and back in: the admin flag is written to
 the user record at login, a server restart alone is not enough.
+
+## Storage
+
+Build artifacts are served through a storage adapter. The default is the
+local filesystem under `file_container_path` — byte for byte the behaviour
+the engine always had:
+
+```ruby
+c.storage_adapter = :local   # default
+```
+
+A host that keeps its artifacts elsewhere (an object store behind a CDN, for
+example) can plug in its own object instead of patching the engine. The
+contract is three methods:
+
+```ruby
+class MyObjectStore
+  def file?(relative_path)      = ...   # true/false
+  def directory?(relative_path) = ...   # true/false
+
+  # Return a WarpEngine::Storage::Location:
+  #   Location.file(absolute_path)  — the engine will send_file it
+  #   Location.redirect(url)        — the engine will redirect (signed URL)
+  def locate(relative_path, filename: nil, expires_in: nil) = ...
+end
+
+c.storage_adapter = MyObjectStore.new
+```
+
+`GET /api/download` and `GET /file/*` both go through the adapter, so a
+signing adapter turns them into redirects without any further change.
+`WarpEngine::DownloadService#create` still returns an absolute path (and
+`nil` when there is none), so existing callers keep working;
+`#locate` is the new entry point that can also hand back a redirect.
+
+**Serving only.** Ingestion — `POST /build/upload`, archive extraction and
+the admin file manager — still writes to the local disk. A remote adapter
+needs its own upload path today.
+
+## Publish events
+
+Publishing a release emits an `ActiveSupport::Notifications` event, so a host
+can react to a new build without hanging a callback on the models:
+
+```ruby
+ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
+  payload[:software]  # WarpEngine::Software
+  payload[:release]   # WarpEngine::Release
+  payload[:platform]  # "godot"
+  payload[:name]      # "mygame"
+  payload[:version]   # "1.2.0"
+end
+```
+
+Hosts that must support older engine versions can feature-detect with
+`WarpEngine.respond_to?(:instruments_publish?) && WarpEngine.instruments_publish?`.
 
 ## Public API
 

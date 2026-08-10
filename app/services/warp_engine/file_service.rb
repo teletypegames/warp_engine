@@ -5,31 +5,32 @@ module WarpEngine
       Pathname.new(WarpEngine.config.file_container_path).realpath
     end
 
+    # A fájlok helyét a storage adapter adja (alapból :local, azaz a lemez) —
+    # így a host az objektumtárból is kiszolgálhat anélkül, hogy az engine-t
+    # patchelné. Lásd WarpEngine::Storage.
     def show(input)
-      full_path = base_path.join(input.path.to_s)
-      return FileResultDto.not_found unless safe_path?(full_path)
+      relative = input.path.to_s
 
-      if File.directory?(full_path)
-        index_path = full_path.join("index.html")
-        return FileResultDto.not_found unless File.file?(index_path)
-        return FileResultDto.redirect("/file/#{input.path.to_s.chomp("/")}/index.html")
+      if storage.directory?(relative)
+        index = File.join(relative.chomp("/"), "index.html")
+        return FileResultDto.not_found unless storage.file?(index)
+
+        return FileResultDto.redirect("/file/#{index}")
       end
 
-      if File.file?(full_path)
-        FileResultDto.file(full_path)
-      else
-        FileResultDto.not_found
-      end
+      return FileResultDto.not_found unless storage.file?(relative)
+
+      to_result(storage.locate(relative, filename: File.basename(relative)))
     end
 
     private
 
-    def base_path
-      @base_path ||= self.class.base_path
+    def storage
+      WarpEngine.storage
     end
 
-    def safe_path?(path)
-      File.exist?(path) && Pathname.new(path).realpath.to_s.start_with?(base_path.to_s)
+    def to_result(location)
+      location.redirect? ? FileResultDto.redirect(location.url) : FileResultDto.file(location.path)
     end
   end
 end

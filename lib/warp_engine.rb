@@ -3,6 +3,7 @@ require "apipie-rails"
 
 require "warp_engine/version"
 require "warp_engine/configuration"
+require "warp_engine/storage"
 
 module WarpEngine
   # A tábláink prefix nélküliek (softwares, releases, ...) — az isolate_namespace
@@ -22,6 +23,18 @@ module WarpEngine
 
   def self.woodpecker_configured?
     config.woodpecker_url.present? && config.woodpecker_api_token.present?
+  end
+
+  # A host innen tudja, hogy a publikálás ActiveSupport::Notifications-t szór
+  # ("warp_engine.publish"), és nem kell modell-callbackre kapaszkodnia.
+  # Régebbi engine-verziókon a metódus nem létezik, ezért a hívó oldalon
+  # respond_to?-val kérdezendő.
+  def self.instruments_publish?
+    true
+  end
+
+  def self.storage
+    Storage.adapter
   end
 end
 
