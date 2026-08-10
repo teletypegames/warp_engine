@@ -1,3 +1,9 @@
+# Az engine ActiveJob-ra épülő jobot szállít (PipelineSyncJob), ezért a
+# framework betöltése a mi dolgunk: a host application.rb-je nem feltétlenül
+# require-öli az active_job/railtie-t, és eager loadnál (production) a
+# WarpEngine::ApplicationJob különben uninitialized constant-tal elszáll.
+require "active_job/railtie"
+
 require "blueprinter"
 require "apipie-rails"
 
