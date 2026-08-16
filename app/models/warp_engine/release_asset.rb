@@ -1,7 +1,7 @@
 module WarpEngine
   class ReleaseAsset < ApplicationRecord
     KINDS = %w[cartridge source html docs
-               win_x86 win_x64 linux_x86 linux_x64
+               win_x86 win_x64 linux_x86 linux_x64 linux_arm64
                mac_x64 mac_arm64 mac_universal].freeze
 
     belongs_to :release

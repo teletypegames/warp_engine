@@ -7,6 +7,7 @@ module WarpEngine
         include Builds::BuildWinX86
         include Builds::BuildWinX64
         include Builds::BuildLinuxX64
+        include Builds::BuildLinuxArm64
         include Builds::BuildMacX64
         include Builds::BuildMacArm64
 

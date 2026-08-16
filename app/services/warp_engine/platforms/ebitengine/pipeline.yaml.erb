@@ -44,11 +44,14 @@ steps:
         # helper: builds one target + zips it with a single root folder
         # (unix zip keeps the executable bit)
         binary_build() {
-          B_GOOS="$1"; B_GOARCH="$2"; B_CGO="$3"; B_EXT="$4"; B_TARGET="$5"
+          B_GOOS="$1"; B_GOARCH="$2"; B_CGO="$3"; B_EXT="$4"; B_TARGET="$5"; B_CC="$6"
           PKG_DIR="<%= name %>-$VERSION-$B_TARGET"
           echo "==> Building $PKG_DIR"
           rm -rf "$PKG_DIR" "$PKG_DIR.zip"
           mkdir -p "$PKG_DIR"
+          # cgo cross-compile needs an explicit cross gcc; a native build must
+          # not see CC at all, otherwise go picks the wrong compiler
+          if [ -n "$B_CC" ]; then export CC="$B_CC"; else unset CC; fi
           CGO_ENABLED=$B_CGO GOOS=$B_GOOS GOARCH=$B_GOARCH go build -o "$PKG_DIR/<%= name %>$B_EXT" .
           if [ -f LICENSE ]; then cp LICENSE "$PKG_DIR/"; fi
           if [ -f README.md ]; then cp README.md "$PKG_DIR/"; fi
@@ -56,10 +59,13 @@ steps:
           rm -rf "$PKG_DIR"
           echo "==> $PKG_DIR.zip kesz"
         }
-        # CI (linux builder) builds these three:
+        # CI (linux builder) builds these four:
         binary_build "windows" "386" "0" ".exe" "win-x86"
         binary_build "windows" "amd64" "0" ".exe" "win-x64"
         binary_build "linux" "amd64" "1" "" "linux-x64"
+        # linux-arm64: Raspberry Pi, Odroid, retro handhelds — cgo cross-build
+        # against the arm64 X11/GL/ALSA headers in the builder image
+        binary_build "linux" "arm64" "1" "" "linux-arm64" "aarch64-linux-gnu-gcc"
 
   - name: artifact
     image: alpine

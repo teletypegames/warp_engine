@@ -6,6 +6,7 @@ module WarpEngine
         include Builds::BuildWeb
         include Builds::BuildWinX64
         include Builds::BuildLinuxX64
+        include Builds::BuildLinuxArm64
 
         label "Bevy"
       end
