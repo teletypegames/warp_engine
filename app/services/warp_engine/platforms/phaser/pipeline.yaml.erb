@@ -23,7 +23,7 @@ steps:
       - |
         VERSION=$(cat .version)
         echo "==> Checking JS syntax"
-        for f in src/*.js; do node --check $f; done
+        for f in src/*.js; do [ -e "$f" ] || continue; node --check "$f"; done
         mkdir -p dist/web
         echo "==> Downloading Phaser 3.90.0"
         curl -sSL https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js -o dist/web/phaser.min.js
