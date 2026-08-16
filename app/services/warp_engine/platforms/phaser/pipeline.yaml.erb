@@ -22,19 +22,42 @@ steps:
     commands:
       - |
         VERSION=$(cat .version)
-        echo "==> Checking JS syntax"
-        for f in src/*.js; do [ -e "$f" ] || continue; node --check "$f"; done
-        mkdir -p dist/web
-        echo "==> Downloading Phaser 3.90.0"
-        curl -sSL https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js -o dist/web/phaser.min.js
-        echo "==> Downloading index.html"
-        curl -sSL https://git.teletypegames.org/tools/phaser-tools/raw/branch/master/web/index.html -o dist/web/index.html
-        echo "==> Bundling game sources"
-        cat src/*.js > dist/web/game.js
-        echo "==> Packaging web build for $VERSION"
-        (cd dist/web && zip -r "../../<%= name %>-$VERSION.html.zip" .)
-        echo "==> Cleaning temporary files"
-        rm -rf dist/web
+        # Ketfele projektforma el egymas mellett: a sima JS (a forrasok
+        # osszefuzve, a Phaser CDN-rol) es a bundleres (Vite + TypeScript),
+        # ami maga allitja elo a kesz webes csomagot.
+        if [ -f package.json ] && grep -q '"build"' package.json; then
+          echo "==> Bundled project — npm ci && npm run build"
+          npm ci
+          npm run build
+          # A Vite kimenete onmagaban teljes: index.html + a beforgatott
+          # assetek. A vite.config base-enek relativnak kell lennie, mert a
+          # jatek a /file/<nev>-<verzio>/ alkonyvtarbol szolgal ki.
+          if [ ! -f dist/index.html ]; then
+            echo "ERROR: a build nem hagyott dist/index.html-t" >&2
+            exit 1
+          fi
+          echo "==> Packaging web build for $VERSION"
+          (cd dist && zip -r "../<%= name %>-$VERSION.html.zip" .)
+          echo "==> Cleaning temporary files"
+          rm -rf dist
+        else
+          echo "==> Checking JS syntax"
+          # A bundleres projektben nincs src/*.js, es a shell ilyenkor a
+          # mintat adja tovabb literalkent — a node MODULE_NOT_FOUND-dal
+          # szall el rajta.
+          for f in src/*.js; do [ -e "$f" ] || continue; node --check "$f"; done
+          mkdir -p dist/web
+          echo "==> Downloading Phaser 3.90.0"
+          curl -sSL https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js -o dist/web/phaser.min.js
+          echo "==> Downloading index.html"
+          curl -sSL https://git.teletypegames.org/build/phaser-tools/raw/branch/master/web/index.html -o dist/web/index.html
+          echo "==> Bundling game sources"
+          cat src/*.js > dist/web/game.js
+          echo "==> Packaging web build for $VERSION"
+          (cd dist/web && zip -r "../../<%= name %>-$VERSION.html.zip" .)
+          echo "==> Cleaning temporary files"
+          rm -rf dist/web
+        fi
 
   - name: upload
     image: alpine
