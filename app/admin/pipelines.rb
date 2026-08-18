@@ -1,6 +1,11 @@
 ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
   actions :index, :show, :edit, :update
 
+  # Without this the edit form cannot save at all: ActiveAdmin hands unpermitted params to
+  # the model and Rails raises ForbiddenAttributesError. The two fields here are the two
+  # the form offers; everything else about a pipeline comes from the Woodpecker sync.
+  permit_params :platform, :software_id
+
   menu parent: "🌀 WarpEngine", priority: 10, label: "🚀 Pipelines"
 
   config.sort_order = "repo_name_asc"
@@ -48,22 +53,10 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
               collection: WarpEngine::Software.order(:title).map { |s| [ s.title, s.id ] },
               include_blank: "- none -",
               hint: "One pipeline per software. Picking one that another pipeline already " \
-                    "has moves the link here rather than refusing it."
+                    "has moves the link here — that pipeline is left without a software, " \
+                    "and the move is written to the log."
     end
     f.actions
-  end
-
-  controller do
-    # The reassignment itself is the model's job; this only makes it visible. Without a
-    # word about it, the other pipeline loses its software with nothing on screen to say
-    # that it happened.
-    def update
-      super
-      taken = resource.software_taken_from
-      return if taken.blank?
-
-      flash[:notice] = [ flash[:notice], "Software taken from #{taken.join(', ')}." ].compact.join(" ")
-    end
   end
 
   sidebar "Details", only: :show do

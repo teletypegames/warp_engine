@@ -55,6 +55,16 @@ module WarpEngine
 
       others = Pipeline.where(software_id: software_id).where.not(id: id)
       @software_taken_from = others.map(&:full_name)
+      return if @software_taken_from.empty?
+
+      # Logged rather than flashed. The first attempt at this put a message on screen by
+      # overriding the admin's `update` action, which bypassed the permitted-params path
+      # and made every pipeline edit fail with ForbiddenAttributesError. A silent
+      # reassignment is a small problem; an admin page that cannot save is a large one.
+      Rails.logger.info(
+        "[WarpEngine::Pipeline] #{full_name} took software #{software_id} from " \
+        "#{@software_taken_from.join(', ')}"
+      )
       others.update_all(software_id: nil, updated_at: Time.current)
     end
 
