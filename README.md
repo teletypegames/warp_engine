@@ -399,6 +399,20 @@ Hosts that must support older engine versions can feature-detect with
 | `GET /api/download?path=` | Serves an artifact and logs a download record |
 | `GET /file/*path` | Serves static build output (web-playable games, docs) |
 
+### `WarpEngine-Version`
+
+Every response above carries the engine's version in a `WarpEngine-Version` header, so a
+client can branch on the engine's age without a round trip to ask:
+
+```
+$ curl -sI https://teletypegames.org/api/software | grep -i warpengine
+WarpEngine-Version: 0.4.0
+```
+
+Set before the action runs rather than after, which means an error response carries it
+too — a client needs the version most when something came back wrong. The name is
+`WarpEngine::VERSION_HEADER`, so nothing spells it out twice.
+
 ## Admin integration
 
 The host owns the single ActiveAdmin instance — authentication (Devise),
@@ -419,6 +433,15 @@ host:
   former Go backend (Go zero-time timestamps, camelCase keys, legacy flat
   path fields).
 - Model extension points: `ActiveSupport.on_load(:warp_engine_<model>)` hooks.
+- **A software has one pipeline, and the newest assignment wins.** `Software#pipeline` is
+  a `has_one`, so two pipelines pointing at the same software is not an error the database
+  catches — it is a link that silently does nothing, with the software still showing
+  whichever row came first. Assigning a software that another pipeline holds therefore
+  *moves* it: the previous holder is left without one, the admin says which one it took it
+  from, and `Pipeline#software_taken_from` carries that list for anything else that cares.
+  Deliberately a callback rather than a unique index: rows here are soft-deleted, and a
+  unique index counts deleted rows, so a pipeline removed last year would block its
+  software from ever being linked again.
 
 ## Tests
 

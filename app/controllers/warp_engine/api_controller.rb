@@ -5,6 +5,12 @@ module WarpEngine
       formats [ "json" ]
     end
 
+    # Every response the engine serves names the version that served it, so a client can
+    # branch on the engine's age without a round trip to ask. Set *before* the action,
+    # not after: an error handled by `rescue_from` never reaches an after_action, and a
+    # client needs the version most when something came back wrong.
+    before_action :set_version_header
+
     rescue_from StandardError do |e|
       Rails.logger.error("[#{self.class.name}] #{e.class}: #{e.message}")
       render json: { error: "Internal server error" }, status: :internal_server_error
@@ -23,6 +29,10 @@ module WarpEngine
     end
 
     private
+
+    def set_version_header
+      response.headers[WarpEngine::VERSION_HEADER] = WarpEngine::VERSION
+    end
 
     def resolve_mime(path)
       ext = File.extname(path.to_s).delete_prefix(".")

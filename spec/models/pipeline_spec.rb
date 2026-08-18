@@ -59,4 +59,42 @@ RSpec.describe WarpEngine::Pipeline do
   describe "associations" do
     it { is_expected.to belong_to(:software).optional }
   end
+
+  # A software has one pipeline. Two pipelines pointing at the same one is not an error
+  # the database catches, it is a link that silently does nothing — so the newest
+  # assignment takes it, and says what it took it from.
+  describe "assigning a software another pipeline already has" do
+    it "moves the link and leaves the other pipeline without one" do
+      software = create(:software)
+      held_by  = create(:pipeline, software: software, repo_owner: "games", repo_name: "old")
+      taking   = create(:pipeline, repo_owner: "games", repo_name: "new")
+
+      taking.update!(software: software)
+
+      expect(taking.reload.software).to eq(software)
+      expect(held_by.reload.software).to be_nil
+      expect(software.reload.pipeline).to eq(taking)
+    end
+
+    it "names the pipelines it took the software from" do
+      software = create(:software)
+      create(:pipeline, software: software, repo_owner: "games", repo_name: "old")
+      taking = create(:pipeline, repo_owner: "games", repo_name: "new")
+
+      taking.update!(software: software)
+
+      expect(taking.software_taken_from).to eq([ "games/old" ])
+    end
+
+    it "leaves other pipelines alone when the software is cleared" do
+      software = create(:software)
+      keeps    = create(:pipeline, software: software, repo_owner: "games", repo_name: "keeps")
+      other    = create(:pipeline, repo_owner: "games", repo_name: "other")
+
+      other.update!(software: nil)
+
+      expect(keeps.reload.software).to eq(software)
+      expect(other.software_taken_from).to be_nil
+    end
+  end
 end

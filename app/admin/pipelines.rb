@@ -46,9 +46,24 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
       f.input :platform, as: :select, collection: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS
       f.input :software_id, as: :select,
               collection: WarpEngine::Software.order(:title).map { |s| [ s.title, s.id ] },
-              include_blank: "- none -"
+              include_blank: "- none -",
+              hint: "One pipeline per software. Picking one that another pipeline already " \
+                    "has moves the link here rather than refusing it."
     end
     f.actions
+  end
+
+  controller do
+    # The reassignment itself is the model's job; this only makes it visible. Without a
+    # word about it, the other pipeline loses its software with nothing on screen to say
+    # that it happened.
+    def update
+      super
+      taken = resource.software_taken_from
+      return if taken.blank?
+
+      flash[:notice] = [ flash[:notice], "Software taken from #{taken.join(', ')}." ].compact.join(" ")
+    end
   end
 
   sidebar "Details", only: :show do
