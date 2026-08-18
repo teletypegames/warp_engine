@@ -31,7 +31,13 @@ module WarpEngine
     private
 
     def set_version_header
-      response.headers[WarpEngine::VERSION_HEADER] = WarpEngine::VERSION
+      # The name is spelled out here rather than taken from WarpEngine::VERSION_HEADER on
+      # purpose. A deployed process can end up with these controllers and an older
+      # `lib/` — it happened on the first deploy of this feature — and a controller that
+      # needs a constant from the newer half answers 500 to every request instead of
+      # serving the catalog. A response header is not worth that fragility. The constant
+      # is still the documented name, and a spec holds the two together.
+      response.headers["WarpEngine-Version"] = WarpEngine::VERSION
     end
 
     def resolve_mime(path)

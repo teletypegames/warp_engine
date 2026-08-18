@@ -3,6 +3,12 @@ require "rails_helper"
 # Every response the engine serves carries the version that served it, so a client can
 # branch on the engine's age without asking a separate endpoint for it.
 RSpec.describe "the WarpEngine-Version header", type: :request do
+  # The controller writes the name as a literal so that it cannot depend on a constant a
+  # half-updated deploy might not have. This is what keeps the two in step.
+  it "is the name the constant documents" do
+    expect(WarpEngine::VERSION_HEADER).to eq("WarpEngine-Version")
+  end
+
   it "is on a normal response" do
     create(:software)
 
