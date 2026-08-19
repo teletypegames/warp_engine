@@ -161,13 +161,18 @@ From the git repository:
 gem "warp_engine", git: "https://git.teletypegames.org/engines/warp_engine.git"
 ```
 
-Or from the Forgejo rubygems registry (tagged releases):
+Or from the Forgejo rubygems registry, which is where **tagged releases** land — a
+version rather than whatever a branch happens to hold:
 
 ```ruby
-source "https://git.teletypegames.org/api/packages/tools/rubygems" do
-  gem "warp_engine"
+source "https://git.teletypegames.org/api/packages/engines/rubygems" do
+  gem "warp_engine", "~> 0.5"
 end
 ```
+
+The registry is publicly readable, so no credential is needed to install from it. Use a
+**block-scoped** source rather than a second global one: with two global sources Bundler
+cannot say which gem came from where.
 
 Then:
 
