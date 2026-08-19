@@ -34,7 +34,7 @@ module WarpEngine
     end
     error code: 404, desc: "No highlighted software found"
     def index
-      result = WarpEngine::SoftwareHighlightedService.new.index
+      result = WarpEngine::SoftwareHighlightedService.new.index(subject: current_subject)
       if result
         render json: result
       else

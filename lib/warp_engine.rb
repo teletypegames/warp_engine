@@ -10,6 +10,7 @@ require "apipie-rails"
 require "warp_engine/version"
 require "warp_engine/configuration"
 require "warp_engine/storage"
+require "warp_engine/access"
 
 module WarpEngine
   # A tábláink prefix nélküliek (softwares, releases, ...) — az isolate_namespace
@@ -41,6 +42,17 @@ module WarpEngine
 
   def self.storage
     Storage.adapter
+  end
+
+  # Who may see and download what. :open by default — see WarpEngine::AccessPolicy.
+  def self.access_policy
+    AccessPolicy.current
+  end
+
+  # The host has configured a subject class, so client sign-in is available. A client
+  # asks GET /api/service rather than this, but the engine's own controllers need it.
+  def self.identity_configured?
+    config.access_token_owner_class.present?
   end
 end
 

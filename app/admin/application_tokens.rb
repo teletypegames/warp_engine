@@ -10,6 +10,12 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   scope :all, default: true
   scope("Active")  { |scope| scope.where("expires_at IS NULL OR expires_at > ?", Time.current) }
   scope("Expired") { |scope| scope.where("expires_at <= ?", Time.current) }
+  # Two kinds of token share this table: one publishes software, the other reads the
+  # catalog from somebody's desktop client. They are told apart by scope, and an admin
+  # looking for one is rarely looking for the other.
+  CATALOG_SCOPE_SQL = %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"catalog"')).freeze
+  scope("Publishing") { |scope| scope.where("NOT #{CATALOG_SCOPE_SQL}") }
+  scope("Clients")    { |scope| scope.where(CATALOG_SCOPE_SQL) }
 
   index do
     id_column
@@ -45,7 +51,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       end
       f.input :name
       f.input :scopes_string, label: "Scopes (comma separated)",
-              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload.)
+              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload, the "catalog" scope for a client reading the API. Client tokens are normally issued by device sign-in rather than created here.)
       f.input :unrestricted, hint: "Internal token: exempt from owner isolation (enforce_software_ownership)."
       f.input :expires_at, hint: "Leave empty for a token that never expires."
     end

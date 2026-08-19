@@ -56,7 +56,7 @@ module WarpEngine
       end
     end
     def index
-      render json: WarpEngine::SoftwareService.new.index(owner_id: params[:owner_id])
+      render json: WarpEngine::SoftwareService.new.index(owner_id: params[:owner_id], subject: current_subject)
     end
   end
 end

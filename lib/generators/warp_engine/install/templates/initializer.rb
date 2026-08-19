@@ -43,6 +43,26 @@ Rails.application.config.to_prepare do
     # softwares got an owner (backfill)!
     # c.enforce_software_ownership = true
 
+    # Who may see a title and who may download it. :open (the default) lists every
+    # software and serves every artifact — the behaviour of a catalog nobody sells
+    # from. A host that does sell supplies a policy answering three methods; see
+    # WarpEngine::AccessPolicy. What it returns is what clients are told, so a paid
+    # title can announce itself as paid instead of failing at the download.
+    # c.access_policy = MyStore::AccessPolicy.new
+
+    # Client sign-in. nil (default) means there is none: /api/auth/* is inactive and
+    # GET /api/service reports auth: null, so a client offers no sign-in at all. Set
+    # the class a *client* token belongs to — usually your user model — to turn on
+    # the device authorization grant.
+    # c.access_token_owner_class = "User"
+    #
+    # Your own page where a signed-in person types the code their client displayed.
+    # It calls WarpEngine::DeviceGrantService#approve. A path is made absolute
+    # against the request, so you need not know your own hostname (default "/devices").
+    # c.identity_verification_url = "/devices"
+    # c.device_code_ttl      = 600  # seconds a pending code lives
+    # c.device_code_interval = 5    # seconds a client is told to wait between polls
+
     # If host models also reference catalog images, register them so the
     # admin Images page's orphan detection takes them into account:
     # c.image_owners = [

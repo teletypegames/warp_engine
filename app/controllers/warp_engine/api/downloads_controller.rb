@@ -10,6 +10,7 @@ module WarpEngine
     returns code: 200, desc: "File binary data"
     returns code: 302, desc: "Redirect to the storage location (non-local storage adapter)"
     error code: 400, desc: "Path is blank"
+    error code: 403, desc: "The access policy refused this caller"
     error code: 404, desc: "File not found"
     def show
       path = params[:path]
@@ -19,7 +20,9 @@ module WarpEngine
         path: path,
         ip: request.remote_ip,
         user_agent: request.user_agent,
-        referer: request.referer
+        referer: request.referer,
+        subject: current_subject,
+        request: request
       )
 
       if location.nil?

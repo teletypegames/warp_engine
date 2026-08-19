@@ -5,7 +5,7 @@ software catalog: catalog models, a CI-pipeline-callable release updater, a
 public read-only JSON API, and optional ActiveAdmin resources that plug into
 your app's existing admin.
 
-Repository: `https://git.teletypegames.org/tools/warp_engine`
+Repository: `https://git.teletypegames.org/engines/warp_engine`
 
 ## Features
 
@@ -18,6 +18,12 @@ Repository: `https://git.teletypegames.org/tools/warp_engine`
   box: TIC-80, Ebitengine, LÖVE, C64, Godot, Bevy, Phaser. Authenticated by
   a shared secret or by per-owner database tokens with expiry and scopes
   (`ApplicationToken`, managed in the admin).
+- **Pluggable access**: a host supplies a policy and the catalog gains prices,
+  entitlements and gated downloads — and *says so* in its API, so clients can
+  show a paid title as paid instead of failing at the download. Default `:open`
+  is the catalog as it always was.
+- **Client sign-in**: an RFC 8628 device authorization grant for clients with no
+  browser of their own, over the host's own user model. Off unless configured.
 - **Pluggable storage**: artifacts are served through a storage adapter
   (`:local` by default); a host can serve them from an object store without
   patching the engine.
@@ -152,7 +158,7 @@ From the git repository:
 
 ```ruby
 # Gemfile
-gem "warp_engine", git: "https://git.teletypegames.org/tools/warp_engine.git"
+gem "warp_engine", git: "https://git.teletypegames.org/engines/warp_engine.git"
 ```
 
 Or from the Forgejo rubygems registry (tagged releases):
@@ -205,6 +211,15 @@ Rails.application.config.to_prepare do
     # owned by its own owner (unrestricted tokens are exempt). Enable only
     # after backfilling owners — ownerless softwares are claimable by anyone.
     # c.enforce_software_ownership = true
+
+    # Who may see a title and who may download it (see "Access" below).
+    # :open (default) lists everything and serves everything.
+    # c.access_policy = MyStore::AccessPolicy.new
+
+    # Client sign-in (see "Client sign-in" below). nil (default) means there is
+    # none: /api/auth/* answers 404 and GET /api/service reports auth: null.
+    # c.access_token_owner_class  = "User"
+    # c.identity_verification_url = "/devices"
 
     # If your app's own models reference catalog images, register them so the
     # admin Images page counts them as "in use":
@@ -369,6 +384,91 @@ signing adapter turns them into redirects without any further change.
 the admin file manager — still writes to the local disk. A remote adapter
 needs its own upload path today.
 
+## Access
+
+Who may see a title, and who may download it. The default answers "everyone" to
+both — every software listed, every artifact served, no prices — which is the
+catalog the engine always had:
+
+```ruby
+c.access_policy = :open   # default
+```
+
+A host that sells supplies a policy instead. The contract is three methods:
+
+```ruby
+class MyStore::AccessPolicy
+  # Which titles GET /api/software lists at all.
+  def visible_software_scope(subject: nil) = ...   # an ActiveRecord scope
+
+  # What a client is told about one title.
+  def access_for(software:, subject: nil)
+    WarpEngine::Access.new(
+      gated: true, entitled: false,           # needs an entitlement; this caller has none
+      price_cents: 1490, currency: "EUR",
+      purchase_url: "https://shop.example/games/slug",
+      web_url: "https://shop.example/play/slug"   # nil keeps the engine's own /file/ path
+    )
+  end
+
+  # nil refuses the download; a Grant allows it.
+  def authorize_download(asset:, subject:, request:) = WarpEngine::Access::Grant.new
+end
+
+c.access_policy = MyStore::AccessPolicy.new
+```
+
+`subject` is whoever the request authenticated as, or `nil` for an anonymous
+caller — deliberately untyped, because the engine has no user model and whose
+object this is belongs to the host.
+
+Every catalog entry carries an `access` block, **including under the open
+policy**, so a client never has to tell "this catalog says nothing" from "this
+title is not gated":
+
+```json
+"access": { "gated": false, "entitled": true, "price": null,
+            "purchaseUrl": null, "webUrl": null }
+```
+
+The vocabulary is generic on purpose. A client reads more than one store, and a
+word from any one host's domain would make it specific to that host.
+
+**A policy that raises is treated as a refusal**: an empty catalog and a denied
+download, logged. An artifact served because the gatekeeper crashed is the one
+failure mode this engine must not have.
+
+## Client sign-in
+
+A desktop client has no cookie jar and no browser session, so it cannot host a
+login form without asking somebody to type a password into a window that is not
+a browser. The engine implements the device authorization grant (RFC 8628)
+instead — but only where a host has said whose tokens these are:
+
+```ruby
+c.access_token_owner_class  = "User"      # nil (default): no sign-in at all
+c.identity_verification_url = "/devices"  # your page where a person types the code
+c.device_code_ttl           = 600
+c.device_code_interval      = 5
+```
+
+With `access_token_owner_class` unset, `/api/auth/*` answers 404 and
+`GET /api/service` reports `auth: null`, so a client offers no sign-in.
+
+The flow:
+
+1. the client `POST`s `/api/auth/device` and shows the `userCode` it gets back;
+2. the person opens `verificationUrl` in a browser and types that code;
+3. **your page** calls `WarpEngine::DeviceGrantService#approve(user_code:, subject:)`
+   with the signed-in user — approving needs a session and HTML, neither of
+   which is the engine's business;
+4. the client's next `POST /api/auth/device/token` carries the token away. It is
+   handed over exactly once and never stored in the clear afterwards.
+
+The token is a `WarpEngine::ApplicationToken` with the `catalog` scope, sent as
+`Authorization: Bearer …`. `DELETE /api/auth/token` revokes it (signing out),
+and the admin lists both kinds of token and the sign-ins behind them.
+
 ## Publish events
 
 Publishing a release emits an `ActiveSupport::Notifications` event, so a host
@@ -387,17 +487,29 @@ end
 Hosts that must support older engine versions can feature-detect with
 `WarpEngine.respond_to?(:instruments_publish?) && WarpEngine.instruments_publish?`.
 
+Downloads emit one too — `warp_engine.download`, with `path`, `asset`,
+`release`, `software`, `subject` and the `Download` record — so a host can keep
+its own account of who fetched what without reaching into `DownloadService`.
+
 ## Public API
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/software` | Full catalog with releases, assets, links, download counts; `?owner_id=` filters to one publisher |
+| `GET /api/service` | What this deployment is: version, whether the catalog gates, and how to sign in (or that you cannot) |
+| `GET /api/software` | Full catalog with releases, assets, links, download counts and an `access` block; `?owner_id=` filters to one publisher |
 | `GET /api/software/highlighted` | The currently highlighted title |
 | `GET /api/builds` | Expected asset kinds per platform (build matrix) |
 | `GET /api/softwares/:name/builds` | Actual vs. missing build assets per release |
 | `GET /api/image/:id` | Serves catalog images |
 | `GET /api/download?path=` | Serves an artifact and logs a download record |
 | `GET /file/*path` | Serves static build output (web-playable games, docs) |
+| `POST /api/auth/device` | Starts a device sign-in; returns the code pair (404 without a client identity) |
+| `POST /api/auth/device/token` | Polls a device sign-in for its token |
+| `DELETE /api/auth/token` | Revokes the bearer token on the request (signing out) |
+
+Every read endpoint accepts an optional `Authorization: Bearer …`; none requires
+one. What it changes is what the access policy is asked about — an anonymous
+caller is a normal, supported caller.
 
 ### `WarpEngine-Version`
 
@@ -406,7 +518,7 @@ client can branch on the engine's age without a round trip to ask:
 
 ```
 $ curl -sI https://teletypegames.org/api/software | grep -i warpengine
-WarpEngine-Version: 0.4.0
+WarpEngine-Version: 0.5.0
 ```
 
 Set before the action runs rather than after, which means an error response carries it

@@ -6,6 +6,9 @@ module WarpEngine
 
     UPDATE_SCOPE = "update".freeze
     UPLOAD_SCOPE = "upload".freeze
+    # A token held by a *client* rather than a publisher: it reads the catalog and
+    # downloads artifacts, and it never publishes anything.
+    CATALOG_SCOPE = "catalog".freeze
 
     # The generated token is only available in memory at creation time — the DB
     # stores nothing but the SHA256 digest and the non-secret prefix.
@@ -78,6 +81,15 @@ module WarpEngine
       self.owner_type = WarpEngine.config.application_token_owner_class if owner_type.blank?
     end
 
+    # Publishing tokens and client tokens share this table but not their owners: one
+    # belongs to whoever ships software, the other to whoever buys it. Both classes are
+    # the host's to name, and either is acceptable here — which of the two a given token
+    # may do is decided by its scopes, not by its owner.
+    def self.permitted_owner_types
+      [ WarpEngine.config.application_token_owner_class,
+        WarpEngine.config.access_token_owner_class ].compact_blank
+    end
+
     def generate_token
       return if token_digest.present?
 
@@ -87,11 +99,11 @@ module WarpEngine
     end
 
     def owner_type_matches_configuration
-      expected = WarpEngine.config.application_token_owner_class
-      if expected.blank?
+      permitted = self.class.permitted_owner_types
+      if permitted.empty?
         errors.add(:base, "application_token_owner_class is not configured")
-      elsif owner_type != expected
-        errors.add(:owner_type, "must be #{expected}")
+      elsif !permitted.include?(owner_type)
+        errors.add(:owner_type, "must be #{permitted.join(' or ')}")
       end
     end
 

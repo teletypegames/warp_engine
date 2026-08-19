@@ -9,9 +9,12 @@ module WarpEngine
     param :path, String, required: true, desc: "File path"
     returns code: 200, desc: "File binary data"
     returns code: 301, desc: "Redirect to file URL"
+    error code: 403, desc: "The access policy refused this caller"
     error code: 404, desc: "File not found"
     def show
-      result = WarpEngine::FileService.new.show(WarpEngine::FileShowInputDto.new(path: params[:path]))
+      result = WarpEngine::FileService.new.show(
+        WarpEngine::FileShowInputDto.new(path: params[:path]), subject: current_subject
+      )
       case result.type
       when :redirect  then redirect_to result.url, status: :moved_permanently
       when :file      then send_file result.path, disposition: "inline", type: resolve_mime(result.path)

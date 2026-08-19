@@ -11,6 +11,10 @@ module WarpEngine
     # client needs the version most when something came back wrong.
     before_action :set_version_header
 
+    # Every read-only endpoint may be called with a bearer token; none of them requires
+    # one. See WarpEngine::SubjectAuthentication.
+    include WarpEngine::SubjectAuthentication
+
     rescue_from StandardError do |e|
       Rails.logger.error("[#{self.class.name}] #{e.class}: #{e.message}")
       render json: { error: "Internal server error" }, status: :internal_server_error
@@ -26,6 +30,10 @@ module WarpEngine
 
     rescue_from ArgumentError do |e|
       render json: { error: e.message }, status: :bad_request
+    end
+
+    rescue_from WarpEngine::DownloadService::Denied do
+      render json: { error: "Forbidden" }, status: :forbidden
     end
 
     private

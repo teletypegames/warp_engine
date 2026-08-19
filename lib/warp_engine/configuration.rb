@@ -26,6 +26,22 @@ module WarpEngine
     #   PEM, or a URL to fetch it from (e.g. https://ci.../api/signature/public-key).
     #   With neither set, POST /build/config rejects every request.
     # ci_update_server: server URL written into the upload/publish steps; nil → the request's base_url.
+    # access_policy: who may see a title and who may download it.
+    #   :open (default) — every software listed, every artifact served, no prices:
+    #                     byte for byte the previous behaviour;
+    #   any object      — must answer visible_software_scope/access_for/
+    #                     authorize_download, see WarpEngine::AccessPolicy.
+    # access_token_owner_class: class name of the subject a *client* token belongs to
+    #   (e.g. "Accounts::User"). nil (default) means no client sign-in: /api/auth/* is
+    #   inactive and GET /api/service reports auth: null. Deliberately separate from
+    #   application_token_owner_class, which owns *publishing* tokens — a publisher and
+    #   a customer are rarely the same kind of thing.
+    # identity_verification_url: the host's own page where a person approves a device
+    #   code. Path or absolute URL; nil falls back to "/devices". The page is the host's
+    #   because approving needs a session, a login and HTML — none of which is the
+    #   engine's business.
+    # device_code_ttl / device_code_interval: how long a pending device code lives, and
+    #   how often a client is told to poll for it.
     # woodpecker_url / woodpecker_api_token / woodpecker_repo_owner:
     #   Woodpecker CI management (repo sync, secret provisioning, pipeline control).
     #   All nil → the management features are inactive.
@@ -44,7 +60,12 @@ module WarpEngine
                   :woodpecker_api_token,
                   :woodpecker_repo_owner,
                   :image_owners,
-                  :storage_adapter
+                  :storage_adapter,
+                  :access_policy,
+                  :access_token_owner_class,
+                  :identity_verification_url,
+                  :device_code_ttl,
+                  :device_code_interval
 
     def initialize
       @file_container_path           = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
@@ -63,6 +84,11 @@ module WarpEngine
       @woodpecker_repo_owner         = ENV["WOODPECKER_REPO_OWNER"]
       @image_owners                  = []
       @storage_adapter               = :local
+      @access_policy                 = :open
+      @access_token_owner_class      = nil
+      @identity_verification_url     = nil
+      @device_code_ttl               = 600
+      @device_code_interval          = 5
     end
   end
 end
