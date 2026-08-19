@@ -196,4 +196,50 @@ RSpec.describe "Device sign-in", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
   end
+
+  # A browser carries a session, not a bearer token, and the engine has no idea what a
+  # session is. A host that wants its signed-in visitors recognised says how.
+  describe "the host's own subject resolver" do
+    let(:seen) { [] }
+    let(:policy) do
+      sink = seen
+      Class.new do
+        def initialize(sink) = @sink = sink
+        def visible_software_scope(subject: nil) = WarpEngine::Software.all
+        def access_for(software:, subject: nil)
+          @sink << subject
+          WarpEngine::Access::OPEN
+        end
+        def authorize_download(asset: nil, subject: nil, request: nil) = WarpEngine::Access::Grant::OPEN
+      end.new(sink)
+    end
+
+    before do
+      create(:software)
+      allow(WarpEngine.config).to receive(:access_policy).and_return(policy)
+    end
+
+    it "is asked when there is no bearer token" do
+      allow(WarpEngine.config).to receive(:subject_resolver).and_return(->(_request) { owner })
+
+      get "/api/software"
+
+      expect(seen).to eq([ owner ])
+    end
+
+    it "leaves the request anonymous when the host configured none" do
+      get "/api/software"
+
+      expect(seen).to eq([ nil ])
+    end
+
+    it "answers anonymously rather than erroring when the resolver breaks" do
+      allow(WarpEngine.config).to receive(:subject_resolver).and_return(->(_request) { raise "boom" })
+
+      get "/api/software"
+
+      expect(response).to have_http_status(:ok)
+      expect(seen).to eq([ nil ])
+    end
+  end
 end

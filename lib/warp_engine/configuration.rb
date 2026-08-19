@@ -40,6 +40,12 @@ module WarpEngine
     #   code. Path or absolute URL; nil falls back to "/devices". The page is the host's
     #   because approving needs a session, a login and HTML — none of which is the
     #   engine's business.
+    # subject_resolver: how to recognise a caller that is not carrying a bearer token —
+    #   a browser with a session, typically. A callable taking the Rack request and
+    #   returning the host's own subject object, or nil:
+    #     c.subject_resolver = ->(request) { request.env["warden"]&.user }
+    #   nil (default) makes every non-bearer request anonymous, which is what the
+    #   read-only API always did.
     # device_code_ttl / device_code_interval: how long a pending device code lives, and
     #   how often a client is told to poll for it.
     # woodpecker_url / woodpecker_api_token / woodpecker_repo_owner:
@@ -63,6 +69,7 @@ module WarpEngine
                   :storage_adapter,
                   :access_policy,
                   :access_token_owner_class,
+                  :subject_resolver,
                   :identity_verification_url,
                   :device_code_ttl,
                   :device_code_interval
@@ -86,6 +93,7 @@ module WarpEngine
       @storage_adapter               = :local
       @access_policy                 = :open
       @access_token_owner_class      = nil
+      @subject_resolver              = nil
       @identity_verification_url     = nil
       @device_code_ttl               = 600
       @device_code_interval          = 5

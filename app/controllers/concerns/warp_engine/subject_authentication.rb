@@ -20,10 +20,20 @@ module WarpEngine
       @current_access_token = resolve_access_token
     end
 
-    # Whoever that token belongs to — the host's own object. nil when the request is
-    # anonymous, when the token is unknown, or when no subject class is configured.
+    # Whoever the request is on behalf of — the host's own object, or nil.
+    #
+    # Two ways to be somebody, tried in that order. A bearer token is what a client
+    # carries. A *browser* carries a session instead, and the engine has no idea what a
+    # session is here — so a host that wants its signed-in visitors recognised on these
+    # endpoints supplies a resolver:
+    #
+    #   c.subject_resolver = ->(request) { request.env["warden"]&.user }
+    #
+    # Without one, a browser is simply anonymous, which is what it always was.
     def current_subject
-      current_access_token&.owner
+      return @current_subject if defined?(@current_subject)
+
+      @current_subject = current_access_token&.owner || resolve_host_subject
     end
 
     def resolve_access_token
@@ -39,6 +49,19 @@ module WarpEngine
 
       record.touch_last_used!
       record
+    end
+
+    # A resolver that raises must not take the request with it: it runs on every read
+    # endpoint, and a broken one would turn the whole API into 500s rather than into
+    # anonymous requests, which is the honest fallback.
+    def resolve_host_subject
+      resolver = WarpEngine.config.subject_resolver
+      return nil if resolver.nil?
+
+      resolver.call(request)
+    rescue StandardError => e
+      Rails.logger.error("[WarpEngine::SubjectAuthentication] subject_resolver #{e.class}: #{e.message}")
+      nil
     end
 
     def bearer_token

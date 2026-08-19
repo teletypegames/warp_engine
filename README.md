@@ -220,6 +220,9 @@ Rails.application.config.to_prepare do
     # none: /api/auth/* answers 404 and GET /api/service reports auth: null.
     # c.access_token_owner_class  = "User"
     # c.identity_verification_url = "/devices"
+    #
+    # How to recognise a caller with a session instead of a bearer token.
+    # c.subject_resolver = ->(request) { request.env["warden"]&.user }
 
     # If your app's own models reference catalog images, register them so the
     # admin Images page counts them as "in use":
@@ -464,6 +467,21 @@ The flow:
    which is the engine's business;
 4. the client's next `POST /api/auth/device/token` carries the token away. It is
    handed over exactly once and never stored in the clear afterwards.
+
+### Recognising a browser
+
+A bearer token is what a *client* carries; a browser carries a session, and the
+engine has no idea what a session is. A host that wants its signed-in visitors
+recognised on these endpoints too — so that clicking a download link on the site
+works the same way the client's download does — says how:
+
+```ruby
+c.subject_resolver = ->(request) { request.env["warden"]&.user }
+```
+
+Without one, a request with no bearer token is anonymous, which is what the
+read-only API always did. A resolver that raises is logged and treated as
+anonymous rather than taking the request down with it.
 
 The token is a `WarpEngine::ApplicationToken` with the `catalog` scope, sent as
 `Authorization: Bearer …`. `DELETE /api/auth/token` revokes it (signing out),

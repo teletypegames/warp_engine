@@ -60,6 +60,11 @@ Rails.application.config.to_prepare do
     # It calls WarpEngine::DeviceGrantService#approve. A path is made absolute
     # against the request, so you need not know your own hostname (default "/devices").
     # c.identity_verification_url = "/devices"
+    # A browser has a session rather than a bearer token, and the engine cannot
+    # read one. Say how, and your signed-in visitors are recognised on the
+    # read-only endpoints too:
+    # c.subject_resolver = ->(request) { request.env["warden"]&.user }
+
     # c.device_code_ttl      = 600  # seconds a pending code lives
     # c.device_code_interval = 5    # seconds a client is told to wait between polls
 
