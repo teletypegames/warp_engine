@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_19_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_19_093412) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
