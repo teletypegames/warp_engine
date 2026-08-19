@@ -10,6 +10,15 @@ module WarpEngine
 
     # A jövőbeli katalógus-migrációk az engine db/migrate-jéből futnak a host
     # rails db:migrate-jével, másolás nélkül.
+    #
+    # FONTOS: emiatt az engine és a host migrációi EGY névtérben vannak, és két
+    # azonos verziószám a host `db:migrate`-jét indulás előtt megállítja
+    # (DuplicateMigrationVersionError) — nem a miénket, hanem az övét, az egész
+    # alkalmazásban. Az engine migrációi ezért **valódi, másodperc-pontosságú
+    # időbélyeget** kapnak (20260819093412), soha nem kerek kézzel írt számot
+    # (20260819000001): pont az utóbbiakra ír rá egy host, ami ugyanaznap ugyanezzel
+    # a szokással ír migrációt. Így ütközött a device_grants a katalógus-API
+    # `carry_the_store_config_in_the_registry`-jével.
     initializer "warp_engine.append_migrations" do |app|
       unless app.root.to_s.start_with?(root.to_s)
         config.paths["db/migrate"].expanded.each do |path|

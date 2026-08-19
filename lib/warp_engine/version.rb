@@ -1,5 +1,5 @@
 module WarpEngine
-  VERSION = "0.5.0"
+  VERSION = "0.5.1"
 
   # The header every API response carries. Named here rather than written out at the one
   # place that sets it: clients read it, the README documents it, and a string in three
