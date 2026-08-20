@@ -2,9 +2,6 @@ module WarpEngine
   class SoftwareService
     include SoftwareResponseBuilder
 
-    # `subject` is whoever the request authenticated as, or nil. It decides two things:
-    # which titles are listed at all (the policy's scope) and what each one's `access`
-    # block says about entitlement.
     def index(owner_id: nil, subject: nil)
       softwares = visible_scope(subject)
                   .includes(releases: [ :release_assets ])

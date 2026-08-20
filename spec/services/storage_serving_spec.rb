@@ -1,13 +1,9 @@
 require "rails_helper"
 require "tmpdir"
 
-# The serving side (FileService, DownloadService) goes through the storage
-# adapter. With :local nothing changes; with a custom adapter the same call
-# can hand back a redirect instead of a file.
 RSpec.describe "Serving through the storage adapter" do
   let(:tmpdir) { Dir.mktmpdir }
 
-  # Minimal adapter answering the documented contract.
   let(:signing_adapter) do
     Class.new do
       def file?(_relative) = true

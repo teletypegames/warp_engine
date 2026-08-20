@@ -1,4 +1,3 @@
-# Test-only: plays the ApplicationToken owner role (AdminUser in the host).
 class CreateTestOwners < ActiveRecord::Migration[8.1]
   def change
     create_table :test_owners, id: { type: :bigint, unsigned: true },

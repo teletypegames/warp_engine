@@ -9,8 +9,6 @@ module WarpEngine
         short "Build artifact upload"
       end
 
-      # Release file naming convention: <name>-<version>.<ext> or
-      # <name>-<version>-<target>.zip — the updater looks for these too.
       NAME_FORMAT = /\A[A-Za-z0-9._-]+\z/
 
       api :POST, "/build/upload", "Upload a build artifact into the artifact directory"

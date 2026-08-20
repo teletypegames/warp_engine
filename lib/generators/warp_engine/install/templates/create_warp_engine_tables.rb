@@ -11,8 +11,7 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.string :site
       t.string :status, limit: 20, default: "development"
       t.boolean :highlighted, default: false
-      # Owner of the publishing token (enforce_software_ownership) — no FK,
-      # the owner class comes from the host.
+
       t.string :owner_type, limit: 128
       t.bigint :owner_id
       t.datetime :deleted_at, precision: 3
@@ -87,7 +86,7 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.string :token_digest, limit: 64, null: false
       t.string :token_prefix, limit: 12, null: false
       t.json :scopes
-      # Internal token: exempt from enforce_software_ownership.
+
       t.boolean :unrestricted, default: false, null: false
       t.datetime :expires_at, precision: 3
       t.datetime :last_used_at, precision: 3
@@ -97,12 +96,6 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.index [ :owner_type, :owner_id ]
       t.index :deleted_at
     end
-
-    # NOTE: device_grants is NOT created here. It ships as its own migration in the
-    # engine's db/migrate, which the host runs from the appended path — so creating it
-    # here as well would be a second CREATE TABLE for the same name. The same is true
-    # of application_tokens below, which predates this note and is why a host
-    # installing today has to delete that block from its copy by hand.
 
     create_table :downloads do |t|
       t.string :file_path, null: false

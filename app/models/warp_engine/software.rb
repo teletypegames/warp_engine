@@ -2,8 +2,6 @@ module WarpEngine
   class Software < ApplicationRecord
     self.table_name = "softwares"
 
-    # Owner of the publishing token (e.g. AdminUser) — for 3rd-party isolation,
-    # see enforce_software_ownership. nil = internal / pre-backfill software.
     belongs_to :owner, polymorphic: true, optional: true
 
     has_many :software_images, foreign_key: :software_id, dependent: :destroy

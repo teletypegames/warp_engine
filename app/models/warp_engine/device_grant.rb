@@ -1,19 +1,8 @@
 module WarpEngine
-  # One pending sign-in from a client that has no browser of its own.
-  #
-  # The shape is RFC 8628's device authorization grant, and the reason for it is that a
-  # desktop client cannot host a login form without asking a person to type a password
-  # into a window that is not a browser. So the client asks for a pair of codes, sends
-  # the person to the host's own page with the short one, and polls with the long one
-  # until somebody approves it.
-  #
-  # Short-lived by design: this row exists for the minute or two between "the client
-  # asked" and "the person answered". What survives it is the ApplicationToken.
+
   class DeviceGrant < ApplicationRecord
     self.table_name = "device_grants"
 
-    # No I, O, 0 or 1: this alphabet is read off one screen and typed into another, and
-    # those four are where that goes wrong.
     USER_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".freeze
     USER_CODE_LENGTH   = 8
 
@@ -33,7 +22,6 @@ module WarpEngine
       pending.find_by(user_code: normalize_user_code(code))
     end
 
-    # Typed by a person, so it arrives with whatever case and separators they used.
     def self.normalize_user_code(code)
       code.to_s.upcase.gsub(/[^A-Z0-9]/, "")
     end
@@ -42,8 +30,6 @@ module WarpEngine
     def approved? = approved_at.present?
     def denied? = denied_at.present?
 
-    # What the polling client is told. Order matters: a denied grant is denied even
-    # after it expires, because "somebody said no" is the more useful answer.
     def state
       return :denied if denied?
       return :approved if approved?
@@ -52,13 +38,10 @@ module WarpEngine
       :pending
     end
 
-    # Grouped for reading aloud and for typing: WARP-K7M2.
     def formatted_user_code
       user_code.to_s.scan(/.{1,4}/).join("-")
     end
 
-    # Housekeeping for a host that wants it: an expired grant has nothing left to give,
-    # and its issued_token would be a live secret nobody is waiting for.
     def self.sweep_expired!
       where(expires_at: ...Time.current).where.not(issued_token: nil).update_all(issued_token: nil)
     end
@@ -79,8 +62,7 @@ module WarpEngine
     end
 
     def self.generate_user_code
-      # Retried rather than trusted: the alphabet is small enough that a collision is
-      # a real, if rare, event, and a unique index would turn it into a 500.
+
       10.times do
         candidate = Array.new(USER_CODE_LENGTH) { USER_CODE_ALPHABET.chars.sample }.join
         return candidate unless exists?(user_code: candidate)

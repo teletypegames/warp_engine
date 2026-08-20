@@ -1,7 +1,4 @@
 ActiveAdmin.register WarpEngine::DeviceGrant, as: "Device Sign-in" do
-  # Read-only on purpose. A grant is created by a client and answered by a person on the
-  # host's own page; an admin creating one by hand would be issuing somebody else a
-  # credential, which is not a thing this page should make easy.
   actions :index, :show
 
   menu parent: "🌀 WarpEngine", priority: 10, label: "📱 Device Sign-ins",
@@ -45,8 +42,7 @@ ActiveAdmin.register WarpEngine::DeviceGrant, as: "Device Sign-in" do
         subject = g.subject
         subject.try(:email) || subject.try(:name) || "#{g.subject_type} ##{g.subject_id}"
       end
-      # The device code itself is never shown: it is the client's live credential for as
-      # long as the grant is pending, and this page is not where it should leak from.
+
       row("Token") do |g|
         token = g.application_token
         next "—" if token.nil?

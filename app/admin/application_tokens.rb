@@ -10,9 +10,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   scope :all, default: true
   scope("Active")  { |scope| scope.where("expires_at IS NULL OR expires_at > ?", Time.current) }
   scope("Expired") { |scope| scope.where("expires_at <= ?", Time.current) }
-  # Two kinds of token share this table: one publishes software, the other reads the
-  # catalog from somebody's desktop client. They are told apart by scope, and an admin
-  # looking for one is rarely looking for the other.
+
   CATALOG_SCOPE_SQL = %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"catalog"')).freeze
   scope("Publishing") { |scope| scope.where("NOT #{CATALOG_SCOPE_SQL}") }
   scope("Clients")    { |scope| scope.where(CATALOG_SCOPE_SQL) }
@@ -98,9 +96,6 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   end
 
   controller do
-    # The plain token only exists right after creation; it travels via the
-    # session to its one-time display (flash is unsuitable: the AA layout
-    # renders every flash key as a message bar).
     def create
       create! do |success, _failure|
         success.html do

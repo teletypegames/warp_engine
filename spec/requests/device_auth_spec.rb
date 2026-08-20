@@ -1,13 +1,8 @@
 require "rails_helper"
 
-# Signing a client in, end to end: the client asks for a code, a person approves it on
-# the host's page, the client's next poll carries the token away, and the token then
-# works as a bearer credential on the read-only API.
 RSpec.describe "Device sign-in", type: :request do
   let(:owner) { create(:test_owner) }
 
-  # The identity seam is off by default. Configuring the subject class is what turns
-  # the whole flow on — including whether it exists at all.
   def configure_identity!(verification: "/devices")
     allow(WarpEngine.config).to receive(:access_token_owner_class).and_return("TestOwner")
     allow(WarpEngine.config).to receive(:identity_verification_url).and_return(verification)
@@ -37,7 +32,7 @@ RSpec.describe "Device sign-in", type: :request do
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
       expect(json["deviceCode"]).to be_present
-      # Grouped and free of I/O/0/1, because it is typed by hand into a browser.
+
       expect(json["userCode"]).to match(/\A[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}\z/)
       expect(json["verificationUrl"]).to eq("http://www.example.com/devices")
       expect(json["interval"]).to eq(5)
@@ -64,8 +59,6 @@ RSpec.describe "Device sign-in", type: :request do
       expect(body["token"]).to be_present
     end
 
-    # The plain token is never stored, so it cannot be handed out twice. A client that
-    # loses it starts again — which is cheaper than a database full of live secrets.
     it "does not repeat the token on a second poll" do
       post "/api/auth/device", params: { client_name: "laptop" }
       json = JSON.parse(response.body)
@@ -145,8 +138,6 @@ RSpec.describe "Device sign-in", type: :request do
       expect(record.scopes).to eq([ "catalog" ])
     end
 
-    # A publishing token must not become a client token by accident, and vice versa:
-    # the scope is what separates them, and the catalog endpoint requires its own.
     it "is not accepted as a publishing credential" do
       token
 
@@ -197,8 +188,6 @@ RSpec.describe "Device sign-in", type: :request do
     end
   end
 
-  # A browser carries a session, not a bearer token, and the engine has no idea what a
-  # session is. A host that wants its signed-in visitors recognised says how.
   describe "the host's own subject resolver" do
     let(:seen) { [] }
     let(:policy) do

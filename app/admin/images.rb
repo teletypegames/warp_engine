@@ -3,8 +3,6 @@ ActiveAdmin.register WarpEngine::Image, as: "Image" do
 
   menu parent: "🌀 WarpEngine", priority: 5, label: "🖼️ Images"
 
-  # SoftwareImage a natív használó; a hoston regisztrált image_owners
-  # (WarpEngine.config) további használókat adhat hozzá (pl. TTG Member).
   used_ids = -> {
     WarpEngine::SoftwareImage.unscope(:order).distinct.pluck(:image_id) +
       WarpEngine.config.image_owners.flat_map { |o| o[:image_ids].call }

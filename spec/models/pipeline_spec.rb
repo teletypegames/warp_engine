@@ -60,9 +60,6 @@ RSpec.describe WarpEngine::Pipeline do
     it { is_expected.to belong_to(:software).optional }
   end
 
-  # A software has one pipeline. Two pipelines pointing at the same one is not an error
-  # the database catches, it is a link that silently does nothing — so the newest
-  # assignment takes it, and says what it took it from.
   describe "assigning a software another pipeline already has" do
     it "moves the link and leaves the other pipeline without one" do
       software = create(:software)

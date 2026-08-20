@@ -1,11 +1,5 @@
 module WarpEngine
-  # What this deployment is and what it can do, in one unauthenticated request.
-  #
-  # This is how a client stops guessing. Before it existed, everything a client knew
-  # about a store was compiled into the client — which endpoints to call, whether
-  # signing in was a thing here, where to send somebody who wanted to buy something.
-  # Every one of those is a property of the *server*, and a client that carries them
-  # can only ever serve the one store it was built for.
+
   class Api::ServiceController < ApiController
     resource_description do
       short "Service descriptor"

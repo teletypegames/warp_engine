@@ -13,7 +13,6 @@ ActiveAdmin.register_page "Files" do
       entries = []
     end
 
-    # Picker mode: hide admin header/menu/footer
     if picker_mode
       text_node "<style>#header,#tabs,.footer,#title_bar,#utility_nav{display:none!important}#active_admin_content{margin:0;padding:0}#wrapper{margin:0}body{min-height:auto}</style>".html_safe
     end
@@ -26,7 +25,6 @@ ActiveAdmin.register_page "Files" do
         end
       end
 
-      # Breadcrumbs
       div class: "fm-breadcrumbs" do
         parts = current_dir.split("/").reject(&:blank?)
         picker_params = picker_mode ? { picker: 1, field: picker_field } : {}
@@ -39,7 +37,6 @@ ActiveAdmin.register_page "Files" do
         end
       end
 
-      # Action bar (also drop zone on standalone page)
       div class: "fm-actions fm-dropzone", id: "fm-page-dropzone" do
         form action: admin_files_upload_path, method: "post", enctype: "multipart/form-data", class: "fm-inline-form" do |_f|
           input type: "hidden", name: "authenticity_token", value: form_authenticity_token
@@ -56,9 +53,7 @@ ActiveAdmin.register_page "Files" do
         end
       end
 
-      # File listing
       table class: "fm-table" do
-        # Pre-fetch download counts for files in current directory
         file_entries = entries.select { |e| e[:type] != :directory }
         dl_counts = if file_entries.any?
           WarpEngine::Download.where(file_path: file_entries.map { |e| e[:path] })
@@ -68,7 +63,6 @@ ActiveAdmin.register_page "Files" do
           {}
         end
 
-        # File icon helper
         file_icon = ->(name) do
           ext = File.extname(name).downcase
           case ext
@@ -100,7 +94,6 @@ ActiveAdmin.register_page "Files" do
         end
 
         tbody do
-          # Parent directory link
           if current_dir.present?
             parent = File.dirname(current_dir)
             parent = "" if parent == "."
@@ -145,32 +138,26 @@ ActiveAdmin.register_page "Files" do
               td class: "fm-entry-actions" do
                 entry_id = entry[:path].parameterize
 
-                # Download (files only)
                 if entry[:type] != :directory
                   a "⬇️", href: "/file/#{entry[:path]}", class: "fm-icon-btn", title: "Download", download: entry[:name]
                 end
 
-                # Rename
                 a "✏️", href: "#", class: "fm-icon-btn", title: "Rename",
                   onclick: "var n=prompt('New name:','#{j entry[:name]}');if(n){var f=document.getElementById('rename-#{entry_id}');f.querySelector('[name=new_name]').value=n;f.submit();}return false;"
 
-                # Delete
                 a "🗑️", href: "#", class: "fm-icon-btn fm-icon-danger", title: "Delete",
                   onclick: "if(confirm('Delete \\'#{j entry[:name]}\\'?')){document.getElementById('delete-#{entry_id}').submit();}return false;"
 
-                # Stats (files only)
                 if entry[:type] != :directory
                   a "📊", href: admin_downloads_path(q: { file_path_cont: entry[:path] }), class: "fm-icon-btn", title: "Stats"
                 end
 
-                # Picker mode: Select button
                 if picker_mode
                   abs_path = File.join(WarpEngine.config.file_container_path, entry[:path])
                   a "Select", href: "#", class: "fm-btn fm-btn-select",
                     onclick: "var inp=window.parent.document.getElementById('#{j picker_field}');if(inp){inp.value='#{j abs_path}';}var ov=window.parent.document.querySelector('.fm-modal-overlay');if(ov){ov.remove();window.parent.document.body.style.overflow='';}return false;"
                 end
 
-                # Hidden rename form
                 form action: admin_files_rename_path, method: "post", id: "rename-#{entry_id}", style: "display:none" do
                   input type: "hidden", name: "authenticity_token", value: form_authenticity_token
                   input type: "hidden", name: "path", value: entry[:path]
@@ -178,7 +165,6 @@ ActiveAdmin.register_page "Files" do
                   input type: "hidden", name: "dir", value: current_dir
                 end
 
-                # Hidden delete form
                 form action: admin_files_delete_path, method: "post", id: "delete-#{entry_id}", style: "display:none" do
                   input type: "hidden", name: "authenticity_token", value: form_authenticity_token
                   input type: "hidden", name: "_method", value: "delete"
@@ -197,7 +183,6 @@ ActiveAdmin.register_page "Files" do
     end
   end
 
-  # JSON API for AJAX file picker
   page_action :list, method: :get do
     service = WarpEngine::FileManagerService.new
     dir = params[:dir].to_s.presence || ""

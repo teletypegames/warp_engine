@@ -41,7 +41,6 @@ RSpec.describe WarpEngine::Storage do
       expect(adapter.file?("missing.zip")).to be(false)
     end
 
-    # The path traversal guard has to survive the move behind the adapter.
     it "refuses paths escaping the container" do
       outside = File.join(Dir.mktmpdir, "secret.txt")
       File.write(outside, "nope")

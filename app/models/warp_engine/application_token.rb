@@ -6,12 +6,9 @@ module WarpEngine
 
     UPDATE_SCOPE = "update".freeze
     UPLOAD_SCOPE = "upload".freeze
-    # A token held by a *client* rather than a publisher: it reads the catalog and
-    # downloads artifacts, and it never publishes anything.
+
     CATALOG_SCOPE = "catalog".freeze
 
-    # The generated token is only available in memory at creation time — the DB
-    # stores nothing but the SHA256 digest and the non-secret prefix.
     attr_reader :plain_token
 
     belongs_to :owner, polymorphic: true
@@ -33,7 +30,6 @@ module WarpEngine
       Digest::SHA256.hexdigest(token)
     end
 
-    # The live (not deleted, not expired) token carrying the required scope, else nil.
     def self.authenticate(token, required_scope: nil)
       return nil if token.blank?
 
@@ -48,7 +44,6 @@ module WarpEngine
       expires_at.present? && expires_at <= Time.current
     end
 
-    # Revocation = soft delete, the audit trail stays.
     def revoke!
       update_column(:deleted_at, Time.current)
     end
@@ -57,7 +52,6 @@ module WarpEngine
       update_column(:last_used_at, Time.current)
     end
 
-    # Admin form: comma separated scope list
     def scopes_string
       Array(scopes).join(", ")
     end
@@ -70,7 +64,6 @@ module WarpEngine
       %w[created_at deleted_at expires_at id last_used_at name owner_id owner_type token_prefix unrestricted updated_at]
     end
 
-    # Ransack cannot filter on the polymorphic owner association.
     def self.ransackable_associations(auth_object = nil)
       []
     end
@@ -81,10 +74,6 @@ module WarpEngine
       self.owner_type = WarpEngine.config.application_token_owner_class if owner_type.blank?
     end
 
-    # Publishing tokens and client tokens share this table but not their owners: one
-    # belongs to whoever ships software, the other to whoever buys it. Both classes are
-    # the host's to name, and either is acceptable here — which of the two a given token
-    # may do is decided by its scopes, not by its owner.
     def self.permitted_owner_types
       [ WarpEngine.config.application_token_owner_class,
         WarpEngine.config.access_token_owner_class ].compact_blank

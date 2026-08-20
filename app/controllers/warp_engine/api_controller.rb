@@ -5,14 +5,8 @@ module WarpEngine
       formats [ "json" ]
     end
 
-    # Every response the engine serves names the version that served it, so a client can
-    # branch on the engine's age without a round trip to ask. Set *before* the action,
-    # not after: an error handled by `rescue_from` never reaches an after_action, and a
-    # client needs the version most when something came back wrong.
     before_action :set_version_header
 
-    # Every read-only endpoint may be called with a bearer token; none of them requires
-    # one. See WarpEngine::SubjectAuthentication.
     include WarpEngine::SubjectAuthentication
 
     rescue_from StandardError do |e|
@@ -39,12 +33,7 @@ module WarpEngine
     private
 
     def set_version_header
-      # The name is spelled out here rather than taken from WarpEngine::VERSION_HEADER on
-      # purpose. A deployed process can end up with these controllers and an older
-      # `lib/` — it happened on the first deploy of this feature — and a controller that
-      # needs a constant from the newer half answers 500 to every request instead of
-      # serving the catalog. A response header is not worth that fragility. The constant
-      # is still the documented name, and a spec holds the two together.
+
       response.headers["WarpEngine-Version"] = WarpEngine::VERSION
     end
 

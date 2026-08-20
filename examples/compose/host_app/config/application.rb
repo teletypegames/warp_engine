@@ -17,7 +17,6 @@ module HostApp
     config.time_zone = "UTC"
     config.active_record.default_timezone = :utc
 
-    # Demo stack: reachable as localhost, gitea-network hostnames, etc.
     config.hosts.clear
   end
 end

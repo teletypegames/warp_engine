@@ -1,6 +1,6 @@
 module WarpEngine
   class FileManagerService
-    # Lazy: a container path csak az első használatkor kötelező, boot/teszt közben nem.
+
     def base_path
       @base_path ||= Pathname.new(WarpEngine.config.file_container_path)
     end

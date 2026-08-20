@@ -1,14 +1,9 @@
 require "rails_helper"
 require "tmpdir"
 
-# The access seam, from both sides: what the catalog says about a title, and whether an
-# artifact is handed over. The load-bearing case is the *default* one — a catalog with
-# no policy configured has to behave exactly as it did before this existed.
 RSpec.describe "The access policy" do
   let(:tmpdir) { Dir.mktmpdir }
 
-  # A policy that gates everything except what the subject is named after. Small enough
-  # to read, and it exercises every method of the contract.
   let(:gating_policy) do
     Class.new do
       def initialize(open_name) = @open_name = open_name
@@ -153,8 +148,6 @@ RSpec.describe "The access policy" do
 
     before { allow(WarpEngine.config).to receive(:access_policy).and_return(broken_policy) }
 
-    # The direction of the failure is the point. A broken gatekeeper must not become an
-    # open one: an empty catalog is recoverable, a paid title given away is not.
     it "empties the catalog rather than leaking it" do
       create(:software, status: "released")
 

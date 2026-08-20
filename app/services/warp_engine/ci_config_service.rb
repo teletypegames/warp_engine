@@ -1,13 +1,10 @@
 require "erb"
 
 module WarpEngine
-  # Renders the /build/config platform templates: the pipeline logic lives in
-  # app/services/warp_engine/platforms/<platform>/pipeline.yaml.erb, the
-  # per-platform builder images come from WarpEngine.config.ci_platforms.
+
   class CiConfigService
     PLATFORM_FORMAT = /\A[a-z0-9_-]+\z/
 
-    # The rendered pipeline YAML, or nil when the platform is not served.
     def render(platform:, name:, update_server:)
       platform = platform.to_s
       return nil unless platform.match?(PLATFORM_FORMAT)

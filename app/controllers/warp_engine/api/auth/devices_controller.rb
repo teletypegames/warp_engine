@@ -1,9 +1,5 @@
 module WarpEngine
-  # The device authorization grant, client side (RFC 8628).
-  #
-  # Both actions are unauthenticated, and have to be: the whole point of the flow is
-  # that the caller has no credential yet. What protects it is that a device code is
-  # useless until a signed-in person approves it on the host's own page.
+
   class Api::Auth::DevicesController < ApiController
     before_action :ensure_identity_configured
 
@@ -34,9 +30,6 @@ module WarpEngine
     def token
       state, plain = service.poll(device_code: params[:device_code])
 
-      # The token rides on the one poll that finds the grant newly approved; a client
-      # that loses it starts the flow again. Keeping a plain token around to hand out
-      # twice would mean storing it, which is the thing this design avoids.
       body = { state: state.to_s }
       body[:token] = plain if plain.present?
       render json: body
@@ -50,8 +43,6 @@ module WarpEngine
       @service ||= WarpEngine::DeviceGrantService.new
     end
 
-    # A deployment with no configured subject class has no sign-in at all, and says so
-    # the same way GET /api/service does — by not offering it.
     def ensure_identity_configured
       return if WarpEngine.identity_configured?
 

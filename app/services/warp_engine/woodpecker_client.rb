@@ -21,8 +21,6 @@ module WarpEngine
       @token    = token || WarpEngine.config.woodpecker_api_token
     end
 
-    # --- Repos ---
-
     def list_repos
       get("/api/repos")
     end
@@ -38,8 +36,6 @@ module WarpEngine
     def deactivate_repo(repo_id)
       delete("/api/repos/#{repo_id}")
     end
-
-    # --- Secrets ---
 
     def list_secrets(repo_id)
       get("/api/repos/#{repo_id}/secrets")
@@ -58,8 +54,6 @@ module WarpEngine
     def delete_secret(repo_id, secret_name)
       delete("/api/repos/#{repo_id}/secrets/#{secret_name}")
     end
-
-    # --- Pipelines ---
 
     def list_pipelines(repo_id, page: 1, per_page: 25)
       get("/api/repos/#{repo_id}/pipelines",
@@ -139,8 +133,7 @@ module WarpEngine
         begin
           JSON.parse(response.body)
         rescue JSON::ParserError
-          # A wrong path falls through to the Woodpecker SPA, which answers
-          # 200 with index.html — surface that as an API error, not a parse one.
+
           raise ApiError.new(
             "Expected JSON from #{uri.path} but got: #{response.body.truncate(80)}",
             status: response.code.to_i, body: response.body

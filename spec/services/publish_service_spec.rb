@@ -64,8 +64,6 @@ RSpec.describe WarpEngine::PublishService do
         allow(WarpEngine::Platforms::Tic80::Service).to receive(:new).and_return(mock_service)
       end
 
-      # The host reacts to a new build through this event instead of hanging a
-      # callback on the Release model.
       it "emits warp_engine.publish with the release in the payload" do
         payloads = []
         ActiveSupport::Notifications.subscribe(described_class::NOTIFICATION) do |*, payload|

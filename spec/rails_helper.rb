@@ -11,7 +11,6 @@ rescue ActiveRecord::PendingMigrationError => e
   abort e.to_s.strip
 end
 
-# A factory_bot_rails a dummy app gyökerében keresne; a factory-k az engine spec/ alatt élnek
 FactoryBot.definition_file_paths = [ File.expand_path("factories", __dir__) ]
 FactoryBot.reload
 

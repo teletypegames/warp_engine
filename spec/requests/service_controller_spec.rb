@@ -1,8 +1,5 @@
 require "rails_helper"
 
-# The descriptor is how a client stops being built for one particular store: everything
-# it used to have compiled in — is there a sign-in, where does it live, can titles be
-# gated — is answered here instead.
 RSpec.describe "GET /api/service", type: :request do
   after { WarpEngine::AccessPolicy.reset! }
 
@@ -53,8 +50,6 @@ RSpec.describe "GET /api/service", type: :request do
       expect(auth["device"]["interval"]).to eq(5)
     end
 
-    # A host that configured a bare path should not have to know its own hostname; one
-    # that put the approval page on another domain should keep it.
     it "makes a configured path absolute against the request" do
       get "/api/service"
 

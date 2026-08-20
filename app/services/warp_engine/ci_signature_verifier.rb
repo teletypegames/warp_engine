@@ -4,12 +4,7 @@ require "net/http"
 require "digest"
 
 module WarpEngine
-  # Verifies the signature of Woodpecker configuration-extension requests.
-  # Woodpecker 3.x signs with RFC 9421 HTTP message signatures (ed25519, via
-  # yaronf/httpsign): Signature-Input + Signature + Content-Digest headers,
-  # covered components "@request-target" and "content-digest". Older versions
-  # used draft-cavage http-signatures (a single Signature header) — kept as a
-  # fallback.
+
   class CiSignatureVerifier
     CAVAGE_PARAM = /(\w+)="([^"]*)"/
 
@@ -17,7 +12,7 @@ module WarpEngine
     @key_mutex = Mutex.new
 
     class << self
-      # The downloaded key is cached process-wide (per URL).
+
       def fetch_public_key(url)
         @key_mutex.synchronize do
           @key_cache[url] ||= Net::HTTP.get(URI.parse(url))
@@ -64,8 +59,6 @@ module WarpEngine
       nil
     end
 
-    # --- RFC 9421 ---
-
     def rfc9421_valid?(key)
       input = @request.headers["Signature-Input"].to_s
       match = input.match(/\A\s*([\w.-]+)=(\(.*)\z/m)
@@ -102,8 +95,6 @@ module WarpEngine
       end
     end
 
-    # When content-digest is a covered component, the body itself must match
-    # the digest header — this is what ties the signature to the payload.
     def content_digest_valid?(components)
       return true unless components.include?("content-digest")
 
@@ -113,8 +104,6 @@ module WarpEngine
       expected = Digest::SHA256.base64digest(@request.raw_post)
       ActiveSupport::SecurityUtils.secure_compare(digest, expected)
     end
-
-    # --- draft-cavage fallback ---
 
     def cavage_valid?(key)
       params = cavage_params
@@ -126,7 +115,6 @@ module WarpEngine
       key.verify(nil, Base64.decode64(params["signature"]), signing_string)
     end
 
-    # Parameters of the Signature header (or the "Authorization: Signature ..." form).
     def cavage_params
       header = @request.headers["Signature"].presence
       if header.nil?

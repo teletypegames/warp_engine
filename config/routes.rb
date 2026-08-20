@@ -1,11 +1,7 @@
 WarpEngine::Engine.routes.draw do
   namespace :api do
-    # What this deployment is and what it can do. A client reads it before it can have
-    # a credential, so it is public and cheap.
     get "service", to: "service#show"
 
-    # Device sign-in, for clients that have no browser of their own (RFC 8628).
-    # Inactive — 404 on every action — unless the host configured a subject class.
     namespace :auth do
       post   "device",       to: "devices#create"
       post   "device/token", to: "devices#token"

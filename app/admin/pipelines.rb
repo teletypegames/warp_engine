@@ -1,9 +1,6 @@
 ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
   actions :index, :show, :edit, :update
 
-  # Without this the edit form cannot save at all: ActiveAdmin hands unpermitted params to
-  # the model and Rails raises ForbiddenAttributesError. The two fields here are the two
-  # the form offers; everything else about a pipeline comes from the Woodpecker sync.
   permit_params :platform, :software_id
 
   menu parent: "🌀 WarpEngine", priority: 10, label: "🚀 Pipelines"
@@ -91,7 +88,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
               column("Status") { |p| status_tag p["status"], class: p["status"] == "success" ? "yes" : "no" }
               column("Branch") { |p| p["branch"] }
               column("Message") { |p| p["message"]&.truncate(60) }
-              # Woodpecker returns unix epoch seconds in "created"
+
               column("Created") { |p| p["created"] ? Time.zone.at(p["created"]).strftime("%Y-%m-%d %H:%M") : "-" }
             end
           else

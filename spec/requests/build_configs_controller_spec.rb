@@ -15,7 +15,6 @@ RSpec.describe "Build configs endpoint", type: :request do
     allow(WarpEngine.config).to receive(:ci_extension_public_key).and_return(signing_key.public_to_pem)
   end
 
-  # Woodpecker 3.x-style RFC 9421 signature over @request-target + content-digest.
   def signed_headers(body, path: "/build/config", digest_body: nil)
     digest = "sha-256=:#{Digest::SHA256.base64digest(digest_body || body)}:"
     inner = %{("@request-target" "content-digest");created=#{Time.now.to_i};alg="ed25519"}
@@ -33,7 +32,6 @@ RSpec.describe "Build configs endpoint", type: :request do
     }
   end
 
-  # Legacy draft-cavage signature (single Signature header).
   def cavage_signed_headers(method: "post", path: "/build/config")
     date = Time.now.httpdate
     signing_string = "(request-target): #{method} #{path}\ndate: #{date}"

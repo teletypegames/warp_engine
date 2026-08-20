@@ -1,5 +1,3 @@
-# TestOwner exists only in the dummy app — host-side usage must override the
-# owner (e.g. owner: create(:admin_user)).
 FactoryBot.define do
   factory :test_owner, class: "TestOwner" do
     name { "test owner" }

@@ -8,8 +8,6 @@ module WarpEngine
       @client.trigger_pipeline(pipeline.woodpecker_repo_id, branch: branch)
     end
 
-    # Fetches one page of a pipeline's runs; the newest one refreshes the
-    # cached last_pipeline_* columns (Pipelines index and the CI API).
     def list_pipelines(pipeline, page: 1)
       runs = @client.list_pipelines(pipeline.woodpecker_repo_id, page: page)
       refresh_last_pipeline(pipeline, runs.first) if page == 1 && runs.is_a?(Array)
@@ -22,7 +20,6 @@ module WarpEngine
 
     private
 
-    # Woodpecker returns unix epoch seconds in "created".
     def refresh_last_pipeline(pipeline, run)
       return unless run && pipeline.persisted?
 

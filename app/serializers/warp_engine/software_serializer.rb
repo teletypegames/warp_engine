@@ -14,7 +14,7 @@ module WarpEngine
     field(:license)      { |sw| sw.license.to_s }
     field :platform
     field :status
-    # Public owner id — for the /api/software?owner_id= filter.
+
     field(:ownerId) { |sw| sw.owner_id }
     field(:highlighted)  { |sw| sw.highlighted ? true : false }
     field(:externalLinks) { |sw| ExternalLinkSerializer.render_as_hash(sw.external_links) }

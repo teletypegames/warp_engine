@@ -6,10 +6,9 @@ RSpec.describe WarpEngine::Software, type: :model do
   it { should validate_presence_of(:name) }
   it { should validate_presence_of(:title) }
   it { should validate_presence_of(:platform) }
-  # MySQL utf8mb4_0900_ai_ci collation: az egyediség DB-szinten case-insensitive
+
   it { should validate_uniqueness_of(:name).case_insensitive }
 
-  # a törlést a DB-szintű ON DELETE CASCADE végzi, a modellen nincs dependent opció
   it { should have_many(:releases) }
   it { should have_many(:external_links) }
   it { should have_many(:software_images).dependent(:destroy) }

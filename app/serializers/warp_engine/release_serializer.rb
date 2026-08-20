@@ -4,7 +4,6 @@ module WarpEngine
 
     FILE_PATH_TO = "/file/"
 
-    # A lemezen tárolt asset-útvonalak publikus /file/ URL-lé írása configból.
     def self.file_path_from
       "#{WarpEngine.config.file_container_path.chomp("/")}/"
     end

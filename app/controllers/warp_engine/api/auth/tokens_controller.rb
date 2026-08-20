@@ -1,10 +1,5 @@
 module WarpEngine
-  # Signing out: a client throws away its own token.
-  #
-  # Revocation is a soft delete on the ApplicationToken, so the record of which device
-  # signed in and when survives it. The person's own list of devices — where somebody
-  # revokes a token for a laptop they no longer have — is the host's page, because it
-  # needs a session and a browser.
+
   class Api::Auth::TokensController < ApiController
     resource_description do
       short "Client tokens"
