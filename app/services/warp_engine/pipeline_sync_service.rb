@@ -1,32 +1,26 @@
 module WarpEngine
   class PipelineSyncService
-    def initialize(client: WoodpeckerClient.new)
-      @client = client
+    def initialize(ci: WarpEngine.ci)
+      @ci = ci
     end
 
     def sync_all
-      remote_repos = @client.list_repos
+      remote_repos = @ci.repos
       results = { created: [], updated: [], deactivated: [] }
-      remote_ids = remote_repos.map { |r| r["id"] }
+      remote_ids = remote_repos.map(&:id)
 
       remote_repos.each do |remote|
-        record = Pipeline.unscoped.find_or_initialize_by(
-          woodpecker_repo_id: remote["id"]
-        )
+        record = Pipeline.unscoped.find_or_initialize_by(woodpecker_repo_id: remote.id)
 
         was_new = record.new_record?
         record.assign_attributes(
-          repo_name:  remote["name"],
-          repo_owner: remote["owner"],
-          active:     remote["active"],
+          repo_name:  remote.name,
+          repo_owner: remote.owner,
+          active:     remote.active?,
           deleted_at: nil
         )
 
-        if record.platform.blank? || record.platform == Pipeline::UNKNOWN_PLATFORM
-          sw = Software.find_by(name: remote["name"])
-          record.platform = sw&.platform || Pipeline::UNKNOWN_PLATFORM
-          record.software = sw if sw
-        end
+        assign_platform(record, remote.name)
 
         next unless record.save
 
@@ -42,12 +36,12 @@ module WarpEngine
     end
 
     def activate(repo_id)
-      @client.activate_repo(repo_id)
+      @ci.activate_repo(repo_id)
       sync_single(repo_id)
     end
 
     def deactivate(repo_id)
-      @client.deactivate_repo(repo_id)
+      @ci.deactivate_repo(repo_id)
       record = Pipeline.find_by!(woodpecker_repo_id: repo_id)
       record.update!(active: false)
     end
@@ -55,19 +49,23 @@ module WarpEngine
     private
 
     def sync_single(repo_id)
-      remote = @client.get_repo(repo_id)
+      remote = @ci.repo(repo_id)
       record = Pipeline.unscoped.find_or_initialize_by(woodpecker_repo_id: repo_id)
       record.assign_attributes(
-        repo_name: remote["name"], repo_owner: remote["owner"],
-        active: remote["active"], deleted_at: nil
+        repo_name: remote.name, repo_owner: remote.owner,
+        active: remote.active?, deleted_at: nil
       )
-      if record.platform.blank?
-        sw = Software.find_by(name: remote["name"])
-        record.platform = sw&.platform || Pipeline::UNKNOWN_PLATFORM
-        record.software = sw if sw
-      end
+      assign_platform(record, remote.name)
       record.save!
       record
+    end
+
+    def assign_platform(record, repo_name)
+      return unless record.platform.blank? || record.platform == Pipeline::UNKNOWN_PLATFORM
+
+      sw = Software.find_by(name: repo_name)
+      record.platform = sw&.platform || Pipeline::UNKNOWN_PLATFORM
+      record.software = sw if sw
     end
   end
 end

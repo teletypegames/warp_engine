@@ -2,21 +2,17 @@ module WarpEngine
   class SecretSyncService
     SECRET_NAME = "application_token".freeze
 
-    def initialize(client: WoodpeckerClient.new)
-      @client = client
+    def initialize(ci: WarpEngine.ci)
+      @ci = ci
     end
 
     def provision(plain_token, pipelines:)
       results = { synced: [], failed: [] }
 
-      pipelines.each do |pipeline|
-        if secret_exists?(pipeline.woodpecker_repo_id)
-          @client.update_secret(pipeline.woodpecker_repo_id, SECRET_NAME, value: plain_token)
-        else
-          @client.create_secret(pipeline.woodpecker_repo_id, name: SECRET_NAME, value: plain_token)
-        end
+      Array(pipelines).each do |pipeline|
+        @ci.secret_set(pipeline.remote_repo_id, name: SECRET_NAME, value: plain_token)
         results[:synced] << pipeline
-      rescue WoodpeckerClient::ApiError, WoodpeckerClient::ConnectionError => e
+      rescue CI::Error => e
         Rails.logger.error("[SecretSyncService] failed for #{pipeline.full_name}: #{e.message}")
         results[:failed] << { pipeline: pipeline, error: e.message }
       end
@@ -24,12 +20,16 @@ module WarpEngine
       results
     end
 
-    def deprovision(application_token)
-      pipelines_for_token(application_token).each do |pipeline|
-        @client.delete_secret(pipeline.woodpecker_repo_id, SECRET_NAME)
-      rescue WoodpeckerClient::ApiError => e
+    def remove(pipelines:)
+      Array(pipelines).each do |pipeline|
+        @ci.secret_delete(pipeline.remote_repo_id, SECRET_NAME)
+      rescue CI::Error => e
         Rails.logger.warn("[SecretSyncService] delete failed for #{pipeline.full_name}: #{e.message}")
       end
+    end
+
+    def deprovision(application_token)
+      remove(pipelines: pipelines_for_token(application_token))
     end
 
     def rotate(application_token)
@@ -66,15 +66,6 @@ module WarpEngine
         ).pluck(:id)
         Pipeline.active.where(software_id: software_ids).to_a
       end
-    end
-
-    private
-
-    def secret_exists?(repo_id)
-      secrets = @client.list_secrets(repo_id)
-      secrets.any? { |s| s["name"] == SECRET_NAME }
-    rescue WoodpeckerClient::ApiError
-      false
     end
   end
 end

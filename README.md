@@ -10,7 +10,7 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 ## Features
 
 - **Catalog domain**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
-  `PlatformLink`, `Image`, `SoftwareImage`, `Download` models with soft-delete
+  `PlatformLink`, `SoftwareImage`, `Download` models with soft-delete
   semantics and download statistics.
 - **CI-callable updater**: your build pipeline uploads artifacts over HTTP
   and calls one endpoint — WarpEngine extracts archives, parses metadata
@@ -24,6 +24,10 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   is the catalog as it always was.
 - **Client sign-in**: an RFC 8628 device authorization grant for clients with no
   browser of their own, over the host's own user model. Off unless configured.
+- **Host-owned image library**: the catalog links a software to its images and
+  publishes their URLs, but the image model, its files, its endpoint and its
+  admin page belong to the host — the same model can serve avatars or anything
+  else the site has (see *Images*).
 - **Pluggable storage**: artifacts are served through a storage adapter
   (`:local` by default); a host can serve them from an object store without
   patching the engine.
@@ -31,17 +35,15 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   `ActiveSupport::Notifications` (`warp_engine.publish`), so hosts can react
   to new builds without model callbacks.
 - **Public JSON API**: catalog listing, highlighted title, per-platform build
-  matrix, image serving, download tracking, and a static file server for
-  web-playable builds.
+  matrix, download tracking, and a static file server for web-playable builds.
 - **Admin (optional)**: if the host runs ActiveAdmin, WarpEngine contributes
-  ready-made resources — a catalog editor with nested release/asset forms, an
-  image library with orphan cleanup, a file manager with a picker mode, and
-  download statistics. Without ActiveAdmin the engine runs headless
+  ready-made resources — a catalog editor with nested release/asset forms, a
+  file manager with a picker mode, and download statistics. Without ActiveAdmin the engine runs headless
   (API + updater only).
-- **Woodpecker CI management (optional)**: with a Woodpecker API token
-  configured, the admin also gains repo sync, per-repo pipeline history
-  with manual triggers, and automatic provisioning of application tokens
-  as Woodpecker secrets.
+- **Pluggable CI**: pipeline configs, repo sync, build triggers and secret
+  provisioning all go through one adapter. Woodpecker ships with the engine
+  (`WarpEngine::CI::Woodpecker`) and is the default; `:none` turns CI off, and
+  another server is a host-supplied object.
 
 ## Requirements
 
@@ -177,12 +179,18 @@ cannot say which gem came from where.
 Then:
 
 ```sh
-rails g warp_engine:install   # initializer + create_warp_engine_tables migration
+rails g warp_engine:install   # initializer, image library (model + endpoint), migrations
 rails db:migrate
 ```
 
 ```ruby
-# config/routes.rb — keep it the last entry so your own routes win
+# config/routes.rb
+namespace :api do
+  # The image library is yours; the engine only publishes these URLs.
+  get "image/:id", to: "images#show"
+end
+
+# keep the mount the last entry so your own routes win
 mount WarpEngine::Engine => "/"
 ```
 
@@ -192,9 +200,12 @@ mount WarpEngine::Engine => "/"
 # config/initializers/warp_engine.rb
 Rails.application.config.to_prepare do
   WarpEngine.configure do |c|
-    # Where CI drops build artifacts and where images are stored
-    c.file_container_path  = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
-    c.image_container_path = ENV.fetch("IMAGE_CONTAINER_PATH", "/images")
+    # Where CI drops build artifacts
+    c.file_container_path = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
+
+    # Your image model (see "Images" below). "Image" is the default.
+    # c.image_class_name = "Media::Picture"
+    # c.image_adapter    = MyImageLibrary.new
 
     # Shared secret for the /build/* endpoints.
     # nil => the endpoints reject every request.
@@ -217,6 +228,15 @@ Rails.application.config.to_prepare do
     # after backfilling owners — ownerless softwares are claimable by anyone.
     # c.enforce_software_ownership = true
 
+    # Which CI server builds the games (see "CI" below). :woodpecker (default)
+    # reads WOODPECKER_URL / WOODPECKER_API_TOKEN from the environment; naming
+    # the adapter is better, because then the settings are here in the open.
+    # c.ci_adapter = WarpEngine::CI::Woodpecker::Adapter.new(
+    #   url: ENV["WOODPECKER_URL"], api_token: ENV["WOODPECKER_API_TOKEN"],
+    #   platforms: { "godot" => { builder: "registry.example/godot-builder:4.6" } }
+    # )
+    # c.ci_adapter = :none   # this host builds nothing
+
     # Who may see a title and who may download it (see "Access" below).
     # :open (default) lists everything and serves everything.
     # c.access_policy = MyStore::AccessPolicy.new
@@ -228,16 +248,6 @@ Rails.application.config.to_prepare do
     #
     # How to recognise a caller with a session instead of a bearer token.
     # c.subject_resolver = ->(request) { request.env["warden"]&.user }
-
-    # If your app's own models reference catalog images, register them so the
-    # admin Images page counts them as "in use":
-    # c.image_owners = [
-    #   {
-    #     label: "member",
-    #     image_ids: -> { Member.where.not(image_id: nil).distinct.pluck(:image_id) },
-    #     usage_label: ->(image) { "member" if Member.where(image_id: image.id).exists? }
-    #   }
-    # ]
   end
 end
 ```
@@ -291,7 +301,56 @@ accepts both:
 When switching to `:database`, create the tokens and move your pipelines to
 them first — the flip invalidates the shared secret immediately.
 
-## CI pipeline configs (Woodpecker)
+## CI
+
+Every CI feature — serving pipeline configs, syncing repositories, triggering
+builds, provisioning secrets — goes through **one adapter**. Woodpecker ships
+with the engine as `WarpEngine::CI::Woodpecker`, and it is the default:
+
+```ruby
+# nothing set: Woodpecker, configured from ENV, exactly as before
+c.ci_adapter = :woodpecker
+
+# named explicitly (recommended — the host says what its CI is)
+c.ci_adapter = WarpEngine::CI::Woodpecker::Adapter.new(
+  url:            ENV["WOODPECKER_URL"],
+  api_token:      ENV["WOODPECKER_API_TOKEN"],
+  repo_owner:     ENV["WOODPECKER_REPO_OWNER"],
+  public_key_url: "https://ci.example.org/api/signature/public-key",
+  update_server:  "https://catalog.example.org",
+  platforms:      { "godot" => { builder: "registry.example/godot-builder:4.6" } }
+)
+
+# this host builds nothing: /api/ci/* answers 503, /build/config refuses,
+# and the admin pipeline actions hide themselves
+c.ci_adapter = :none
+```
+
+The engine's own code never names a provider: `WarpEngine.ci` is the adapter,
+`WarpEngine::CI::Repo` and `WarpEngine::CI::Run` are what it hands back, and
+`WarpEngine::CI::ConnectionError` / `ApiError` / `NotConfigured` are what it
+raises. A host with a different CI server implements this contract instead:
+
+| Method | Purpose |
+| --- | --- |
+| `name` | provider label, shown in the admin |
+| `configured?` | false keeps every CI feature inactive |
+| `platforms` | which platforms `/build/config` can serve |
+| `update_server` | server URL written into the generated pipeline; nil = the request's base_url |
+| `repos`, `repo(id)` | `CI::Repo` values for the repo sync |
+| `activate_repo(id)`, `deactivate_repo(id)` | enable/disable a repository |
+| `runs(repo_id, page:)`, `run(repo_id, number)` | `CI::Run` values (`number` may be `"latest"`) |
+| `trigger(repo_id, branch:)` | start a build, returns a `CI::Run` |
+| `secret_names(repo_id)`, `secret_set(repo_id, name:, value:)`, `secret_delete(repo_id, name)` | token provisioning |
+| `verify_config_request(request)` | is this really the CI server calling |
+| `config_marker(params)` | `{ platform:, name: }` from the request, or nil for "not ours" |
+| `pipeline_config(platform:, name:, update_server:)` | the pipeline definition, or nil for an unknown platform |
+| `config_response(platform:, config:)` | the body the CI server expects |
+
+`Pipeline` records keep the provider-neutral `remote_repo_id` reader over the
+historical `woodpecker_repo_id` column, so the table did not have to move.
+
+### Pipeline configs (the Woodpecker adapter)
 
 WarpEngine can act as a [Woodpecker configuration extension](https://woodpecker-ci.org/docs/usage/extensions/configuration-extension):
 instead of a copy-pasted `.woodpecker.yaml` in every game repo, the repo holds a
@@ -305,35 +364,30 @@ platform: godot
 ```
 
 - `POST /build/config` — the extension endpoint Woodpecker calls on every
-  pipeline start (httpsig/ed25519-signed request, verified against
-  `ci_extension_public_key(_url)`). Non-marker configs get a `204` so the
+  pipeline start (httpsig/ed25519-signed request, verified against the
+  adapter's `public_key` / `public_key_url`). Non-marker configs get a `204` so the
   repo's own YAML keeps running — opt-in migration, and putting a full
   pipeline back into the repo is the opt-out.
 - `GET /build/config?platform=godot` — renders the same pipeline as a preview.
 
-Configuration: `ci_platforms` maps platform names to builder images
+The adapter's `platforms` maps platform names to builder images
 (`{ "godot" => { builder: "..." }, "tic80" => { builder: ..., exporter: ... } }`);
 an empty map (default) disables the feature. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
-per-repo in Settings → Extensions). Templates live in
-`app/services/warp_engine/platforms/<platform>/pipeline.yaml.erb`.
+per-repo in Settings → Extensions). Templates live with the adapter, in
+`lib/warp_engine/ci/woodpecker/platforms/<platform>/pipeline.yaml.erb` — the
+YAML dialect belongs to the provider, so a second adapter brings its own.
 
-## Woodpecker CI management
+### CI management (the Woodpecker adapter)
 
-Beyond serving pipeline configs, WarpEngine can drive the Woodpecker REST API
-itself. Set `woodpecker_url` and `woodpecker_api_token` — while either is nil
-(the default), every management feature stays inactive and the admin pages
-hide themselves:
-
-```ruby
-c.woodpecker_url        = ENV["WOODPECKER_URL"]        # e.g. "https://ci.example.org"
-c.woodpecker_api_token  = ENV["WOODPECKER_API_TOKEN"]  # PAT of a Woodpecker *instance admin*
-c.woodpecker_repo_owner = ENV["WOODPECKER_REPO_OWNER"] # forge org the game repos live under
-```
+Beyond serving pipeline configs, the adapter drives the Woodpecker REST API
+itself. Give it a `url` and an `api_token` — with either missing, `configured?`
+is false, every management feature stays inactive and the admin pages hide
+themselves.
 
 What it unlocks (all surfaced in the admin):
 
-- **Repo sync** (*Pipelines → Sync from Woodpecker*): mirrors the Woodpecker
+- **Repo sync** (*Pipelines → Sync from …*): mirrors the provider's
   repo list into `Pipeline` records, auto-matching each repo to a catalog
   `Software` by name; repos that disappear from Woodpecker are deactivated.
   Platform and software links are editable by hand afterwards.
@@ -342,7 +396,7 @@ What it unlocks (all surfaced in the admin):
   last-pipeline status shown on the Pipelines index. The software's admin
   page links to its pipelines from the Quick Links sidebar.
 - **Secret provisioning**: database application tokens are pushed to the
-  repos as the `application_token` Woodpecker secret — creating a token
+  repos as the `application_token` CI secret — creating a token
   provisions it to its owner's repos (unrestricted tokens to all active
   repos), deleting a token removes the secret, and *Rotate* creates a
   replacement token, provisions it everywhere and revokes the old one in a
@@ -391,6 +445,47 @@ signing adapter turns them into redirects without any further change.
 **Serving only.** Ingestion — `POST /build/upload`, archive extraction and
 the admin file manager — still writes to the local disk. A remote adapter
 needs its own upload path today.
+
+## Images
+
+An image is not a catalog concept: the same picture library serves covers,
+screenshots, avatars and whatever else a site has. So the engine owns only the
+link — `SoftwareImage`, ordered, with one default — while the `Image` model, the
+uploaded files and the admin page live in the host. `rails g warp_engine:install`
+writes a working one (`app/models/image.rb`, `app/controllers/api/images_controller.rb`,
+a `create_images` migration); the engine talks to it through an adapter:
+
+```ruby
+c.image_class_name = "Image"   # default
+```
+
+The default adapter expects that model to answer `original_filename`,
+`content_type`, `file_path` and `file_upload=` (the generated one does), and
+publishes every image as `/api/image/<id>` — the address clients have always
+used, which is why the generated route serves exactly that. A host that keeps
+its pictures somewhere else replaces the adapter instead:
+
+```ruby
+class MyImageLibrary
+  def model_name                = "Media::Picture"
+  def model                     = Media::Picture
+  def url_for(image_id)         = "https://cdn.example.com/#{image_id}.webp"
+  def build_from_upload(upload) = Media::Picture.new(file_upload: upload)
+  def label_for(record)         = record.title
+  def available?(record)        = record.stored?
+  def select_options            = Media::Picture.order(:title).pluck(:title, :id)
+end
+
+c.image_adapter = MyImageLibrary.new
+```
+
+`url_for` is what lands in the catalog JSON (`imageUrl`, `images[].url`) and in
+the admin previews; `select_options` fills the image picker on the software
+form; `build_from_upload` is what "upload a new image" on that form calls.
+
+**The `images` table stays where it is.** Moving the model out of the engine did
+not touch it: the engine no longer creates it (the install generator does, as
+host code), and `software_images.image_id` still points at the same rows.
 
 ## Access
 
@@ -523,7 +618,7 @@ its own account of who fetched what without reaching into `DownloadService`.
 | `GET /api/software/highlighted` | The currently highlighted title |
 | `GET /api/builds` | Expected asset kinds per platform (build matrix) |
 | `GET /api/softwares/:name/builds` | Actual vs. missing build assets per release |
-| `GET /api/image/:id` | Serves catalog images |
+| `GET /api/image/:id` | Serves images — **the host's endpoint**, see *Images* |
 | `GET /api/download?path=` | Serves an artifact and logs a download record |
 | `GET /file/*path` | Serves static build output (web-playable games, docs) |
 | `POST /api/auth/device` | Starts a device sign-in; returns the code pair (404 without a client identity) |

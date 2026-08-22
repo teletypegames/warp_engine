@@ -10,7 +10,6 @@ WarpEngine::Engine.routes.draw do
 
     get "software",               to: "software#index"
     get "software/highlighted",   to: "software_highlighted#index"
-    get "image/:id",              to: "images#show"
     get "download",               to: "downloads#show"
     get "builds",                 to: "builds#index"
     get "softwares/:name/builds", to: "software_builds#show"

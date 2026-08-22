@@ -7,6 +7,8 @@ require "warp_engine/version"
 require "warp_engine/configuration"
 require "warp_engine/storage"
 require "warp_engine/access"
+require "warp_engine/images"
+require "warp_engine/ci"
 
 module WarpEngine
 
@@ -22,16 +24,20 @@ module WarpEngine
     yield(config)
   end
 
-  def self.woodpecker_configured?
-    config.woodpecker_url.present? && config.woodpecker_api_token.present?
-  end
-
   def self.instruments_publish?
     true
   end
 
   def self.storage
     Storage.adapter
+  end
+
+  def self.images
+    Images.adapter
+  end
+
+  def self.ci
+    CI.adapter
   end
 
   def self.access_policy

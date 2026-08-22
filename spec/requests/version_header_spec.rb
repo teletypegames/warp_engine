@@ -15,7 +15,7 @@ RSpec.describe "the WarpEngine-Version header", type: :request do
   end
 
   it "is on an error response" do
-    get "/api/image/999999"
+    get "/api/softwares/no-such-software/builds"
 
     expect(response).to have_http_status(:not_found)
     expect(response.headers["WarpEngine-Version"]).to eq(WarpEngine::VERSION)

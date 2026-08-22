@@ -1,8 +1,8 @@
 require "rails_helper"
 
 RSpec.describe WarpEngine::SecretSyncService do
-  let(:client) { instance_double(WarpEngine::WoodpeckerClient) }
-  let(:service) { described_class.new(client: client) }
+  let(:ci) { instance_double(WarpEngine::CI::Woodpecker::Adapter) }
+  let(:service) { described_class.new(ci: ci) }
 
   before do
     allow(WarpEngine.config).to receive(:application_token_source).and_return(:database)
@@ -10,37 +10,22 @@ RSpec.describe WarpEngine::SecretSyncService do
   end
 
   describe "#provision" do
-    it "creates secrets on repos that don't have one" do
+    it "hands the token to the provider for every pipeline" do
       repo = create(:pipeline)
-      allow(client).to receive(:list_secrets).with(repo.woodpecker_repo_id).and_return([])
-      allow(client).to receive(:create_secret)
+      allow(ci).to receive(:secret_set)
 
       result = service.provision("plaintoken", pipelines: [ repo ])
 
       expect(result[:synced]).to eq([ repo ])
-      expect(client).to have_received(:create_secret).with(
-        repo.woodpecker_repo_id, name: "application_token", value: "plaintoken"
-      )
-    end
-
-    it "updates secrets on repos that already have one" do
-      repo = create(:pipeline)
-      allow(client).to receive(:list_secrets).with(repo.woodpecker_repo_id)
-        .and_return([ { "name" => "application_token" } ])
-      allow(client).to receive(:update_secret)
-
-      result = service.provision("newtoken", pipelines: [ repo ])
-
-      expect(result[:synced]).to eq([ repo ])
-      expect(client).to have_received(:update_secret).with(
-        repo.woodpecker_repo_id, "application_token", value: "newtoken"
+      expect(ci).to have_received(:secret_set).with(
+        repo.remote_repo_id, name: "application_token", value: "plaintoken"
       )
     end
 
     it "records failed repos without raising" do
       repo = create(:pipeline)
-      allow(client).to receive(:list_secrets).and_raise(
-        WarpEngine::WoodpeckerClient::ConnectionError, "unreachable"
+      allow(ci).to receive(:secret_set).and_raise(
+        WarpEngine::CI::ConnectionError, "unreachable"
       )
 
       result = service.provision("tok", pipelines: [ repo ])
@@ -56,11 +41,11 @@ RSpec.describe WarpEngine::SecretSyncService do
       sw = create(:software, name: "game1", owner: token.owner)
       repo = create(:pipeline, :with_software, software: sw)
 
-      allow(client).to receive(:delete_secret)
+      allow(ci).to receive(:secret_delete)
 
       service.deprovision(token)
 
-      expect(client).to have_received(:delete_secret).with(repo.woodpecker_repo_id, "application_token")
+      expect(ci).to have_received(:secret_delete).with(repo.remote_repo_id, "application_token")
     end
   end
 
@@ -70,8 +55,7 @@ RSpec.describe WarpEngine::SecretSyncService do
       sw = create(:software, name: "game1", owner: token.owner)
       repo = create(:pipeline, :with_software, software: sw)
 
-      allow(client).to receive(:list_secrets).and_return([])
-      allow(client).to receive(:create_secret)
+      allow(ci).to receive(:secret_set)
 
       result = service.rotate(token)
 
@@ -85,8 +69,8 @@ RSpec.describe WarpEngine::SecretSyncService do
       sw = create(:software, name: "game1", owner: token.owner)
       create(:pipeline, :with_software, software: sw)
 
-      allow(client).to receive(:list_secrets).and_raise(
-        WarpEngine::WoodpeckerClient::ConnectionError, "down"
+      allow(ci).to receive(:secret_set).and_raise(
+        WarpEngine::CI::ConnectionError, "down"
       )
 
       result = service.rotate(token)

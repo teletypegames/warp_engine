@@ -27,8 +27,8 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     column(:releases) { |sw| sw.releases.size }
     column(:image) do |sw|
       si = sw.software_images.detect(&:is_default?) || sw.software_images.first
-      if si&.image && File.exist?(si.image.file_path)
-        image_tag "/api/image/#{si.image_id}", style: "max-height:40px;max-width:80px;object-fit:contain;"
+      if si&.image && WarpEngine::Images.available?(si.image)
+        image_tag WarpEngine::Images.url_for(si.image_id), style: "max-height:40px;max-width:80px;object-fit:contain;"
       end
     end
     column :created_at
@@ -114,10 +114,10 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
       f.inputs "Images" do
         f.has_many :software_images, allow_destroy: true, new_record: true do |si|
           img_hint = if si.object.image_id.present?
-            si.template.image_tag("/api/image/#{si.object.image_id}", style: "max-height:80px;max-width:160px;object-fit:contain;margin-top:6px;").html_safe
+            si.template.image_tag(WarpEngine::Images.url_for(si.object.image_id), style: "max-height:80px;max-width:160px;object-fit:contain;margin-top:6px;").html_safe
           end
           si.input :image_id, as: :select, label: "Image",
-                   collection: WarpEngine::Image.order(:original_filename).map { |img| [ img.original_filename, img.id ] },
+                   collection: WarpEngine::Images.select_options,
                    include_blank: "— select —",
                    hint: img_hint
           si.input :file_upload, as: :file, label: "Upload new image"

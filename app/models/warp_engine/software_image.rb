@@ -1,7 +1,7 @@
 module WarpEngine
   class SoftwareImage < ApplicationRecord
     belongs_to :software
-    belongs_to :image, optional: true
+    belongs_to :image, optional: true, class_name: WarpEngine::Images.model_name
 
     attr_accessor :file_upload
 
@@ -28,7 +28,7 @@ module WarpEngine
     private
 
     def create_image_from_upload
-      img = Image.new(file_upload: file_upload)
+      img = WarpEngine::Images.build_from_upload(file_upload)
       if img.save
         self.image = img
       else

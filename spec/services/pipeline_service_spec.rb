@@ -1,31 +1,35 @@
 require "rails_helper"
 
 RSpec.describe WarpEngine::PipelineService do
-  let(:client) { instance_double(WarpEngine::WoodpeckerClient) }
-  let(:service) { described_class.new(client: client) }
+  let(:ci) { instance_double(WarpEngine::CI::Woodpecker::Adapter) }
+  let(:service) { described_class.new(ci: ci) }
+
+  def ci_run(number:, status: "success", created_at: nil)
+    WarpEngine::CI::Run.new(number: number, status: status, created_at: created_at)
+  end
 
   describe "#trigger" do
     it "delegates to client" do
       repo = build(:pipeline, repo_owner: "org", repo_name: "game")
-      allow(client).to receive(:trigger_pipeline).and_return({ "number" => 6 })
+      allow(ci).to receive(:trigger).and_return(ci_run(number: 6, status: "pending"))
 
       result = service.trigger(repo, branch: "main")
 
-      expect(result["number"]).to eq(6)
-      expect(client).to have_received(:trigger_pipeline).with(repo.woodpecker_repo_id, branch: "main")
+      expect(result.number).to eq(6)
+      expect(ci).to have_received(:trigger).with(repo.remote_repo_id, branch: "main")
     end
   end
 
-  describe "#list_pipelines" do
-    it "returns paginated pipelines and refreshes the repo's cached last pipeline" do
+  describe "#runs" do
+    it "returns the runs and refreshes the repo's cached last run" do
       repo = create(:pipeline, repo_owner: "org", repo_name: "game")
-      pipelines = [
-        { "number" => 2, "status" => "failure", "created" => 1_754_500_000 },
-        { "number" => 1, "status" => "success", "created" => 1_754_400_000 }
+      runs = [
+        ci_run(number: 2, status: "failure", created_at: Time.zone.at(1_754_500_000)),
+        ci_run(number: 1, status: "success", created_at: Time.zone.at(1_754_400_000))
       ]
-      allow(client).to receive(:list_pipelines).with(repo.woodpecker_repo_id, page: 1).and_return(pipelines)
+      allow(ci).to receive(:runs).with(repo.remote_repo_id, page: 1).and_return(runs)
 
-      expect(service.list_pipelines(repo)).to eq(pipelines)
+      expect(service.runs(repo)).to eq(runs)
 
       repo.reload
       expect(repo.last_pipeline_status).to eq("failure")
@@ -35,20 +39,20 @@ RSpec.describe WarpEngine::PipelineService do
     it "does not touch the cache on later pages" do
       repo = create(:pipeline, repo_owner: "org", repo_name: "game",
                     last_pipeline_status: "success")
-      allow(client).to receive(:list_pipelines).with(repo.woodpecker_repo_id, page: 2)
-        .and_return([{ "number" => 1, "status" => "failure", "created" => 1_754_400_000 }])
+      allow(ci).to receive(:runs).with(repo.remote_repo_id, page: 2)
+        .and_return([ ci_run(number: 1, status: "failure", created_at: Time.zone.at(1_754_400_000)) ])
 
-      service.list_pipelines(repo, page: 2)
+      service.runs(repo, page: 2)
 
       expect(repo.reload.last_pipeline_status).to eq("success")
     end
 
-    it "leaves the cache alone when the repo has no pipelines" do
+    it "leaves the cache alone when the repo has no runs" do
       repo = create(:pipeline, repo_owner: "org", repo_name: "game",
                     last_pipeline_status: "success")
-      allow(client).to receive(:list_pipelines).and_return([])
+      allow(ci).to receive(:runs).and_return([])
 
-      expect(service.list_pipelines(repo)).to eq([])
+      expect(service.runs(repo)).to eq([])
       expect(repo.reload.last_pipeline_status).to eq("success")
     end
   end

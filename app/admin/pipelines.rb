@@ -33,7 +33,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
     }
     column :last_pipeline_at
     actions defaults: true do |pipeline|
-      if pipeline.active && WarpEngine.woodpecker_configured?
+      if pipeline.active && WarpEngine.ci.configured?
         item "Trigger", trigger_admin_pipeline_path(pipeline), method: :post, class: "member_link"
       end
     end
@@ -59,7 +59,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
   sidebar "Details", only: :show do
     attributes_table_for resource do
       row :id
-      row :woodpecker_repo_id
+      row("Repo id") { |r| r.remote_repo_id }
       row :repo_owner
       row :repo_name
       row :platform
@@ -74,22 +74,21 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
 
   show do
     panel "Pipelines" do
-      if !WarpEngine.woodpecker_configured?
-        para "Woodpecker is not configured. Set woodpecker_url and woodpecker_api_token in the WarpEngine initializer.",
+      if !WarpEngine.ci.configured?
+        para "No CI provider is configured. Set c.ci_adapter in the WarpEngine initializer.",
              style: "color:#999;"
       elsif !resource.active
         para "This repository is inactive.", style: "color:#999;"
       else
         begin
-          pipelines = WarpEngine::PipelineService.new.list_pipelines(resource, page: 1)
-          if pipelines.is_a?(Array) && pipelines.any?
-            table_for pipelines.first(10) do
-              column("Number") { |p| p["number"] }
-              column("Status") { |p| status_tag p["status"], class: p["status"] == "success" ? "yes" : "no" }
-              column("Branch") { |p| p["branch"] }
-              column("Message") { |p| p["message"]&.truncate(60) }
-
-              column("Created") { |p| p["created"] ? Time.zone.at(p["created"]).strftime("%Y-%m-%d %H:%M") : "-" }
+          runs = WarpEngine::PipelineService.new.runs(resource, page: 1)
+          if runs.any?
+            table_for runs.first(10) do
+              column("Number") { |r| r.number }
+              column("Status") { |r| status_tag r.status, class: r.success? ? "yes" : "no" }
+              column("Branch") { |r| r.branch }
+              column("Message") { |r| r.message&.truncate(60) }
+              column("Created") { |r| r.created_at ? r.created_at.strftime("%Y-%m-%d %H:%M") : "-" }
             end
           else
             para "No pipelines found.", style: "color:#999;"
@@ -118,8 +117,8 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
   end
 
   action_item :sync_repos, only: :index do
-    if WarpEngine.woodpecker_configured?
-      link_to "Sync from Woodpecker", sync_admin_pipelines_path, method: :post
+    if WarpEngine.ci.configured?
+      link_to "Sync from #{WarpEngine.ci.name}", sync_admin_pipelines_path, method: :post
     end
   end
 

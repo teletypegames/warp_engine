@@ -10,10 +10,20 @@ RSpec.describe "Build configs endpoint", type: :request do
     }
   end
 
-  before do
-    allow(WarpEngine.config).to receive(:ci_platforms).and_return(ci_platforms)
-    allow(WarpEngine.config).to receive(:ci_extension_public_key).and_return(signing_key.public_to_pem)
+  def woodpecker(platforms: nil, public_key: :default)
+    WarpEngine::CI::Woodpecker::Adapter.new(
+      url:        "https://ci.example.test",
+      api_token:  "wp-token",
+      platforms:  platforms.nil? ? ci_platforms : platforms,
+      public_key: public_key == :default ? signing_key.public_to_pem : public_key
+    )
   end
+
+  def serving(adapter)
+    allow(WarpEngine).to receive(:ci).and_return(adapter)
+  end
+
+  before { serving(woodpecker) }
 
   def signed_headers(body, path: "/build/config", digest_body: nil)
     digest = "sha-256=:#{Digest::SHA256.base64digest(digest_body || body)}:"
@@ -69,7 +79,7 @@ RSpec.describe "Build configs endpoint", type: :request do
     end
 
     it "returns 404 when the feature is not configured" do
-      allow(WarpEngine.config).to receive(:ci_platforms).and_return({})
+      serving(woodpecker(platforms: {}))
 
       get "/build/config", params: { platform: "godot" }
 
@@ -146,7 +156,7 @@ RSpec.describe "Build configs endpoint", type: :request do
       payload = extension_payload("platform: godot\n")
       headers = signed_headers(payload)
       other_key = OpenSSL::PKey.generate_key("ed25519")
-      allow(WarpEngine.config).to receive(:ci_extension_public_key).and_return(other_key.public_to_pem)
+      serving(woodpecker(public_key: other_key.public_to_pem))
 
       post "/build/config", params: payload, headers: headers
 
@@ -170,8 +180,7 @@ RSpec.describe "Build configs endpoint", type: :request do
     end
 
     it "rejects every request when no public key is configured" do
-      allow(WarpEngine.config).to receive(:ci_extension_public_key).and_return(nil)
-      allow(WarpEngine.config).to receive(:ci_extension_public_key_url).and_return(nil)
+      serving(woodpecker(public_key: nil))
 
       payload = extension_payload("platform: godot\n")
       post "/build/config", params: payload, headers: signed_headers(payload)
@@ -182,16 +191,17 @@ RSpec.describe "Build configs endpoint", type: :request do
 
   describe "shipped templates" do
     it "renders every template to valid YAML with non-empty steps" do
-      templates = Dir[WarpEngine::Engine.root.join("app/services/warp_engine/platforms/*/pipeline.yaml.erb")]
+      templates = Dir[WarpEngine::CI::Woodpecker::PipelineConfig.templates_dir.join("*/pipeline.yaml.erb")]
       expect(templates).not_to be_empty
 
       templates.each do |path|
         platform = File.basename(File.dirname(path))
-        allow(WarpEngine.config).to receive(:ci_platforms).and_return(
-          platform => { builder: "registry.example/builder:1", exporter: "registry.example/exporter:1" }
+        config = WarpEngine::CI::Woodpecker::PipelineConfig.new(
+          platforms: { platform => { builder: "registry.example/builder:1",
+                                     exporter: "registry.example/exporter:1" } }
         )
 
-        yaml = WarpEngine::CiConfigService.new.render(
+        yaml = config.render(
           platform: platform, name: "example", update_server: "https://games.example"
         )
 

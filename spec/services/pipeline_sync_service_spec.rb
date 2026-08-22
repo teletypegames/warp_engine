@@ -1,14 +1,16 @@
 require "rails_helper"
 
 RSpec.describe WarpEngine::PipelineSyncService do
-  let(:client) { instance_double(WarpEngine::WoodpeckerClient) }
-  let(:service) { described_class.new(client: client) }
+  let(:ci) { instance_double(WarpEngine::CI::Woodpecker::Adapter) }
+  let(:service) { described_class.new(ci: ci) }
+
+  def ci_repo(id:, name: "mygame", owner: "org", active: true)
+    WarpEngine::CI::Repo.new(id: id, name: name, owner: owner, active: active)
+  end
 
   describe "#sync_all" do
-    it "creates new Pipeline records from Woodpecker" do
-      allow(client).to receive(:list_repos).and_return([
-        { "id" => 1, "name" => "mygame", "owner" => "org", "active" => true }
-      ])
+    it "creates new Pipeline records from the CI provider" do
+      allow(ci).to receive(:repos).and_return([ ci_repo(id: 1) ])
 
       result = service.sync_all
 
@@ -21,9 +23,7 @@ RSpec.describe WarpEngine::PipelineSyncService do
 
     it "updates existing records" do
       existing = create(:pipeline, woodpecker_repo_id: 1, repo_name: "old", platform: "tic80")
-      allow(client).to receive(:list_repos).and_return([
-        { "id" => 1, "name" => "newname", "owner" => "org", "active" => true }
-      ])
+      allow(ci).to receive(:repos).and_return([ ci_repo(id: 1, name: "newname") ])
 
       result = service.sync_all
 
@@ -31,9 +31,9 @@ RSpec.describe WarpEngine::PipelineSyncService do
       expect(existing.reload.repo_name).to eq("newname")
     end
 
-    it "deactivates repos missing from Woodpecker" do
+    it "deactivates repos the provider no longer has" do
       orphan = create(:pipeline, woodpecker_repo_id: 99, active: true)
-      allow(client).to receive(:list_repos).and_return([])
+      allow(ci).to receive(:repos).and_return([])
 
       result = service.sync_all
 
@@ -43,9 +43,7 @@ RSpec.describe WarpEngine::PipelineSyncService do
 
     it "auto-detects platform from matching Software" do
       create(:software, name: "mygame", platform: "godot")
-      allow(client).to receive(:list_repos).and_return([
-        { "id" => 1, "name" => "mygame", "owner" => "org", "active" => true }
-      ])
+      allow(ci).to receive(:repos).and_return([ ci_repo(id: 1) ])
 
       result = service.sync_all
 
@@ -55,11 +53,9 @@ RSpec.describe WarpEngine::PipelineSyncService do
   end
 
   describe "#activate" do
-    it "calls client and syncs the repo" do
-      allow(client).to receive(:activate_repo).with(42)
-      allow(client).to receive(:get_repo).with(42).and_return(
-        { "id" => 42, "name" => "game", "owner" => "org", "active" => true }
-      )
+    it "calls the provider and syncs the repo" do
+      allow(ci).to receive(:activate_repo).with(42)
+      allow(ci).to receive(:repo).with(42).and_return(ci_repo(id: 42, name: "game"))
 
       repo = service.activate(42)
 
@@ -69,9 +65,9 @@ RSpec.describe WarpEngine::PipelineSyncService do
   end
 
   describe "#deactivate" do
-    it "calls client and marks repo inactive" do
+    it "calls the provider and marks the repo inactive" do
       repo = create(:pipeline, woodpecker_repo_id: 42, active: true)
-      allow(client).to receive(:deactivate_repo).with(42)
+      allow(ci).to receive(:deactivate_repo).with(42)
 
       service.deactivate(42)
 

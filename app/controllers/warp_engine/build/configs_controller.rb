@@ -3,75 +3,59 @@ module WarpEngine
 
     class ConfigsController < ApiController
       resource_description do
-        short "Woodpecker CI pipeline configs"
+        short "CI pipeline configs"
       end
 
       api :GET, "/build/config", "Preview the generated pipeline config for a platform"
-      param :platform, String, required: true, desc: "Platform (a configured ci_platforms key, e.g. tic80)"
+      param :platform, String, required: true, desc: "Platform (a platform the CI adapter serves, e.g. tic80)"
       param :name, String, required: false, desc: "Software name substituted into the pipeline (default: example)"
       returns code: 200, desc: "Pipeline YAML (text/yaml)"
       error code: 404, desc: "Unknown platform"
       def show
-        yaml = render_config(platform: params[:platform], name: params[:name].presence || "example")
-        return render json: { error: "Unknown platform" }, status: :not_found if yaml.nil?
+        config = render_config(platform: params[:platform], name: params[:name].presence || "example")
+        return render json: { error: "Unknown platform" }, status: :not_found if config.nil?
 
-        render plain: yaml, content_type: "text/yaml"
+        render plain: config, content_type: "text/yaml"
       end
 
-      api :POST, "/build/config", "Woodpecker configuration extension endpoint"
+      api :POST, "/build/config", "CI configuration extension endpoint"
       description <<~DESC
-        Called by the Woodpecker server on every pipeline start (httpsig-signed request).
-        If the repo's .woodpecker.yaml is a marker (has a `platform:` key), responds with
+        Called by the CI server on every pipeline start (a signed request the CI adapter
+        verifies). If the repo's config is a marker (has a `platform:` key), responds with
         the generated pipeline; otherwise responds 204 so the repo's own config runs.
       DESC
-      returns code: 200, desc: %(JSON: {"configs": [{"name": ..., "data": "<pipeline YAML>"}]})
+      returns code: 200, desc: %(JSON: the adapter's config response — for Woodpecker {"configs": [{"name": ..., "data": "<pipeline YAML>"}]})
       returns code: 204, desc: "Not a marker config — keep the repo's own configuration"
       error code: 403, desc: "Missing or invalid request signature"
       error code: 422, desc: "Marker requests an unknown platform"
       def create
-        unless WarpEngine::CiSignatureVerifier.new(request).valid?
+        unless ci.verify_config_request(request)
           return render json: { error: "Invalid signature" }, status: :forbidden
         end
 
-        marker = find_marker
+        marker = ci.config_marker(params)
         return head :no_content if marker.nil?
 
-        platform = marker["platform"].to_s
-        name     = marker["name"].presence || repo_name
-        yaml     = render_config(platform: platform, name: name)
-        if yaml.nil?
-          return render json: { error: "Unknown platform: #{platform}" }, status: :unprocessable_entity
+        config = render_config(platform: marker[:platform], name: marker[:name])
+        if config.nil?
+          return render json: { error: "Unknown platform: #{marker[:platform]}" }, status: :unprocessable_entity
         end
 
-        render json: { configs: [ { name: platform, data: yaml } ] }
+        render json: ci.config_response(platform: marker[:platform], config: config)
       end
 
       private
 
+      def ci
+        WarpEngine.ci
+      end
+
       def render_config(platform:, name:)
-        WarpEngine::CiConfigService.new.render(
+        ci.pipeline_config(
           platform:      platform,
           name:          name,
-          update_server: WarpEngine.config.ci_update_server.presence || request.base_url
+          update_server: ci.update_server.presence || request.base_url
         )
-      end
-
-      def find_marker
-        configs = params[:configuration].presence || params[:configs].presence || []
-        configs.each do |config|
-          data = config[:data].to_s
-          parsed = begin
-            YAML.safe_load(data)
-          rescue Psych::Exception
-            nil
-          end
-          return parsed if parsed.is_a?(Hash) && parsed.key?("platform")
-        end
-        nil
-      end
-
-      def repo_name
-        params.dig(:repo, :name).to_s
       end
     end
   end

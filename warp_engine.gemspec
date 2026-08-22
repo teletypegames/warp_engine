@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.authors     = [ "Teletype Games" ]
   spec.summary     = "Retro software catalog engine with a CI-callable release updater"
   spec.description = "Mountable Rails engine providing a software catalog (softwares, releases, " \
-                     "release assets, images, platform links), a pipeline-callable update endpoint, " \
+                     "release assets, image links, platform links), a pipeline-callable update endpoint, " \
                      "a public read-only JSON API and ActiveAdmin resources for a host-owned admin."
   spec.license     = "MIT"
   spec.homepage    = "https://teletypegames.org"

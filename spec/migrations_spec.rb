@@ -33,14 +33,14 @@ RSpec.describe "Engine migrations" do
   end
 
   it "does not create a table the install generator also creates" do
-    template = WarpEngine::Engine.root.join(
-      "lib/generators/warp_engine/install/templates/create_warp_engine_tables.rb"
+    templates = Dir.glob(
+      WarpEngine::Engine.root.join("lib/generators/warp_engine/install/templates/create_*.rb")
     )
     engine_tables = versions.flat_map do |version|
       file = Dir.glob(WarpEngine::Engine.root.join("db/migrate/#{version}_*.rb")).first
       File.read(file).scan(/create_table :(\w+)/).flatten
     end
-    template_tables = File.read(template).scan(/create_table :(\w+)/).flatten
+    template_tables = templates.flat_map { |t| File.read(t).scan(/create_table :(\w+)/).flatten }
     duplicated = (engine_tables & template_tables) - [ "application_tokens" ]
 
     expect(duplicated).to be_empty,

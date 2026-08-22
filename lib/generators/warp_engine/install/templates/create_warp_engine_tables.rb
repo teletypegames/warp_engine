@@ -60,21 +60,13 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.index :deleted_at
     end
 
-    create_table :images do |t|
-      t.string :filename, null: false
-      t.string :original_filename, null: false
-      t.string :content_type, default: "application/octet-stream", null: false
-      t.datetime :deleted_at, precision: 3
-      t.timestamps
-      t.index :deleted_at
-    end
-
     create_table :software_images do |t|
       t.references :software, null: false, foreign_key: { on_delete: :cascade }
-      t.references :image, null: false, foreign_key: true, index: false
+      t.bigint :image_id, null: false
       t.boolean :is_default, default: false, null: false
       t.integer :position, default: 0, null: false
       t.timestamps
+      t.index :image_id
       t.index [ :software_id, :image_id ], unique: true
       t.index [ :software_id, :position ]
     end

@@ -57,7 +57,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   end
 
   action_item :rotate, only: :show do
-    if WarpEngine.woodpecker_configured?
+    if WarpEngine.ci.configured?
       link_to "Rotate Token", rotate_admin_application_token_path(resource),
               method: :post, data: { confirm: "This will revoke the current token, create a new one, and push it to Woodpecker. Continue?" }
     end
@@ -101,7 +101,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
         success.html do
           session[:warp_engine_plain_token] = resource.plain_token
 
-          if WarpEngine.woodpecker_configured?
+          if WarpEngine.ci.configured?
             service = WarpEngine::SecretSyncService.new
             pipelines = service.pipelines_for_token(resource)
             if pipelines.any?
@@ -124,7 +124,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
     end
 
     def destroy
-      if WarpEngine.woodpecker_configured?
+      if WarpEngine.ci.configured?
         WarpEngine::SecretSyncService.new.deprovision(resource)
       end
       resource.revoke!

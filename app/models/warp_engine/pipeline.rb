@@ -24,6 +24,14 @@ module WarpEngine
       "#{repo_owner}/#{repo_name}"
     end
 
+    def remote_repo_id
+      woodpecker_repo_id
+    end
+
+    def remote_repo_id=(value)
+      self.woodpecker_repo_id = value
+    end
+
     def self.ransackable_attributes(auth_object = nil)
       %w[active created_at deleted_at id last_pipeline_at last_pipeline_status
          platform repo_name repo_owner software_id woodpecker_repo_id]

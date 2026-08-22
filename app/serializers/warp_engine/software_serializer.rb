@@ -21,11 +21,11 @@ module WarpEngine
     field(:platformLinks) { |sw| PlatformLinkSerializer.render_as_hash(WarpEngine::PlatformLink.for_platform(sw.platform)) }
     field(:imageUrl) { |sw|
       si = sw.software_images.detect(&:is_default?) || sw.software_images.first
-      si ? "/api/image/#{si.image_id}" : nil
+      si ? WarpEngine::Images.url_for(si.image_id) : nil
     }
     field(:images) { |sw|
       sw.software_images.map { |si|
-        { url: "/api/image/#{si.image_id}", isDefault: si.is_default?, position: si.position }
+        { url: WarpEngine::Images.url_for(si.image_id), isDefault: si.is_default?, position: si.position }
       }
     }
   end

@@ -1,10 +1,10 @@
 require "rails_helper"
 require "webmock/rspec"
 
-RSpec.describe WarpEngine::WoodpeckerClient do
+RSpec.describe WarpEngine::CI::Woodpecker::Client do
   let(:base_url) { "https://ci.example.test" }
   let(:token) { "wp-test-token" }
-  let(:client) { described_class.new(base_url: base_url, token: token) }
+  let(:client) { described_class.new(url: base_url, token: token) }
 
   def stub_wp(method, path, status: 200, body: nil, request_body: nil)
     stub = stub_request(method, "#{base_url}#{path}")
@@ -91,7 +91,7 @@ RSpec.describe WarpEngine::WoodpeckerClient do
     it "raises ApiError on 404" do
       stub_wp(:get, "/api/repos/999", status: 404, body: { "error" => "not found" })
 
-      expect { client.get_repo(999) }.to raise_error(WarpEngine::WoodpeckerClient::ApiError) { |e|
+      expect { client.get_repo(999) }.to raise_error(WarpEngine::CI::ApiError) { |e|
         expect(e.status).to eq(404)
       }
     end
@@ -99,7 +99,7 @@ RSpec.describe WarpEngine::WoodpeckerClient do
     it "raises ApiError on 500" do
       stub_wp(:get, "/api/repos", status: 500, body: { "error" => "internal" })
 
-      expect { client.list_repos }.to raise_error(WarpEngine::WoodpeckerClient::ApiError) { |e|
+      expect { client.list_repos }.to raise_error(WarpEngine::CI::ApiError) { |e|
         expect(e.status).to eq(500)
       }
     end
@@ -107,13 +107,13 @@ RSpec.describe WarpEngine::WoodpeckerClient do
     it "raises ConnectionError on connection refused" do
       stub_request(:get, "#{base_url}/api/repos").to_raise(Errno::ECONNREFUSED)
 
-      expect { client.list_repos }.to raise_error(WarpEngine::WoodpeckerClient::ConnectionError)
+      expect { client.list_repos }.to raise_error(WarpEngine::CI::ConnectionError)
     end
 
     it "raises ConnectionError on timeout" do
       stub_request(:get, "#{base_url}/api/repos").to_timeout
 
-      expect { client.list_repos }.to raise_error(WarpEngine::WoodpeckerClient::ConnectionError)
+      expect { client.list_repos }.to raise_error(WarpEngine::CI::ConnectionError)
     end
 
     it "raises ApiError when a 200 response is not JSON" do
@@ -121,7 +121,7 @@ RSpec.describe WarpEngine::WoodpeckerClient do
         .to_return(status: 200, body: "<!doctype html><html></html>",
                    headers: { "Content-Type" => "text/html" })
 
-      expect { client.list_repos }.to raise_error(WarpEngine::WoodpeckerClient::ApiError, /Expected JSON/)
+      expect { client.list_repos }.to raise_error(WarpEngine::CI::ApiError, /Expected JSON/)
     end
   end
 end
