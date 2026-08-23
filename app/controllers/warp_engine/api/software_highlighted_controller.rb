@@ -14,8 +14,8 @@ module WarpEngine
         property :desc, String, desc: "Short description"
         property :story, String, desc: "Long description / story"
         property :license, String, desc: "License type"
-        property :platform, String, desc: "Platform (tic80, love, ebitengine, c64, godot, bevy, phaser)"
-        property :status, String, desc: "Status"
+        property :platform, String, desc: "Platform (one of WarpEngine::Platform::NAMES)"
+        property :status, String, desc: "Status (development, demo, released, archived)"
         property :highlighted, :boolean, desc: "Highlighted flag"
         property :imageUrl, String, desc: "Default image URL"
       end
@@ -33,7 +33,7 @@ module WarpEngine
       property :totalDownloads, Integer, desc: "Total download count across all releases"
     end
     error code: 404, desc: "No highlighted software found"
-    def index
+    def show
       result = WarpEngine::SoftwareHighlightedService.new.index(subject: current_subject)
       if result
         render json: result

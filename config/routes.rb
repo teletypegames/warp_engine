@@ -9,14 +9,14 @@ WarpEngine::Engine.routes.draw do
     end
 
     get "software",               to: "software#index"
-    get "software/highlighted",   to: "software_highlighted#index"
+    get "software/highlighted",   to: "software_highlighted#show"
     get "download",               to: "downloads#show"
     get "builds",                 to: "builds#index"
     get "softwares/:name/builds", to: "software_builds#show"
 
-    get  "ci/pipelines",             to: "ci#pipelines"
-    get  "ci/pipelines/:id/status",  to: "ci#status"
-    post "ci/pipelines/:id/trigger", to: "ci#trigger"
+    get  "ci/pipelines",             to: "ci/pipelines#index"
+    get  "ci/pipelines/:id/status",  to: "ci/pipelines#show"
+    post "ci/pipelines/:id/trigger", to: "ci/pipeline_runs#create"
   end
 
   post "build/upload",  to: "build/uploads#create"
