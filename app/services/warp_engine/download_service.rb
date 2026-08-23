@@ -3,14 +3,6 @@ module WarpEngine
 
     class Denied < StandardError; end
 
-    def self.container_base
-      WarpEngine.config.file_container_path
-    end
-
-    def self.base_path
-      Pathname.new(container_base).realpath
-    end
-
     def locate(path:, ip:, user_agent:, referer:, subject: nil, request: nil)
       relative = path.to_s
       return nil unless storage.file?(relative)
@@ -52,9 +44,7 @@ module WarpEngine
     end
 
     def find_asset(relative)
-      escaped = relative.gsub("%", "\\%").gsub("_", "\\_")
-      WarpEngine::ReleaseAsset.find_by(path: File.join(self.class.container_base, relative)) ||
-        WarpEngine::ReleaseAsset.where("path LIKE ?", "%#{escaped}%").first
+      WarpEngine::ReleaseAsset.for_relative_path(relative)
     end
 
     def log_download(relative, asset:, ip:, user_agent:, referer:, subject:)

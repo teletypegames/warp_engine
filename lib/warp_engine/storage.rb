@@ -43,6 +43,11 @@ module WarpEngine
     end
 
     class << self
+      def mime_for(path)
+        ext = File.extname(path.to_s).delete_prefix(".")
+        Mime::Type.lookup_by_extension(ext) || "application/octet-stream"
+      end
+
       def adapter
         configured = WarpEngine.config.storage_adapter
 

@@ -13,6 +13,11 @@ module WarpEngine
 
     default_scope { where(deleted_at: nil) }
 
+    def self.for_relative_path(relative)
+      absolute = File.join(WarpEngine.config.file_container_path, relative.to_s)
+      find_by(path: absolute) || where("path LIKE ?", "%/#{sanitize_sql_like(relative.to_s)}").first
+    end
+
     def self.ransackable_attributes(auth_object = nil)
       %w[created_at deleted_at id kind path release_id updated_at]
     end

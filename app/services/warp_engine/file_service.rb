@@ -1,10 +1,6 @@
 module WarpEngine
   class FileService
 
-    def self.base_path
-      Pathname.new(WarpEngine.config.file_container_path).realpath
-    end
-
     def show(input, subject: nil)
       relative = input.path.to_s
 
@@ -28,7 +24,7 @@ module WarpEngine
 
       return WarpEngine::Access::Grant::OPEN if WarpEngine::AccessPolicy.open?
 
-      asset = WarpEngine::ReleaseAsset.where("path LIKE ?", "%#{relative.gsub('%', '\\%').gsub('_', '\\_')}%").first
+      asset = WarpEngine::ReleaseAsset.for_relative_path(relative)
       grant = WarpEngine.access_policy.authorize_download(asset: asset, subject: subject, request: nil)
       raise WarpEngine::DownloadService::Denied if grant.nil?
 

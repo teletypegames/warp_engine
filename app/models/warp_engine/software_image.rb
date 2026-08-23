@@ -13,7 +13,7 @@ module WarpEngine
 
     before_save :unset_other_defaults, if: -> { is_default? && is_default_changed? }
 
-    default_scope { order(:position) }
+    scope :ordered, -> { order(:position) }
 
     def self.ransackable_attributes(auth_object = nil)
       %w[created_at id image_id is_default position software_id updated_at]

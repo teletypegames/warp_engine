@@ -28,11 +28,21 @@ RSpec.describe WarpEngine::PlatformLink, type: :model do
       expect(WarpEngine::PlatformLink.all).to eq([active])
     end
 
-    it "orders by position" do
+    it "does not order: ordering is asked for, not inherited" do
       second = create(:platform_link, position: 2)
       first  = create(:platform_link, position: 1)
 
-      expect(WarpEngine::PlatformLink.all).to eq([first, second])
+      expect(WarpEngine::PlatformLink.ordered).to eq([ first, second ])
+      expect(WarpEngine::PlatformLink.all.to_sql).not_to include("ORDER BY")
+    end
+  end
+
+  describe ".ordered" do
+    it "is what .for_platform uses, so the API keeps its link order" do
+      second = create(:platform_link, platform: "tic80", position: 2)
+      first  = create(:platform_link, platform: "tic80", position: 1)
+
+      expect(WarpEngine::PlatformLink.for_platform("tic80")).to eq([ first, second ])
     end
   end
 
