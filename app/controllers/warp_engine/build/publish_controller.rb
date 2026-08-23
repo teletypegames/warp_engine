@@ -10,7 +10,7 @@ module WarpEngine
       api :POST, "/build/publish", "Register an uploaded build as a release"
       header "X-Update-Secret", "Shared secret or application token (update scope)", required: true
       param :name, String, required: true, desc: "Software name"
-      param :platform, String, required: true, desc: "Platform (tic80, love, ebitengine, c64, godot, bevy, phaser)"
+      param :platform, String, required: true, desc: "Platform (one of WarpEngine::Platform::NAMES)"
       param :version, String, required: true, desc: "Version string"
       returns code: 200, desc: "JSON with the published name/platform/version"
       error code: 401, desc: "Invalid secret"
@@ -21,24 +21,21 @@ module WarpEngine
           return render json: { error: "Unauthorized" }, status: :unauthorized
         end
 
-        %i[name platform version].each do |key|
-          return render json: { error: "#{key.to_s.capitalize} not provided" }, status: :bad_request if params[key].blank?
-        end
-
-        unless software_ownership_authorized?(params[:name])
-          return render json: { error: "Forbidden" }, status: :forbidden
-        end
-
         input = WarpEngine::PublishInputDto.new(
           platform: params[:platform],
           name:     params[:name],
           version:  params[:version]
         )
+        return render json: { error: input.error_message }, status: :bad_request unless input.valid?
+
+        unless software_ownership_authorized?(input.name)
+          return render json: { error: "Forbidden" }, status: :forbidden
+        end
 
         WarpEngine::PublishService.new.publish(input)
-        claim_software_ownership(params[:name])
+        claim_software_ownership(input.name)
 
-        render json: { published: true, name: params[:name], platform: params[:platform], version: params[:version] }
+        render json: { published: true, name: input.name, platform: input.platform, version: input.version }
       end
     end
   end
