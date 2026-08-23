@@ -63,26 +63,6 @@ ActiveAdmin.register_page "Files" do
           {}
         end
 
-        file_icon = ->(name) do
-          ext = File.extname(name).downcase
-          case ext
-          when ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg" then "🖼️"
-          when ".mp3", ".ogg", ".wav", ".flac", ".aac" then "🔊"
-          when ".mp4", ".avi", ".mkv", ".webm", ".mov" then "🎬"
-          when ".zip", ".gz", ".tar", ".rar", ".7z", ".bz2" then "📦"
-          when ".pdf" then "📕"
-          when ".doc", ".docx", ".odt", ".txt", ".md", ".rtf" then "📄"
-          when ".xls", ".xlsx", ".csv", ".ods" then "📊"
-          when ".html", ".htm", ".css", ".js", ".ts", ".json", ".xml" then "📝"
-          when ".rb", ".py", ".lua", ".c", ".cpp", ".h", ".rs", ".go" then "💻"
-          when ".tic", ".rom", ".bin", ".prg", ".crt", ".d64", ".t64" then "🎮"
-          when ".love" then "🎮"
-          when ".exe", ".dmg", ".appimage", ".msi" then "⚙️"
-          when ".wasm" then "⚙️"
-          else "📄"
-          end
-        end
-
         thead do
           tr do
             th "Name"
@@ -101,7 +81,7 @@ ActiveAdmin.register_page "Files" do
 
             tr do
               td do
-                span "📁 ", style: "font-size:15px;"
+                span "#{WarpEngine::FileIcon::DIRECTORY} ", style: "font-size:15px;"
                 a "..", href: admin_files_path(picker_params.merge(dir: parent))
               end
               td ""
@@ -116,10 +96,10 @@ ActiveAdmin.register_page "Files" do
               td do
                 picker_params = picker_mode ? { picker: 1, field: picker_field } : {}
                 if entry[:type] == :directory
-                  span "📁 ", style: "font-size:15px;"
+                  span "#{WarpEngine::FileIcon::DIRECTORY} ", style: "font-size:15px;"
                   a entry[:name], href: admin_files_path(picker_params.merge(dir: entry[:path]))
                 else
-                  span "#{file_icon.call(entry[:name])} ", style: "font-size:15px;"
+                  span "#{WarpEngine::FileIcon.for(entry[:name])} ", style: "font-size:15px;"
                   span entry[:name]
                 end
               end
@@ -143,10 +123,10 @@ ActiveAdmin.register_page "Files" do
                 end
 
                 a "✏️", href: "#", class: "fm-icon-btn", title: "Rename",
-                  onclick: "var n=prompt('New name:','#{j entry[:name]}');if(n){var f=document.getElementById('rename-#{entry_id}');f.querySelector('[name=new_name]').value=n;f.submit();}return false;"
+                  onclick: "var n=prompt('New name:','#{escape_javascript(entry[:name])}');if(n){var f=document.getElementById('rename-#{entry_id}');f.querySelector('[name=new_name]').value=n;f.submit();}return false;"
 
                 a "🗑️", href: "#", class: "fm-icon-btn fm-icon-danger", title: "Delete",
-                  onclick: "if(confirm('Delete \\'#{j entry[:name]}\\'?')){document.getElementById('delete-#{entry_id}').submit();}return false;"
+                  onclick: "if(confirm('Delete \\'#{escape_javascript(entry[:name])}\\'?')){document.getElementById('delete-#{entry_id}').submit();}return false;"
 
                 if entry[:type] != :directory
                   a "📊", href: admin_downloads_path(q: { file_path_cont: entry[:path] }), class: "fm-icon-btn", title: "Stats"
@@ -155,7 +135,7 @@ ActiveAdmin.register_page "Files" do
                 if picker_mode
                   abs_path = File.join(WarpEngine.config.file_container_path, entry[:path])
                   a "Select", href: "#", class: "fm-btn fm-btn-select",
-                    onclick: "var inp=window.parent.document.getElementById('#{j picker_field}');if(inp){inp.value='#{j abs_path}';}var ov=window.parent.document.querySelector('.fm-modal-overlay');if(ov){ov.remove();window.parent.document.body.style.overflow='';}return false;"
+                    onclick: "var inp=window.parent.document.getElementById('#{escape_javascript(picker_field)}');if(inp){inp.value='#{escape_javascript(abs_path)}';}var ov=window.parent.document.querySelector('.fm-modal-overlay');if(ov){ov.remove();window.parent.document.body.style.overflow='';}return false;"
                 end
 
                 form action: admin_files_rename_path, method: "post", id: "rename-#{entry_id}", style: "display:none" do
@@ -203,38 +183,44 @@ ActiveAdmin.register_page "Files" do
   end
 
   page_action :upload, method: :post do
-    service = WarpEngine::FileManagerService.new
-    service.upload(params[:dir].to_s, params[:file])
-    redirect_to admin_files_path(dir: params[:dir], picker: params[:picker], field: params[:field]), notice: "File uploaded."
+    WarpEngine::FileManagerService.new.upload(params[:dir].to_s, params[:file])
+    redirect_to_files notice: "File uploaded."
   rescue => e
-    redirect_to admin_files_path(dir: params[:dir], picker: params[:picker], field: params[:field]), alert: "Upload failed: #{e.message}"
+    redirect_to_files alert: "Upload failed: #{e.message}"
   end
 
   page_action :mkdir, method: :post do
-    service = WarpEngine::FileManagerService.new
-    service.mkdir(params[:dir].to_s, params[:name].to_s)
-    redirect_to admin_files_path(dir: params[:dir], picker: params[:picker], field: params[:field]), notice: "Folder created."
+    WarpEngine::FileManagerService.new.mkdir(params[:dir].to_s, params[:name].to_s)
+    redirect_to_files notice: "Folder created."
   rescue => e
-    redirect_to admin_files_path(dir: params[:dir], picker: params[:picker], field: params[:field]), alert: "Failed: #{e.message}"
+    redirect_to_files alert: "Failed: #{e.message}"
   end
 
   page_action :rename, method: :post do
-    service = WarpEngine::FileManagerService.new
-    service.rename(params[:path].to_s, params[:new_name].to_s)
-    redirect_to admin_files_path(dir: params[:dir], picker: params[:picker], field: params[:field]), notice: "Renamed."
+    WarpEngine::FileManagerService.new.rename(params[:path].to_s, params[:new_name].to_s)
+    redirect_to_files notice: "Renamed."
   rescue => e
-    redirect_to admin_files_path(dir: params[:dir], picker: params[:picker], field: params[:field]), alert: "Rename failed: #{e.message}"
+    redirect_to_files alert: "Rename failed: #{e.message}"
   end
 
   page_action :delete, method: :delete do
-    service = WarpEngine::FileManagerService.new
-    dir = params[:dir].to_s.presence || begin
-      d = File.dirname(params[:path].to_s)
-      d == "." ? "" : d
-    end
-    service.delete(params[:path].to_s)
-    redirect_to admin_files_path(dir: dir, picker: params[:picker], field: params[:field]), notice: "Deleted."
+    WarpEngine::FileManagerService.new.delete(params[:path].to_s)
+    redirect_to_files dir: params[:dir].presence || parent_dir_of(params[:path]), notice: "Deleted."
   rescue => e
-    redirect_to admin_files_path(dir: params[:dir], picker: params[:picker], field: params[:field]), alert: "Delete failed: #{e.message}"
+    redirect_to_files alert: "Delete failed: #{e.message}"
+  end
+
+  controller do
+    private
+
+    def redirect_to_files(dir: nil, notice: nil, alert: nil)
+      target = admin_files_path(dir: dir || params[:dir], picker: params[:picker], field: params[:field])
+      redirect_to target, notice: notice, alert: alert
+    end
+
+    def parent_dir_of(path)
+      parent = File.dirname(path.to_s)
+      parent == "." ? "" : parent
+    end
   end
 end
