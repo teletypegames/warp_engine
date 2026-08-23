@@ -43,6 +43,7 @@ module WarpEngine
       def name = "none"
       def configured? = false
       def platforms = {}
+      def built_kinds(_platform) = nil
       def update_server = nil
 
       def repos                              = raise(NotConfigured, MESSAGE)

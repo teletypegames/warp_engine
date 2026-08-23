@@ -17,6 +17,9 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   value object that knows its `label`, its `expected_kinds` and its updater
   `service`. Reference it instead of writing a platform list of your own —
   `PlatformLink::SUPPORTED_PLATFORMS` is kept as an alias of `Platform::NAMES`.
+- **Asset checklist**: `rake warp_engine:builds:check` prints, per software and
+  release, which release assets exist and which the platform's pipeline could
+  still deliver. See *Which assets are missing*.
 - **CI-callable updater**: your build pipeline uploads artifacts over HTTP
   and calls one endpoint — WarpEngine extracts archives, parses metadata
   and upserts the catalog records. Supported platforms out of the
@@ -309,6 +312,69 @@ accepts both:
 
 When switching to `:database`, create the tokens and move your pipelines to
 them first — the flip invalidates the shared secret immediately.
+
+## Which assets are missing (rake)
+
+A release is complete when it carries every asset kind its platform can
+produce. Nothing enforces that — a pipeline step can fail, a platform can gain
+a target, a title can be published from a laptop — so the engine ships a
+checklist:
+
+```
+$ bin/rails warp_engine:builds:check
+
+WarpEngine release asset coverage — latest release per software
+expected: the kinds a platform's updater registers · [ ] the CI builds it · [-] the CI does not, upload it by hand
+
+rabbitroller  ebitengine  v1.1.1  3/7
+  [x] html
+  [x] win_x64
+  [x] linux_x64
+  [ ] win_x86
+  [ ] linux_arm64
+  [-] mac_x64
+  [-] mac_arm64
+
+The CI can build these and the release does not have them:
+  rabbitroller v1.1.1 (ebitengine): win_x86, linux_arm64
+
+12 softwares, 12 releases, 61/78 assets present, 11 missing from CI-built kinds
+4 softwares are missing an asset the CI builds
+2 assets are expected but this CI does not build them
+```
+
+Three markers, three different facts:
+
+| Marker | Meaning |
+| --- | --- |
+| `[x]` | the release has this asset |
+| `[ ]` | the platform expects it **and** the CI pipeline builds it — a real gap |
+| `[-]` | the platform expects it but this CI cannot build it (ebitengine's macOS targets need osxcross) — a manual upload, or nothing |
+| `[+]` | the release has an asset the platform does not expect |
+
+The expectations come from two places, and the difference is the point:
+`WarpEngine::Platform#expected_kinds` is what the **updater** can ingest, and
+the CI adapter's `built_kinds(platform)` is what the **pipeline** produces. An
+adapter that cannot answer (no CI configured, or a platform with no builder)
+returns nil, and then nothing is excused: every missing kind is reported as a
+gap.
+
+Options are environment variables, so the task composes in a shell:
+
+| Variable | Effect |
+| --- | --- |
+| `NAME=rabbitroller` | one software |
+| `PLATFORM=ebitengine` | one platform |
+| `RELEASES=all` | every release, not just the newest one per software |
+| `ONLY=missing` | only the releases that are short of a CI-built asset |
+| `STRICT=1` | exit non-zero when anything is missing (for CI) |
+
+The newest release is the newest non-`dev-` version, the same rule the catalog
+API uses when it names a title's latest release.
+
+The same numbers are available as objects: `WarpEngine::AssetCoverage.new(...)`
+answers `#rows`, `#missing_rows` and `#totals`, and
+`WarpEngine::AssetCoverageChecklist` is what renders them.
 
 ## CI
 

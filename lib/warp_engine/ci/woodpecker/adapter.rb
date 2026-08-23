@@ -28,6 +28,8 @@ module WarpEngine
 
         def platforms = @config.platforms
 
+        def built_kinds(platform) = @config.built_kinds(platform)
+
         def client
           @client ||= Client.new(url: @url, token: @api_token)
         end
