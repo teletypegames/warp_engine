@@ -1,12 +1,8 @@
 module WarpEngine
   class BuildsService
     def index
-      platforms = WarpEngine::PlatformLink::SUPPORTED_PLATFORMS.each_with_object({}) do |platform, hash|
-        service_class = "WarpEngine::Platforms::#{platform.camelize}::Service".constantize
-        hash[platform] = {
-          label: service_class.label,
-          kinds: service_class.expected_kinds
-        }
+      platforms = WarpEngine::Platform.all.each_with_object({}) do |platform, hash|
+        hash[platform.name] = { label: platform.label, kinds: platform.expected_kinds }
       end
 
       all_kinds = WarpEngine::ReleaseAsset::KINDS
@@ -16,8 +12,7 @@ module WarpEngine
 
     def show(name)
       software = WarpEngine::Software.find_by!(name: name)
-      service_class = "WarpEngine::Platforms::#{software.platform.camelize}::Service".constantize
-      expected = service_class.expected_kinds
+      expected = WarpEngine::Platform.find!(software.platform).expected_kinds
 
       releases = software.releases.includes(:release_assets).order(updated_at: :desc)
 

@@ -39,8 +39,8 @@ module WarpEngine
         property :desc, String, desc: "Short description"
         property :story, String, desc: "Long description / story"
         property :license, String, desc: "License type"
-        property :platform, String, desc: "Platform (tic80, love, ebitengine, c64, godot, bevy, phaser)"
-        property :status, String, desc: "Status (active, inactive)"
+        property :platform, String, desc: "Platform (one of WarpEngine::Platform::NAMES)"
+        property :status, String, desc: "Status (development, demo, released, archived)"
         property :highlighted, :boolean, desc: "Currently highlighted"
         property :imageUrl, String, desc: "Default image URL"
         property :externalLinks, Array, desc: "External links" do

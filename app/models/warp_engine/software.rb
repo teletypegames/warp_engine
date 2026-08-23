@@ -2,9 +2,11 @@ module WarpEngine
   class Software < ApplicationRecord
     self.table_name = "softwares"
 
+    STATUSES = %w[development demo released archived].freeze
+
     belongs_to :owner, polymorphic: true, optional: true
 
-    has_many :software_images, foreign_key: :software_id, dependent: :destroy
+    has_many :software_images, -> { ordered }, foreign_key: :software_id, dependent: :destroy
     has_many :images, through: :software_images
     has_many :releases, foreign_key: :software_id
     has_many :downloads, through: :releases
@@ -17,7 +19,8 @@ module WarpEngine
 
     validates :name, presence: true, uniqueness: true
     validates :title, presence: true
-    validates :platform, presence: true
+    validates :platform, presence: true, inclusion: { in: WarpEngine::Platform::NAMES }
+    validates :status, inclusion: { in: STATUSES }, allow_blank: true
 
     default_scope { where(deleted_at: nil) }
 

@@ -38,18 +38,19 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
   filter :name
   filter :title
   filter :author
-  filter :platform, as: :select, collection: %w[tic80 ebitengine love c64 godot bevy phaser]
-  filter :status,   as: :select, collection: %w[development demo released archived]
+  filter :platform, as: :select, collection: WarpEngine::Platform.names
+  filter :status,   as: :select, collection: WarpEngine::Software::STATUSES
   filter :highlighted
 
   sidebar "Quick Links", only: :show, priority: 0 do
-    site_url = ENV.fetch("SITE_URL", "https://teletypegames.org")
-    catalog_url = "#{site_url}/catalog/#{resource.name}"
+    if WarpEngine.config.site_url.present?
+      catalog_url = "#{WarpEngine.config.site_url.chomp('/')}/catalog/#{resource.name}"
 
-    div style: "margin-bottom:8px;" do
-      a href: catalog_url, target: "_blank", style: "display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5850ec;" do
-        span "🌐", style: "font-size:16px;"
-        text_node "View on site"
+      div style: "margin-bottom:8px;" do
+        a href: catalog_url, target: "_blank", style: "display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5850ec;" do
+          span "🌐", style: "font-size:16px;"
+          text_node "View on site"
+        end
       end
     end
 
@@ -103,8 +104,8 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         f.input :name
         f.input :title
         f.input :author
-        f.input :platform, as: :select, collection: %w[tic80 ebitengine love c64 godot bevy phaser]
-        f.input :status,   as: :select, collection: %w[development demo released archived]
+        f.input :platform, as: :select, collection: WarpEngine::Platform.names
+        f.input :status,   as: :select, collection: WarpEngine::Software::STATUSES
         f.input :highlighted
         f.input :license
         f.input :desc,  as: :text, input_html: { rows: 4 }

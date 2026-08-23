@@ -12,6 +12,11 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 - **Catalog domain**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
   `PlatformLink`, `SoftwareImage`, `Download` models with soft-delete
   semantics and download statistics.
+- **Platform registry**: `WarpEngine::Platform` is the one place a platform is
+  named. `Platform.names` lists them, `Platform.find!("godot")` answers with a
+  value object that knows its `label`, its `expected_kinds` and its updater
+  `service`. Reference it instead of writing a platform list of your own —
+  `PlatformLink::SUPPORTED_PLATFORMS` is kept as an alias of `Platform::NAMES`.
 - **CI-callable updater**: your build pipeline uploads artifacts over HTTP
   and calls one endpoint — WarpEngine extracts archives, parses metadata
   and upserts the catalog records. Supported platforms out of the
@@ -202,6 +207,10 @@ Rails.application.config.to_prepare do
   WarpEngine.configure do |c|
     # Where CI drops build artifacts
     c.file_container_path = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
+
+    # Where the site this catalog belongs to lives. The admin links a software
+    # to its public page from here; left nil, the link is left out.
+    c.site_url = ENV["SITE_URL"]
 
     # Your image model (see "Images" below). "Image" is the default.
     # c.image_class_name = "Media::Picture"

@@ -25,12 +25,12 @@ ActiveAdmin.register WarpEngine::PlatformLink, as: "Platform Link" do
     actions
   end
 
-  filter :platform, as: :select, collection: %w[tic80 ebitengine love c64 godot bevy phaser]
+  filter :platform, as: :select, collection: WarpEngine::Platform.names
   filter :name
 
   form do |f|
     f.inputs do
-      f.input :platform, as: :select, collection: %w[tic80 ebitengine love c64 godot bevy phaser]
+      f.input :platform, as: :select, collection: WarpEngine::Platform.names
       f.input :name
       f.input :url
       f.input :position, as: :number, input_html: { min: 0 }
