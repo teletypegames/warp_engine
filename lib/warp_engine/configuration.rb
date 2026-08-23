@@ -1,7 +1,8 @@
 module WarpEngine
   class Configuration
 
-    attr_accessor :file_container_path,
+    attr_accessor :site_url,
+                  :file_container_path,
                   :update_secret,
                   :application_token_source,
                   :application_token_owner_class,
@@ -19,6 +20,7 @@ module WarpEngine
                   :device_code_interval
 
     def initialize
+      @site_url                      = nil
       @file_container_path           = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
       @update_secret                 = ENV["UPDATE_SECRET"]
       @application_token_source      = :env
