@@ -1,0 +1,129 @@
+# Generated pipeline — WarpEngine /build/config (platform: bevy, name: <%= name %>)
+stages:
+  - version
+  - build
+  - binaries
+  - upload
+  - publish
+
+version:
+  stage: version
+  image: alpine
+  script:
+    - apk add --no-cache git jq
+    - |
+      if [ -f metadata.json ]; then
+        VERSION=$(jq -r '.version' metadata.json)
+      else
+        VERSION=$(git rev-parse --short HEAD)
+      fi
+      BRANCH=$(git rev-parse --abbrev-ref HEAD)
+      if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
+        VERSION="dev-$VERSION-$BRANCH"
+      fi
+      echo "VERSION is: $VERSION"
+      echo $VERSION > .version
+  artifacts:
+    paths:
+      - .version
+      - metadata.json
+
+build:
+  stage: build
+  image: <%= builder %>
+  script:
+    - |
+      VERSION=$(cat .version)
+      mkdir -p dist
+      cargo build --release --target wasm32-unknown-unknown
+      wasm-bindgen --target web --no-typescript \
+        --out-dir dist --out-name game target/wasm32-unknown-unknown/release/<%= name %>.wasm
+      echo "==> Downloading index.html"
+      curl -sSL https://git.teletypegames.org/tools/bevy-tools/raw/branch/master/web/index.html -o dist/index.html
+      echo "==> Packaging HTML/WASM for $VERSION"
+      zip -r "<%= name %>-$VERSION.html.zip" -j dist/game_bg.wasm dist/game.js dist/index.html
+      echo "==> Cleaning temporary files"
+      rm -f dist/game_bg.wasm dist/game.js dist/index.html
+  artifacts:
+    paths:
+      - "*.zip"
+
+binaries:
+  stage: binaries
+  image: <%= builder %>
+  script:
+    - |
+      VERSION=$(cat .version)
+      # Native binaries. linux-x64: glibc build in the debian-based builder
+      # image; win-x64: mingw-w64 cross-compile (x86_64-pc-windows-gnu).
+      # Mac needs osxcross, it is not built here.
+      # The zip gets the assets/ dir too if the project has one — bevy loads
+      # it at runtime, it is not embedded in the binary.
+      set -e
+      pack_binary() {
+        P_SLUG="$1"; P_BIN="$2"; P_NAME="$3"
+        PKG_DIR="<%= name %>-$VERSION-$P_SLUG"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip"
+        mkdir -p "$PKG_DIR"
+        cp "$P_BIN" "$PKG_DIR/$P_NAME"
+        chmod +x "$PKG_DIR/$P_NAME"
+        if [ -d assets ]; then cp -r assets "$PKG_DIR/assets"; fi
+        zip -qr "$PKG_DIR.zip" "$PKG_DIR"
+        rm -rf "$PKG_DIR"
+        echo "==> $PKG_DIR.zip kesz"
+      }
+      echo "==> Building linux-x64 binary"
+      cargo build --release
+      pack_binary "linux-x64" "target/release/<%= name %>" "<%= name %>"
+      echo "==> Building win-x64 binary"
+      CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
+        cargo build --release --target x86_64-pc-windows-gnu
+      pack_binary "win-x64" "target/x86_64-pc-windows-gnu/release/<%= name %>.exe" "<%= name %>.exe"
+      # linux-arm64: Raspberry Pi, Odroid, retro handhelds. pkg-config has to
+      # be told it may cross, and pointed at the arm64 .pc files, otherwise
+      # alsa-sys/libudev-sys pick up the host x86_64 libraries.
+      echo "==> Building linux-arm64 binary"
+      PKG_CONFIG_ALLOW_CROSS=1 \
+        PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+        cargo build --release --target aarch64-unknown-linux-gnu
+      pack_binary "linux-arm64" "target/aarch64-unknown-linux-gnu/release/<%= name %>" "<%= name %>"
+  artifacts:
+    paths:
+      - "*.zip"
+
+upload:
+  stage: upload
+  image: alpine
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+    - apk add --no-cache curl
+    - |
+      VERSION=$(cat .version)
+      FILE="<%= name %>-$VERSION.html.zip"
+      META_SRC="metadata.json"
+      META_DST="<%= name %>-$VERSION.metadata.json"
+      cp $META_SRC $META_DST
+      BINS=""
+      for slug in win-x64 linux-x64 linux-arm64; do
+        [ -f "<%= name %>-$VERSION-$slug.zip" ] && BINS="$BINS <%= name %>-$VERSION-$slug.zip"
+      done
+      for f in $FILE $META_DST $BINS; do
+        curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
+          -F "file=@$f" \
+          "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
+      done
+
+publish:
+  stage: publish
+  image: alpine
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+    - apk add --no-cache curl
+    - |
+      VERSION=$(cat .version)
+      curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=bevy&version=$VERSION"

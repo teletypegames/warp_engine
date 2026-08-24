@@ -1,7 +1,7 @@
 require "rails_helper"
 
-RSpec.describe WarpEngine::CI::Woodpecker::PipelineConfig do
-  BUILT_KINDS = described_class::BUILT_KINDS
+shared_examples "pipeline config built kinds" do |config_class|
+  built_kinds = config_class::BUILT_KINDS
 
   def self.fragment_for(kind)
     case kind
@@ -12,17 +12,17 @@ RSpec.describe WarpEngine::CI::Woodpecker::PipelineConfig do
     end
   end
 
-  def config_for(platform)
-    described_class.new(platforms: { platform => { builder: "builder:latest", exporter: "exporter:latest" } })
+  define_method(:config_for) do |platform|
+    config_class.new(platforms: { platform => { builder: "builder:latest", exporter: "exporter:latest" } })
   end
 
   it "knows every platform in the registry" do
-    expect(BUILT_KINDS.keys).to match_array(WarpEngine::Platform.names)
+    expect(built_kinds.keys).to match_array(WarpEngine::Platform.names)
   end
 
   WarpEngine::Platform::NAMES.each do |platform|
     context platform do
-      let(:kinds) { BUILT_KINDS.fetch(platform) }
+      let(:kinds) { built_kinds.fetch(platform) }
       let(:rendered) do
         config_for(platform).render(platform: platform, name: "example", update_server: "https://example.test")
       end
@@ -51,4 +51,12 @@ RSpec.describe WarpEngine::CI::Woodpecker::PipelineConfig do
       expect(config_for("tic80").built_kinds("godot")).to be_nil
     end
   end
+end
+
+RSpec.describe WarpEngine::CI::Woodpecker::PipelineConfig do
+  include_examples "pipeline config built kinds", described_class
+end
+
+RSpec.describe WarpEngine::CI::Gitlab::PipelineConfig do
+  include_examples "pipeline config built kinds", described_class
 end

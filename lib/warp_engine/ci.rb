@@ -69,15 +69,21 @@ module WarpEngine
 
         case configured
         when nil, :woodpecker, "woodpecker" then woodpecker_adapter
+        when :gitlab, "gitlab"              then gitlab_adapter
         when :none, "none", :null           then null_adapter
         else configured
         end
       end
 
       def woodpecker? = adapter.is_a?(Woodpecker::Adapter)
+      def gitlab?     = adapter.is_a?(Gitlab::Adapter)
 
       def woodpecker_adapter
         @woodpecker_adapter ||= Woodpecker::Adapter.new
+      end
+
+      def gitlab_adapter
+        @gitlab_adapter ||= Gitlab::Adapter.new
       end
 
       def null_adapter
@@ -86,6 +92,7 @@ module WarpEngine
 
       def reset!
         @woodpecker_adapter = nil
+        @gitlab_adapter = nil
         @null_adapter = nil
       end
     end
@@ -93,3 +100,4 @@ module WarpEngine
 end
 
 require "warp_engine/ci/woodpecker"
+require "warp_engine/ci/gitlab"

@@ -1,0 +1,74 @@
+# Generated pipeline — WarpEngine /build/config (platform: c64, name: <%= name %>)
+stages:
+  - version
+  - build
+  - artifact
+  - publish
+
+version:
+  stage: version
+  image: alpine
+  script:
+    - |
+      VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' metadata.json | head -n 1)
+      if [ -z "$VERSION" ]; then
+        echo "ERROR: no \"version\" field in metadata.json!"
+        exit 1
+      fi
+      BRANCH="$CI_COMMIT_BRANCH"
+      BRANCH=$(echo "$BRANCH" | tr '/' '-')
+      if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ] && [ -n "$BRANCH" ]; then
+        VERSION="dev-$VERSION-$BRANCH"
+      fi
+      echo "VERSION is: $VERSION"
+      echo $VERSION > .version
+  artifacts:
+    paths:
+      - .version
+      - metadata.json
+
+build:
+  stage: build
+  image: <%= builder %>
+  script:
+    - |
+      VERSION=$(cat .version)
+      acme -f cbm -o <%= name %>.prg main.asm
+      echo "==> Creating versioned files for $VERSION"
+      cp <%= name %>.prg <%= name %>-$VERSION.prg
+      cp metadata.json <%= name %>-$VERSION.metadata.json
+      ls -lh <%= name %>-$VERSION.*
+  artifacts:
+    paths:
+      - "*.prg"
+      - "*.metadata.json"
+
+artifact:
+  stage: artifact
+  image: alpine
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+    - apk add --no-cache curl
+    - |
+      VERSION=$(cat .version)
+      echo "==> Uploading artifacts for version $VERSION"
+      for f in <%= name %>-$VERSION.prg <%= name %>-$VERSION.metadata.json; do
+        curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
+          -F "file=@$f" \
+          "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
+      done
+
+publish:
+  stage: publish
+  image: alpine
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+    - apk add --no-cache curl
+    - |
+      VERSION=$(cat .version)
+      echo "==> Publishing version $VERSION"
+      curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=c64&version=$VERSION"

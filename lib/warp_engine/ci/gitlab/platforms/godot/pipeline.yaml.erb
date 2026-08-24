@@ -1,0 +1,114 @@
+# Generated pipeline — WarpEngine /build/config (platform: godot, name: <%= name %>)
+stages:
+  - version
+  - build
+  - upload
+  - publish
+
+version:
+  stage: version
+  image: alpine
+  script:
+    - apk add --no-cache git jq
+    - |
+      if [ -f metadata.json ]; then
+        VERSION=$(jq -r '.version' metadata.json)
+      else
+        VERSION=$(git rev-parse --short HEAD)
+      fi
+      BRANCH=$(git rev-parse --abbrev-ref HEAD)
+      if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
+        VERSION="dev-$VERSION-$BRANCH"
+      fi
+      echo "VERSION is: $VERSION"
+      echo $VERSION > .version
+  artifacts:
+    paths:
+      - .version
+      - metadata.json
+
+build:
+  stage: build
+  image: <%= builder %>
+  script:
+    - |
+      VERSION=$(cat .version)
+      echo "==> Importing project"
+      godot --headless --import
+      echo "==> Exporting web build (Web preset)"
+      mkdir -p dist/web
+      godot --headless --export-release "Web" dist/web/index.html
+      echo "==> Packaging web build for $VERSION"
+      (cd dist/web && zip -r "../../<%= name %>-$VERSION.html.zip" .)
+      rm -rf dist/web
+    - |
+      VERSION=$(cat .version)
+      # exports a win/linux target + zips it with a single root folder
+      # (embed_pck makes the export a single executable)
+      binary_build() {
+        B_PRESET="$1"; B_EXT="$2"; B_TARGET="$3"
+        PKG_DIR="<%= name %>-$VERSION-$B_TARGET"
+        echo "==> Building $PKG_DIR"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip"
+        mkdir -p "$PKG_DIR"
+        godot --headless --export-release "$B_PRESET" "$(pwd)/$PKG_DIR/<%= name %>$B_EXT"
+        if [ -f LICENSE ]; then cp LICENSE "$PKG_DIR/"; fi
+        if [ -f README.md ]; then cp README.md "$PKG_DIR/"; fi
+        zip -r "$PKG_DIR.zip" "$PKG_DIR" >/dev/null
+        rm -rf "$PKG_DIR"
+        echo "==> $PKG_DIR.zip kesz"
+      }
+      # mac: from linux Godot can only export macOS into a .zip (holding the
+      # .app); repackage it to the root-folder convention (zip -ry keeps
+      # exec bits and symlinks)
+      binary_build_mac() {
+        B_PRESET="$1"; B_TARGET="$2"
+        PKG_DIR="<%= name %>-$VERSION-$B_TARGET"
+        echo "==> Building $PKG_DIR"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip"
+        mkdir -p "$PKG_DIR"
+        godot --headless --export-release "$B_PRESET" "$(pwd)/$PKG_DIR/<%= name %>-mac-tmp.zip"
+        (cd "$PKG_DIR" && unzip -q "<%= name %>-mac-tmp.zip" && rm "<%= name %>-mac-tmp.zip")
+        if [ -f LICENSE ]; then cp LICENSE "$PKG_DIR/"; fi
+        if [ -f README.md ]; then cp README.md "$PKG_DIR/"; fi
+        zip -ry "$PKG_DIR.zip" "$PKG_DIR" >/dev/null
+        rm -rf "$PKG_DIR"
+        echo "==> $PKG_DIR.zip kesz"
+      }
+      binary_build "Windows x86" ".exe" "win-x86"
+      binary_build "Windows x64" ".exe" "win-x64"
+      binary_build "Linux x64" "" "linux-x64"
+      binary_build_mac "Mac universal" "mac-universal"
+  artifacts:
+    paths:
+      - "*.zip"
+
+upload:
+  stage: upload
+  image: alpine
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+    - apk add --no-cache curl
+    - |
+      VERSION=$(cat .version)
+      cp metadata.json "<%= name %>-$VERSION.metadata.json"
+      BINS=$(ls <%= name %>-$VERSION-*.zip 2>/dev/null || true)
+      for f in "<%= name %>-$VERSION.html.zip" "<%= name %>-$VERSION.metadata.json" $BINS; do
+        curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
+          -F "file=@$f" \
+          "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
+      done
+
+publish:
+  stage: publish
+  image: alpine
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+    - apk add --no-cache curl
+    - |
+      VERSION=$(cat .version)
+      curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=godot&version=$VERSION"

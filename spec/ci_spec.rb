@@ -19,6 +19,13 @@ RSpec.describe WarpEngine::CI do
       expect(WarpEngine.ci).not_to be_configured
     end
 
+    it "drives GitLab when configured" do
+      WarpEngine.config.ci_adapter = :gitlab
+
+      expect(WarpEngine.ci).to be_a(WarpEngine::CI::Gitlab::Adapter)
+      expect(WarpEngine.ci.name).to eq("GitLab")
+    end
+
     it "hands back whatever object the host named" do
       own = Class.new { def name = "Forge Runner" }.new
       WarpEngine.config.ci_adapter = own
@@ -131,6 +138,111 @@ RSpec.describe WarpEngine::CI do
     it "shapes the response the way the CI server expects" do
       expect(adapter.config_response(platform: "godot", config: "steps: []"))
         .to eq({ configs: [ { name: "godot", data: "steps: []" } ] })
+    end
+  end
+
+  describe WarpEngine::CI::Gitlab::Adapter do
+    let(:client) { instance_double(WarpEngine::CI::Gitlab::Client) }
+    let(:adapter) do
+      described_class.new(url: "https://gitlab.test", api_token: "tok",
+                          webhook_secret: "gl-secret",
+                          platforms: { "godot" => { builder: "registry.test/godot:1" } },
+                          update_server: "https://games.test")
+    end
+
+    before { allow(adapter).to receive(:client).and_return(client) }
+
+    it "is inactive without a server and a token" do
+      expect(described_class.new(url: nil, api_token: nil)).not_to be_configured
+      expect(adapter).to be_configured
+    end
+
+    it "normalizes a repository from GitLab JSON" do
+      allow(client).to receive(:list_repos).and_return([
+        { "id" => 7, "path" => "game", "name" => "game",
+          "namespace" => { "path" => "org", "name" => "Org" } }
+      ])
+
+      repo = adapter.repos.first
+
+      expect(repo.id).to eq(7)
+      expect(repo.name).to eq("game")
+      expect(repo.full_name).to eq("org/game")
+      expect(repo).to be_active
+    end
+
+    it "normalizes a run from GitLab pipeline JSON" do
+      allow(client).to receive(:trigger_pipeline).and_return(
+        { "id" => 42, "status" => "success", "ref" => "main",
+          "created_at" => "2025-08-06T12:00:00.000Z",
+          "web_url" => "https://gitlab.test/org/game/-/pipelines/42" }
+      )
+
+      run = adapter.trigger(7, branch: "main")
+
+      expect(run.number).to eq(42)
+      expect(run).to be_success
+      expect(run.created_at).to be_present
+      expect(run.url).to eq("https://gitlab.test/org/game/-/pipelines/42")
+    end
+
+    it "creates a variable the project does not have yet" do
+      allow(client).to receive(:list_secrets).and_return([])
+      allow(client).to receive(:create_secret)
+
+      adapter.secret_set(7, name: "application_token", value: "plain")
+
+      expect(client).to have_received(:create_secret).with(
+        7, name: "application_token", value: "plain"
+      )
+    end
+
+    it "updates a variable the project already has" do
+      allow(client).to receive(:list_secrets).and_return([ { "key" => "application_token" } ])
+      allow(client).to receive(:update_secret)
+
+      adapter.secret_set(7, name: "application_token", value: "plain")
+
+      expect(client).to have_received(:update_secret).with(7, "application_token", value: "plain")
+    end
+
+    it "reads the platform marker out of a config request" do
+      params = ActionController::Parameters.new(
+        repo: { name: "mygame" },
+        configs: [ { name: ".gitlab-ci.yml", data: "platform: godot\n" } ]
+      )
+
+      expect(adapter.config_marker(params)).to eq({ platform: "godot", name: "mygame" })
+    end
+
+    it "ignores a config request that is not a marker" do
+      params = ActionController::Parameters.new(
+        configs: [ { name: ".gitlab-ci.yml", data: "stages:\n  - build\n" } ]
+      )
+
+      expect(adapter.config_marker(params)).to be_nil
+    end
+
+    it "renders only the platforms it was given" do
+      expect(adapter.pipeline_config(platform: "godot", name: "mygame",
+                                     update_server: "https://games.test")).to include("registry.test/godot:1")
+      expect(adapter.pipeline_config(platform: "amiga", name: "mygame",
+                                     update_server: "https://games.test")).to be_nil
+    end
+
+    it "shapes the response the way the CI server expects" do
+      expect(adapter.config_response(platform: "godot", config: "stages: []"))
+        .to eq({ configs: [ { name: "godot", data: "stages: []" } ] })
+    end
+
+    it "verifies webhook requests via X-Gitlab-Token" do
+      good_request = instance_double(ActionDispatch::Request,
+                                     headers: { "X-Gitlab-Token" => "gl-secret" })
+      bad_request = instance_double(ActionDispatch::Request,
+                                    headers: { "X-Gitlab-Token" => "wrong" })
+
+      expect(adapter.verify_config_request(good_request)).to be(true)
+      expect(adapter.verify_config_request(bad_request)).to be(false)
     end
   end
 end
