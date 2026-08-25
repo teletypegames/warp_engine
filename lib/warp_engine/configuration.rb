@@ -17,7 +17,8 @@ module WarpEngine
                   :subject_resolver,
                   :identity_verification_url,
                   :device_code_ttl,
-                  :device_code_interval
+                  :device_code_interval,
+                  :ignored_user_agents
 
     def initialize
       @site_url                      = nil
@@ -37,6 +38,22 @@ module WarpEngine
       @identity_verification_url     = nil
       @device_code_ttl               = 600
       @device_code_interval          = 5
+      @ignored_user_agents           = []
+    end
+
+    def ignored_user_agent?(ua)
+      return false if ua.blank?
+
+      @_ignored_ua_patterns ||= Array(@ignored_user_agents).map do |pattern|
+        pattern.is_a?(Regexp) ? pattern : Regexp.new("\\A#{Regexp.escape(pattern).gsub("\\*", ".*")}\\z", Regexp::IGNORECASE)
+      end
+
+      @_ignored_ua_patterns.any? { |re| re.match?(ua) }
+    end
+
+    def ignored_user_agents=(value)
+      @ignored_user_agents = value
+      @_ignored_ua_patterns = nil
     end
   end
 end

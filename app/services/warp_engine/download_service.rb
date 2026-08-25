@@ -40,6 +40,8 @@ module WarpEngine
     end
 
     def log_download(relative, asset:, ip:, user_agent:, referer:, subject:)
+      return if WarpEngine.config.ignored_user_agent?(user_agent)
+
       download = WarpEngine::Download.create!(
         file_path: relative,
         release: asset&.release,
