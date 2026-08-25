@@ -1,7 +1,6 @@
 module WarpEngine
   module Platforms
     module Builds
-
       module BuildLinuxArm64
         extend ActiveSupport::Concern
 

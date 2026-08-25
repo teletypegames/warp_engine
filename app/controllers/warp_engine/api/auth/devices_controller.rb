@@ -1,5 +1,4 @@
 module WarpEngine
-
   class Api::Auth::DevicesController < ApiController
     before_action :ensure_identity_configured
 

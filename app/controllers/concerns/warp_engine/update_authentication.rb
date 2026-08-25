@@ -1,5 +1,4 @@
 module WarpEngine
-
   module UpdateAuthentication
     extend ActiveSupport::Concern
 

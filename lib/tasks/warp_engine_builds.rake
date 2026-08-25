@@ -12,7 +12,7 @@ namespace :warp_engine do
       checklist = WarpEngine::AssetCoverageChecklist.new(
         coverage, only_missing: ENV["ONLY"] == "missing"
       )
-      puts checklist.to_s
+      puts checklist
 
       if ENV["STRICT"] == "1" && coverage.totals[:missing].positive?
         abort "\nSTRICT: #{coverage.totals[:missing]} expected assets are missing."

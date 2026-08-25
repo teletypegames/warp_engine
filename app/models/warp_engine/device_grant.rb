@@ -1,5 +1,4 @@
 module WarpEngine
-
   class DeviceGrant < ApplicationRecord
     self.table_name = "device_grants"
 
@@ -58,7 +57,6 @@ module WarpEngine
     end
 
     def self.generate_user_code
-
       10.times do
         candidate = Array.new(USER_CODE_LENGTH) { USER_CODE_ALPHABET.chars.sample }.join
         return candidate unless exists?(user_code: candidate)

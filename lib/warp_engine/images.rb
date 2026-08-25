@@ -1,7 +1,5 @@
 module WarpEngine
-
   module Images
-
     class HostModel
       URL_PREFIX = "/api/image".freeze
 

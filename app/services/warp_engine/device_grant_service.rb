@@ -1,5 +1,4 @@
 module WarpEngine
-
   class DeviceGrantService
     class NotConfigured < StandardError; end
     class UnknownCode < StandardError; end

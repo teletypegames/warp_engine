@@ -15,7 +15,7 @@ RSpec.describe WarpEngine::CI::Woodpecker::Client do
 
   describe "repos" do
     it "lists repos" do
-      repos = [{ "id" => 1, "name" => "game1" }]
+      repos = [ { "id" => 1, "name" => "game1" } ]
       stub_wp(:get, "/api/repos", body: repos)
 
       expect(client.list_repos).to eq(repos)
@@ -37,7 +37,7 @@ RSpec.describe WarpEngine::CI::Woodpecker::Client do
 
   describe "secrets" do
     it "lists secrets" do
-      secrets = [{ "name" => "application_token" }]
+      secrets = [ { "name" => "application_token" } ]
       stub_wp(:get, "/api/repos/1/secrets", body: secrets)
 
       expect(client.list_secrets(1)).to eq(secrets)
@@ -66,7 +66,7 @@ RSpec.describe WarpEngine::CI::Woodpecker::Client do
 
   describe "pipelines" do
     it "lists pipelines" do
-      pipelines = [{ "number" => 1, "status" => "success" }]
+      pipelines = [ { "number" => 1, "status" => "success" } ]
       stub_wp(:get, "/api/repos/42/pipelines?page=1&perPage=25", body: pipelines)
 
       expect(client.list_pipelines(42)).to eq(pipelines)

@@ -1,5 +1,4 @@
 module WarpEngine
-
   module Storage
     Location = Struct.new(:kind, :path, :url, keyword_init: true) do
       def file? = kind == :file

@@ -16,7 +16,7 @@ module WarpEngine
     validate :c64_cannot_be_web_playable
 
     def self.latest_non_dev(releases)
-      sorted = releases.sort_by { |r| [r.created_at || Time.at(0), r.id] }.reverse
+      sorted = releases.sort_by { |r| [ r.created_at || Time.at(0), r.id ] }.reverse
       candidates = sorted.reject { |r| r.version.to_s.start_with?("dev-") }
       candidates.empty? ? sorted.first : candidates.first
     end

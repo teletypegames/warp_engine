@@ -1,5 +1,4 @@
 module WarpEngine
-
   module SubjectAuthentication
     extend ActiveSupport::Concern
 

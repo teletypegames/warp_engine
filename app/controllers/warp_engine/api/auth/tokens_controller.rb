@@ -1,5 +1,4 @@
 module WarpEngine
-
   class Api::Auth::TokensController < ApiController
     resource_description do
       short "Client tokens"

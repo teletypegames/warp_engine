@@ -13,7 +13,6 @@ require "warp_engine/images"
 require "warp_engine/ci"
 
 module WarpEngine
-
   def self.table_name_prefix
     ""
   end

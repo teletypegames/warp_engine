@@ -1,6 +1,5 @@
 module WarpEngine
   class Configuration
-
     attr_accessor :site_url,
                   :file_container_path,
                   :update_secret,

@@ -761,6 +761,16 @@ bundle exec rspec
 ## Development
 
 This repository is a **read-only split mirror** — development happens in the
-[`tools/teletypegames`](https://git.teletypegames.org/tools/teletypegames)
+[`services/teletypegames`](https://git.teletypegames.org/services/teletypegames)
 monorepo under `libs/ruby/warp_engine`, and CI republishes the mirror on every
 change. Please do not open pull requests against the mirror.
+
+Two rules the monorepo's pipeline enforces before anything is mirrored or
+published:
+
+- **Every commit that touches the engine raises `WarpEngine::VERSION`.** A
+  pre-commit hook checks it locally, the pipeline's first step checks it again
+  over the pushed commits, and a `warp_engine-v*` tag must name the version the
+  tree actually holds.
+- **RuboCop is green** (`.rubocop.yml`, rubocop-rails-omakase), and the suite
+  passes — in that order, before the gem is built.

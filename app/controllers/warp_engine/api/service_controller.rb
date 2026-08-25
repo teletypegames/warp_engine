@@ -1,5 +1,4 @@
 module WarpEngine
-
   class Api::ServiceController < ApiController
     resource_description do
       short "Service descriptor"

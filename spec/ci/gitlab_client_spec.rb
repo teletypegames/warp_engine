@@ -15,7 +15,7 @@ RSpec.describe WarpEngine::CI::Gitlab::Client do
 
   describe "repos" do
     it "lists repos" do
-      repos = [{ "id" => 1, "path" => "game1" }]
+      repos = [ { "id" => 1, "path" => "game1" } ]
       stub_gl(:get, "/api/v4/projects?membership=true&per_page=100&simple=true", body: repos)
 
       expect(client.list_repos).to eq(repos)
@@ -39,7 +39,7 @@ RSpec.describe WarpEngine::CI::Gitlab::Client do
 
   describe "secrets (variables)" do
     it "lists variables" do
-      vars = [{ "key" => "application_token" }]
+      vars = [ { "key" => "application_token" } ]
       stub_gl(:get, "/api/v4/projects/1/variables", body: vars)
 
       expect(client.list_secrets(1)).to eq(vars)
@@ -68,7 +68,7 @@ RSpec.describe WarpEngine::CI::Gitlab::Client do
 
   describe "pipelines" do
     it "lists pipelines" do
-      pipelines = [{ "id" => 1, "status" => "success" }]
+      pipelines = [ { "id" => 1, "status" => "success" } ]
       stub_gl(:get, "/api/v4/projects/42/pipelines?page=1&per_page=25", body: pipelines)
 
       expect(client.list_pipelines(42)).to eq(pipelines)
@@ -76,7 +76,7 @@ RSpec.describe WarpEngine::CI::Gitlab::Client do
 
     it "gets latest pipeline" do
       pipeline = { "id" => 5, "status" => "running" }
-      stub_gl(:get, "/api/v4/projects/42/pipelines?per_page=1&sort=desc", body: [pipeline])
+      stub_gl(:get, "/api/v4/projects/42/pipelines?per_page=1&sort=desc", body: [ pipeline ])
 
       expect(client.latest_pipeline(42)).to eq(pipeline)
     end

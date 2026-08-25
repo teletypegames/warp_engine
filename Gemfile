@@ -10,4 +10,5 @@ group :development, :test do
   gem "shoulda-matchers", "~> 6.0"
   gem "webmock", "~> 3.0"
   gem "debug", platforms: %i[mri windows]
+  gem "rubocop-rails-omakase", require: false
 end

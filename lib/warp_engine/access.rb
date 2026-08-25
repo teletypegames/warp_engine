@@ -1,7 +1,5 @@
 module WarpEngine
-
   module AccessPolicy
-
     class Open
       def visible_software_scope(subject: nil)
         WarpEngine::Software.kept
@@ -39,7 +37,6 @@ module WarpEngine
   end
 
   class Access
-
     attr_reader :gated, :entitled, :price_cents, :currency, :purchase_url, :web_url
 
     def initialize(gated: false, entitled: true, price_cents: nil, currency: nil,

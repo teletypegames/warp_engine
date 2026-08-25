@@ -1,6 +1,5 @@
 module WarpEngine
   class PublishService
-
     NOTIFICATION = "warp_engine.publish".freeze
 
     def publish(input)

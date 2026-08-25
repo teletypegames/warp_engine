@@ -20,12 +20,13 @@ RSpec.describe WarpEngine::PlatformLink, type: :model do
     end
   end
 
-  describe "default scope" do
-    it "excludes soft-deleted records" do
-      active = create(:platform_link)
-      create(:platform_link, deleted_at: Time.current)
+  describe "scopes" do
+    it "keeps soft-deleted records out of .kept, not out of .all" do
+      active  = create(:platform_link)
+      deleted = create(:platform_link, deleted_at: Time.current)
 
-      expect(WarpEngine::PlatformLink.all).to eq([active])
+      expect(WarpEngine::PlatformLink.kept).to eq([ active ])
+      expect(WarpEngine::PlatformLink.all).to contain_exactly(active, deleted)
     end
 
     it "does not order: ordering is asked for, not inherited" do
@@ -52,7 +53,7 @@ RSpec.describe WarpEngine::PlatformLink, type: :model do
       create(:platform_link, platform: "love")
 
       result = WarpEngine::PlatformLink.for_platform("tic80")
-      expect(result).to eq([tic80_link])
+      expect(result).to eq([ tic80_link ])
     end
 
     it "returns empty array for platform without links" do

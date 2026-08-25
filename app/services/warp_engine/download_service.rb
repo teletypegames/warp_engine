@@ -2,7 +2,6 @@ require "warp_engine/access_denied"
 
 module WarpEngine
   class DownloadService
-
     Denied = WarpEngine::AccessDenied
 
     include AccessPolicyGuard

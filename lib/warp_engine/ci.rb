@@ -1,5 +1,4 @@
 module WarpEngine
-
   module CI
     class Error < StandardError; end
 

@@ -1,6 +1,5 @@
 module WarpEngine
   class FileManagerService
-
     def base_path
       @base_path ||= Pathname.new(WarpEngine.config.file_container_path)
     end

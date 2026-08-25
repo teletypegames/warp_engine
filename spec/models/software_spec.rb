@@ -18,7 +18,7 @@ RSpec.describe WarpEngine::Software, type: :model do
       active = create(:software)
       create(:software, deleted_at: Time.current)
 
-      expect(WarpEngine::Software.kept).to eq([active])
+      expect(WarpEngine::Software.kept).to eq([ active ])
     end
 
     it "includes soft-deleted records without scope" do

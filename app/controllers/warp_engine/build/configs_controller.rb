@@ -1,6 +1,5 @@
 module WarpEngine
   module Build
-
     class ConfigsController < ApiController
       resource_description do
         short "CI pipeline configs"
