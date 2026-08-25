@@ -1,5 +1,9 @@
+require "warp_engine/access_denied"
+
 module WarpEngine
   class FileService
+
+    include AccessPolicyGuard
 
     def show(input, subject: nil)
       relative = input.path.to_s
@@ -21,19 +25,10 @@ module WarpEngine
     private
 
     def authorize!(relative, subject)
-
       return WarpEngine::Access::Grant::OPEN if WarpEngine::AccessPolicy.open?
 
       asset = WarpEngine::ReleaseAsset.for_relative_path(relative)
-      grant = WarpEngine.access_policy.authorize_download(asset: asset, subject: subject, request: nil)
-      raise WarpEngine::DownloadService::Denied if grant.nil?
-
-      grant
-    rescue WarpEngine::DownloadService::Denied
-      raise
-    rescue StandardError => e
-      Rails.logger.error("[WarpEngine::AccessPolicy] #{e.class}: #{e.message}")
-      raise WarpEngine::DownloadService::Denied
+      authorize_download!(asset: asset, subject: subject, request: nil)
     end
 
     def storage

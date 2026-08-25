@@ -9,12 +9,13 @@ module WarpEngine
 
     CATALOG_SCOPE = "catalog".freeze
 
+    include SoftDeletable
+
     attr_reader :plain_token
 
     belongs_to :owner, polymorphic: true
 
-    default_scope { where(deleted_at: nil) }
-    scope :active, -> { where("expires_at IS NULL OR expires_at > ?", Time.current) }
+    scope :active, -> { kept.where("expires_at IS NULL OR expires_at > ?", Time.current) }
 
     before_validation :assign_owner_type, on: :create
     before_validation :generate_token, on: :create
@@ -45,7 +46,7 @@ module WarpEngine
     end
 
     def revoke!
-      update_column(:deleted_at, Time.current)
+      soft_delete!
     end
 
     def touch_last_used!
@@ -58,10 +59,6 @@ module WarpEngine
 
     def scopes_string=(value)
       self.scopes = value.to_s.split(",").map(&:strip).reject(&:blank?).uniq
-    end
-
-    def self.ransackable_attributes(auth_object = nil)
-      %w[created_at deleted_at expires_at id last_used_at name owner_id owner_type token_prefix unrestricted updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)

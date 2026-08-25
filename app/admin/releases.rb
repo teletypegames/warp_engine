@@ -17,6 +17,12 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
 
   filter :version
 
+  controller do
+    def scoped_collection
+      super.kept
+    end
+  end
+
   show do
     attributes_table do
       row :id

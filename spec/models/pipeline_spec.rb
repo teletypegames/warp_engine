@@ -36,18 +36,24 @@ RSpec.describe WarpEngine::Pipeline do
     end
   end
 
-  describe "default_scope" do
+  describe ".kept scope" do
     it "excludes soft-deleted records" do
       repo = create(:pipeline)
       repo.update_column(:deleted_at, Time.current)
 
-      expect(described_class.all).not_to include(repo)
-      expect(described_class.unscoped).to include(repo)
+      expect(described_class.kept).not_to include(repo)
+    end
+
+    it "includes soft-deleted records without scope" do
+      repo = create(:pipeline)
+      repo.update_column(:deleted_at, Time.current)
+
+      expect(described_class.all).to include(repo)
     end
   end
 
   describe ".active" do
-    it "returns only active repos" do
+    it "returns only active kept repos" do
       active = create(:pipeline, active: true)
       inactive = create(:pipeline, active: false)
 

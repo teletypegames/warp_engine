@@ -67,7 +67,7 @@ module WarpEngine
     private
 
     def scope
-      relation = WarpEngine::Software.order(:name).includes(releases: :release_assets)
+      relation = WarpEngine::Software.kept.order(:name).includes(releases: :release_assets)
       relation = relation.where(name: name) if name
       relation = relation.where(platform: platform) if platform
       relation
@@ -113,9 +113,7 @@ module WarpEngine
     def sorted(all) = all.sort_by { |release| [ release.created_at || Time.at(0), release.id ] }.reverse
 
     def latest(all)
-      candidates = all.reject { |release| release.version.to_s.start_with?("dev-") }
-      candidates = all if candidates.empty?
-      sorted(candidates).first
+      Release.latest_non_dev(all)
     end
   end
 end

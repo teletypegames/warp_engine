@@ -109,8 +109,8 @@ RSpec.describe WarpEngine::ApplicationToken, type: :model do
       token = create(:application_token)
       token.revoke!
 
-      expect(described_class.find_by(id: token.id)).to be_nil
-      expect(described_class.unscoped.find(token.id).deleted_at).to be_present
+      expect(described_class.kept.find_by(id: token.id)).to be_nil
+      expect(described_class.find(token.id).deleted_at).to be_present
     end
   end
 

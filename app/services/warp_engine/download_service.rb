@@ -1,14 +1,18 @@
+require "warp_engine/access_denied"
+
 module WarpEngine
   class DownloadService
 
-    class Denied < StandardError; end
+    Denied = WarpEngine::AccessDenied
+
+    include AccessPolicyGuard
 
     def locate(path:, ip:, user_agent:, referer:, subject: nil, request: nil)
       relative = path.to_s
       return nil unless storage.file?(relative)
 
       asset = find_asset(relative)
-      grant = authorize!(asset, subject, request)
+      grant = authorize_download!(asset: asset, subject: subject, request: request)
 
       log_download(relative, asset: asset, ip: ip, user_agent: user_agent, referer: referer, subject: subject)
 
@@ -29,18 +33,6 @@ module WarpEngine
 
     def storage
       WarpEngine.storage
-    end
-
-    def authorize!(asset, subject, request)
-      grant = WarpEngine.access_policy.authorize_download(asset: asset, subject: subject, request: request)
-      raise Denied if grant.nil?
-
-      grant
-    rescue Denied
-      raise
-    rescue StandardError => e
-      Rails.logger.error("[WarpEngine::AccessPolicy] #{e.class}: #{e.message}")
-      raise Denied
     end
 
     def find_asset(relative)

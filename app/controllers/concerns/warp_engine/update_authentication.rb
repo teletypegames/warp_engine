@@ -43,7 +43,7 @@ module WarpEngine
       token = current_application_token
       return true if token.nil? || token.unrestricted?
 
-      software = WarpEngine::Software.find_by(name: name)
+      software = WarpEngine::Software.kept.find_by(name: name)
       return true if software.nil? || software.owner_id.nil?
 
       software.owner_type == token.owner_type && software.owner_id == token.owner_id
@@ -53,7 +53,7 @@ module WarpEngine
       token = current_application_token
       return if token.nil? || token.unrestricted?
 
-      software = WarpEngine::Software.find_by(name: name)
+      software = WarpEngine::Software.kept.find_by(name: name)
       return if software.nil? || software.owner_id.present?
 
       software.update_columns(owner_type: token.owner_type, owner_id: token.owner_id)

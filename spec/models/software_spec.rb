@@ -13,12 +13,19 @@ RSpec.describe WarpEngine::Software, type: :model do
   it { should have_many(:external_links) }
   it { should have_many(:software_images).dependent(:destroy) }
 
-  describe "default scope" do
+  describe ".kept scope" do
     it "excludes soft-deleted records" do
       active = create(:software)
       create(:software, deleted_at: Time.current)
 
-      expect(WarpEngine::Software.all).to eq([active])
+      expect(WarpEngine::Software.kept).to eq([active])
+    end
+
+    it "includes soft-deleted records without scope" do
+      active = create(:software)
+      deleted = create(:software, deleted_at: Time.current)
+
+      expect(WarpEngine::Software.all).to contain_exactly(active, deleted)
     end
   end
 end

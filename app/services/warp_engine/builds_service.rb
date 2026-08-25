@@ -11,7 +11,7 @@ module WarpEngine
     end
 
     def show(name)
-      software = WarpEngine::Software.find_by!(name: name)
+      software = WarpEngine::Software.kept.find_by!(name: name)
       expected = WarpEngine::Platform.find!(software.platform).expected_kinds
 
       releases = software.releases.includes(:release_assets).order(updated_at: :desc)

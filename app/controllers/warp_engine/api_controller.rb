@@ -1,3 +1,5 @@
+require "warp_engine/access_denied"
+
 module WarpEngine
   class ApiController < ActionController::API
     resource_description do
@@ -10,7 +12,7 @@ module WarpEngine
     include WarpEngine::ApiErrorRendering
     include WarpEngine::SubjectAuthentication
 
-    rescue_from WarpEngine::DownloadService::Denied do
+    rescue_from WarpEngine::AccessDenied do
       render json: { error: "Forbidden" }, status: :forbidden
     end
 

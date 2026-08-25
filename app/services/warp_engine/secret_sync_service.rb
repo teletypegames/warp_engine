@@ -36,22 +36,28 @@ module WarpEngine
       pipelines = pipelines_for_token(application_token)
       return { rotated: false, reason: "no pipelines" } if pipelines.empty?
 
-      new_token = ApplicationToken.create!(
-        name:         "#{application_token.name} (rotated #{Date.current})",
-        owner_id:     application_token.owner_id,
-        owner_type:   application_token.owner_type,
-        scopes:       application_token.scopes,
-        expires_at:   application_token.expires_at,
-        unrestricted: application_token.unrestricted?
-      )
+      new_token = nil
+      ActiveRecord::Base.transaction do
+        new_token = ApplicationToken.create!(
+          name:         "#{application_token.name} (rotated #{Date.current})",
+          owner_id:     application_token.owner_id,
+          owner_type:   application_token.owner_type,
+          scopes:       application_token.scopes,
+          expires_at:   application_token.expires_at,
+          unrestricted: application_token.unrestricted?
+        )
+        application_token.soft_delete!
+      end
 
       result = provision(new_token.plain_token, pipelines: pipelines)
 
       if result[:synced].any?
-        application_token.revoke!
         { rotated: true, new_token: new_token, sync_result: result }
       else
-        new_token.revoke!
+        ActiveRecord::Base.transaction do
+          application_token.restore!
+          new_token.soft_delete!
+        end
         { rotated: false, reason: "all pipelines failed", sync_result: result }
       end
     end
@@ -60,7 +66,7 @@ module WarpEngine
       if application_token.unrestricted?
         Pipeline.active.to_a
       else
-        software_ids = Software.where(
+        software_ids = Software.kept.where(
           owner_type: application_token.owner_type,
           owner_id:   application_token.owner_id
         ).pluck(:id)

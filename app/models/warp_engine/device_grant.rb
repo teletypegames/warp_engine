@@ -46,10 +46,6 @@ module WarpEngine
       where(expires_at: ...Time.current).where.not(issued_token: nil).update_all(issued_token: nil)
     end
 
-    def self.ransackable_attributes(auth_object = nil)
-      %w[approved_at client_name created_at denied_at expires_at id subject_id subject_type updated_at user_code]
-    end
-
     def self.ransackable_associations(auth_object = nil)
       []
     end

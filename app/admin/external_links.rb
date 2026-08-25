@@ -5,6 +5,12 @@ ActiveAdmin.register WarpEngine::ExternalLink, as: "External Link" do
 
   belongs_to :software
 
+  controller do
+    def scoped_collection
+      super.kept
+    end
+  end
+
   index do
     selectable_column
     id_column

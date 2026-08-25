@@ -14,6 +14,12 @@ ActiveAdmin.register WarpEngine::PlatformLink, as: "Platform Link" do
   scope("Bevy")       { |s| s.where(platform: "bevy") }
   scope("Phaser")     { |s| s.where(platform: "phaser") }
 
+  controller do
+    def scoped_collection
+      super.kept
+    end
+  end
+
   index do
     selectable_column
     id_column

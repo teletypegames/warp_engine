@@ -30,7 +30,7 @@ module WarpEngine
 
       safe_name = sanitize_name(uploaded_file.original_filename)
       target = dir.join(safe_name)
-      raise ArgumentError, "Path escape" unless target.to_s.start_with?(base_path.to_s)
+      ensure_within_base!(target)
 
       IO.copy_stream(uploaded_file.to_io, target.to_s)
       target.relative_path_from(base_path).to_s
@@ -53,7 +53,7 @@ module WarpEngine
 
       safe_name = sanitize_name(new_name)
       new_full = full.parent.join(safe_name)
-      raise ArgumentError, "Path escape" unless new_full.to_s.start_with?(base_path.to_s)
+      ensure_within_base!(new_full)
 
       full.rename(new_full)
       new_full.relative_path_from(base_path).to_s
@@ -65,13 +65,17 @@ module WarpEngine
 
       safe_name = sanitize_name(folder_name)
       new_dir = parent.join(safe_name)
-      raise ArgumentError, "Path escape" unless new_dir.to_s.start_with?(base_path.to_s)
+      ensure_within_base!(new_dir)
 
       new_dir.mkdir
       new_dir.relative_path_from(base_path).to_s
     end
 
     private
+
+    def ensure_within_base!(path)
+      raise ArgumentError, "Path escape" unless path.to_s.start_with?(base_path.to_s)
+    end
 
     def safe_path!(relative_path)
       cleaned = relative_path.to_s.gsub("..", "").squeeze("/").gsub(%r{^/|/$}, "")

@@ -150,7 +150,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
 
   controller do
     def scoped_collection
-      super.includes({ releases: :release_assets }, software_images: :image)
+      super.kept.includes({ releases: :release_assets }, software_images: :image)
     end
 
     def find_resource

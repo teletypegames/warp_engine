@@ -4,6 +4,8 @@ module WarpEngine
                win_x86 win_x64 linux_x86 linux_x64 linux_arm64
                mac_x64 mac_arm64 mac_universal].freeze
 
+    include SoftDeletable
+
     belongs_to :release
 
     enum :kind, KINDS.index_by(&:itself)
@@ -11,19 +13,9 @@ module WarpEngine
     validates :path, presence: true
     validates :kind, uniqueness: { scope: :release_id }
 
-    default_scope { where(deleted_at: nil) }
-
     def self.for_relative_path(relative)
       absolute = File.join(WarpEngine.config.file_container_path, relative.to_s)
       find_by(path: absolute) || where("path LIKE ?", "%/#{sanitize_sql_like(relative.to_s)}").first
-    end
-
-    def self.ransackable_attributes(auth_object = nil)
-      %w[created_at deleted_at id kind path release_id updated_at]
-    end
-
-    def self.ransackable_associations(auth_object = nil)
-      %w[release]
     end
 
     ActiveSupport.run_load_hooks(:warp_engine_release_asset, self)

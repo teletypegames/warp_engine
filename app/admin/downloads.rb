@@ -100,7 +100,7 @@ ActiveAdmin.register WarpEngine::Download, as: "Download" do
 
   controller do
     def scoped_collection
-      super.includes(release: :software)
+      super.kept.includes(release: :software)
     end
   end
 end

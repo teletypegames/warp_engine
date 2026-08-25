@@ -4,7 +4,7 @@ module WarpEngine
 
     class Open
       def visible_software_scope(subject: nil)
-        WarpEngine::Software.all
+        WarpEngine::Software.kept
       end
 
       def access_for(software:, subject: nil)

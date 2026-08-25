@@ -47,7 +47,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
     f.inputs do
       f.input :platform, as: :select, collection: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS
       f.input :software_id, as: :select,
-              collection: WarpEngine::Software.order(:title).map { |s| [ s.title, s.id ] },
+              collection: WarpEngine::Software.kept.order(:title).map { |s| [ s.title, s.id ] },
               include_blank: "- none -",
               hint: "One pipeline per software. Picking one that another pipeline already " \
                     "has moves the link here — that pipeline is left without a software, " \
@@ -124,7 +124,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
 
   controller do
     def scoped_collection
-      super.includes(:software)
+      super.kept.includes(:software)
     end
   end
 end

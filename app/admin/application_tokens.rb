@@ -96,6 +96,10 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   end
 
   controller do
+    def scoped_collection
+      super.kept
+    end
+
     def create
       create! do |success, _failure|
         success.html do

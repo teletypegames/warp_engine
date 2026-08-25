@@ -4,11 +4,11 @@ module WarpEngine
 
     UNKNOWN_PLATFORM = "unknown".freeze
 
+    include SoftDeletable
+
     belongs_to :software, class_name: "WarpEngine::Software", optional: true
 
     attr_reader :software_taken_from
-
-    default_scope { where(deleted_at: nil) }
 
     before_save :claim_software_from_other_pipelines, if: :will_save_change_to_software_id?
 
@@ -18,7 +18,9 @@ module WarpEngine
     validates :platform, presence: true,
               inclusion: { in: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS + [ UNKNOWN_PLATFORM ] }
 
-    scope :active, -> { where(active: true) }
+    scope :active, -> { kept.where(active: true) }
+
+    scope :by_remote_repo_id, ->(id) { where(woodpecker_repo_id: id) }
 
     def full_name
       "#{repo_owner}/#{repo_name}"
@@ -32,13 +34,8 @@ module WarpEngine
       self.woodpecker_repo_id = value
     end
 
-    def self.ransackable_attributes(auth_object = nil)
-      %w[active created_at deleted_at id last_pipeline_at last_pipeline_status
-         platform repo_name repo_owner software_id woodpecker_repo_id]
-    end
-
-    def self.ransackable_associations(auth_object = nil)
-      %w[software]
+    def self.find_or_initialize_by_remote_repo_id(id)
+      find_or_initialize_by(woodpecker_repo_id: id)
     end
 
     private

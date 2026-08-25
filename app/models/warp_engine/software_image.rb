@@ -15,14 +15,6 @@ module WarpEngine
 
     scope :ordered, -> { order(:position) }
 
-    def self.ransackable_attributes(auth_object = nil)
-      %w[created_at id image_id is_default position software_id updated_at]
-    end
-
-    def self.ransackable_associations(auth_object = nil)
-      %w[image software]
-    end
-
     ActiveSupport.run_load_hooks(:warp_engine_software_image, self)
 
     private

@@ -8,6 +8,7 @@ require "warp_engine/configuration"
 require "warp_engine/platform"
 require "warp_engine/storage"
 require "warp_engine/access"
+require "warp_engine/access_denied"
 require "warp_engine/images"
 require "warp_engine/ci"
 

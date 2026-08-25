@@ -4,7 +4,7 @@ module WarpEngine
 
     def build_response(software, releases, download_counts, subject: nil)
       sorted = releases.sort_by { |r| r.created_at || Time.at(0) }.reverse
-      latest = sorted.reject { |r| r.version.to_s.start_with?("dev-") }.first
+      latest = Release.latest_non_dev(releases)
 
       web_playable = latest if latest&.release_assets&.any? { |a| a.kind == "html" }
       total_downloads = releases.sum { |r| download_counts.fetch(r.id, 0) }
@@ -36,7 +36,7 @@ module WarpEngine
 
     def download_counts_for(release_ids)
       return {} if release_ids.empty?
-      WarpEngine::Download.where(release_id: release_ids).group(:release_id).count
+      WarpEngine::Download.kept.where(release_id: release_ids).group(:release_id).count
     end
   end
 end
