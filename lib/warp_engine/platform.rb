@@ -1,6 +1,6 @@
 module WarpEngine
   class Platform
-    NAMES = %w[tic80 ebitengine love c64 godot bevy phaser].freeze
+    NAMES = %w[tic80 ebitengine love c64 plus4 godot bevy phaser].freeze
 
     class << self
       def names = NAMES

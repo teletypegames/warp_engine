@@ -20,4 +20,24 @@ RSpec.describe WarpEngine::Release, type: :model do
       expect(other).to be_valid
     end
   end
+
+  describe "web playable assets" do
+    def release_with_html(platform)
+      release = build(:release, software: create(:software, platform: platform))
+      release.release_assets.build(kind: "html", path: "/test/html")
+      release
+    end
+
+    it "rejects an html asset on a platform whose updater does not accept one" do
+      %w[c64 plus4].each do |platform|
+        release = release_with_html(platform)
+        expect(release).not_to be_valid
+        expect(release.errors[:base].join).to include("download only")
+      end
+    end
+
+    it "accepts an html asset where the platform expects one" do
+      expect(release_with_html("tic80")).to be_valid
+    end
+  end
 end

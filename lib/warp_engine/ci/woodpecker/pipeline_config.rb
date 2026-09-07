@@ -14,6 +14,7 @@ module WarpEngine
           "love"       => %w[html win_x64 linux_x64 mac_universal],
           "bevy"       => %w[html win_x64 linux_x64 linux_arm64],
           "c64"        => %w[cartridge],
+          "plus4"      => %w[cartridge],
           "phaser"     => %w[html]
         }.freeze
 

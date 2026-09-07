@@ -13,7 +13,7 @@ module WarpEngine
     validates :version, presence: true
     validates :version, uniqueness: { scope: :software_id }
 
-    validate :c64_cannot_be_web_playable
+    validate :download_only_platform_cannot_be_web_playable
 
     def self.latest_non_dev(releases)
       sorted = releases.sort_by { |r| [ r.created_at || Time.at(0), r.id ] }.reverse
@@ -21,12 +21,13 @@ module WarpEngine
       candidates.empty? ? sorted.first : candidates.first
     end
 
-    def c64_cannot_be_web_playable
-      return unless software&.platform == "c64"
+    def download_only_platform_cannot_be_web_playable
+      platform = WarpEngine::Platform.find(software&.platform)
+      return if platform.nil? || platform.expected_kinds.include?("html")
 
       has_html = release_assets.reject(&:marked_for_destruction?).any? { |a| a.kind == "html" }
       if has_html
-        errors.add(:base, "C64 releases cannot be web playable (download only)")
+        errors.add(:base, "#{platform.label} releases cannot be web playable (download only)")
       end
     end
 

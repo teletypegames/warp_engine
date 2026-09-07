@@ -23,7 +23,7 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 - **CI-callable updater**: your build pipeline uploads artifacts over HTTP
   and calls one endpoint — WarpEngine extracts archives, parses metadata
   and upserts the catalog records. Supported platforms out of the
-  box: TIC-80, Ebitengine, LÖVE, C64, Godot, Bevy, Phaser. Authenticated by
+  box: TIC-80, Ebitengine, LÖVE, C64, Plus/4, Godot, Bevy, Phaser. Authenticated by
   a shared secret or by per-owner database tokens with expiry and scopes
   (`ApplicationToken`, managed in the admin).
 - **Pluggable access**: a host supplies a policy and the catalog gains prices,

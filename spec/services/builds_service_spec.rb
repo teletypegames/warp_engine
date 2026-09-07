@@ -14,6 +14,11 @@ RSpec.describe WarpEngine::BuildsService do
       expect(result[:platforms]["c64"][:kinds]).to eq([ "cartridge" ])
     end
 
+    it "returns plus4 with only cartridge" do
+      expect(result[:platforms]["plus4"][:label]).to eq("Plus/4")
+      expect(result[:platforms]["plus4"][:kinds]).to eq([ "cartridge" ])
+    end
+
     it "returns allKinds matching WarpEngine::ReleaseAsset::KINDS" do
       expect(result[:allKinds]).to eq(WarpEngine::ReleaseAsset::KINDS)
     end
