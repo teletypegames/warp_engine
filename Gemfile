@@ -3,6 +3,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "mysql2", "~> 0.5"
+gem "json", "< 3"
 
 group :development, :test do
   gem "rspec-rails", "~> 7.0"
