@@ -214,5 +214,19 @@ RSpec.describe "Build configs endpoint", type: :request do
         end
       end
     end
+
+    it "pulls the :latest builder and player images on every c64 and plus4 run" do
+      %w[c64 plus4].each do |platform|
+        config = WarpEngine::CI::Woodpecker::PipelineConfig.new(
+          platforms: { platform => { builder: "registry.example/builder:latest",
+                                     exporter: "registry.example/player:latest" } }
+        )
+        yaml = config.render(platform: platform, name: "example", update_server: "https://games.example")
+        steps = YAML.safe_load(yaml)["steps"].index_by { |step| step["name"] }
+
+        expect(steps.fetch("build")["pull"]).to be(true), "#{platform}/build: not pulled"
+        expect(steps.fetch("package")["pull"]).to be(true), "#{platform}/package: not pulled"
+      end
+    end
   end
 end

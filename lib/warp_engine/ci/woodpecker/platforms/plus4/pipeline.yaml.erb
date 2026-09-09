@@ -19,6 +19,7 @@ steps:
 
   - name: build
     image: <%= builder %>
+    pull: true
     commands:
       - |
         VERSION=$(cat .version)
@@ -30,6 +31,7 @@ steps:
 
   - name: package
     image: <%= exporter %>
+    pull: true
     commands:
       - |
         VERSION=$(cat .version)
