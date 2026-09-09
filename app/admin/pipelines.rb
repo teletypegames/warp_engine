@@ -108,7 +108,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
     redirect_to resource_path(pipeline), alert: "Trigger failed: #{e.message}"
   end
 
-  collection_action :sync, method: [:get, :post] do
+  collection_action :sync, method: [ :get, :post ] do
     if request.get?
       redirect_to collection_path
       return
