@@ -13,8 +13,8 @@ module WarpEngine
           "godot"      => %w[html win_x86 win_x64 linux_x64 mac_universal],
           "love"       => %w[html win_x64 linux_x64 mac_universal],
           "bevy"       => %w[html win_x64 linux_x64 linux_arm64],
-          "c64"        => %w[cartridge],
-          "plus4"      => %w[cartridge],
+          "c64"        => %w[cartridge html win_x64 linux_x64 mac_universal],
+          "plus4"      => %w[cartridge html win_x64 linux_x64 mac_universal],
           "phaser"     => %w[html]
         }.freeze
 

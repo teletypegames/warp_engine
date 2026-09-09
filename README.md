@@ -446,8 +446,10 @@ platform: godot
 - `GET /build/config?platform=godot` — renders the same pipeline as a preview.
 
 The adapter's `platforms` maps platform names to builder images
-(`{ "godot" => { builder: "..." }, "tic80" => { builder: ..., exporter: ... } }`);
-an empty map (default) disables the feature. Set the Woodpecker side with
+(`{ "godot" => { builder: "..." }, "c64" => { builder: ..., exporter: ... } }`);
+`exporter` is a second image a template may run a step in — the c64 and plus4
+pipelines package the `.prg` into the browser player and the native players
+there — and an empty map (default) disables the feature. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
 per-repo in Settings → Extensions). Templates live with the adapter, in
 `lib/warp_engine/ci/woodpecker/platforms/<platform>/pipeline.yaml.erb` — the

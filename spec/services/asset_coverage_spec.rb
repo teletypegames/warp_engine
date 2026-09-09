@@ -23,7 +23,7 @@ RSpec.describe WarpEngine::AssetCoverage do
 
     it "calls a release with every expected asset complete" do
       software = create(:software, name: "pong", platform: "c64")
-      release_with(software: software, version: "0.1.0", kinds: %w[cartridge])
+      release_with(software: software, version: "0.1.0", kinds: %w[cartridge html win_x64 linux_x64 mac_universal])
 
       row = described_class.new.rows.first
 
@@ -130,9 +130,9 @@ RSpec.describe WarpEngine::AssetCoverage do
 
       expect(totals[:softwares]).to eq(2)
       expect(totals[:releases]).to eq(2)
-      expect(totals[:expected]).to eq(8)
+      expect(totals[:expected]).to eq(12)
       expect(totals[:present]).to eq(7)
-      expect(totals[:missing]).to eq(1)
+      expect(totals[:missing]).to eq(5)
       expect(totals[:incomplete_softwares]).to eq(1)
     end
   end

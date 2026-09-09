@@ -2,6 +2,7 @@
 stages:
   - version
   - build
+  - package
   - artifact
   - publish
 
@@ -43,6 +44,18 @@ build:
       - "*.prg"
       - "*.metadata.json"
 
+package:
+  stage: package
+  image: <%= exporter %>
+  script:
+    - |
+      VERSION=$(cat .version)
+      echo "==> Packaging the browser and native players for $VERSION"
+      commodore-pack plus4 <%= name %> $VERSION
+  artifacts:
+    paths:
+      - "*.zip"
+
 artifact:
   stage: artifact
   image: alpine
@@ -54,7 +67,9 @@ artifact:
     - |
       VERSION=$(cat .version)
       echo "==> Uploading artifacts for version $VERSION"
-      for f in <%= name %>-$VERSION.prg <%= name %>-$VERSION.metadata.json; do
+      for f in <%= name %>-$VERSION.prg <%= name %>-$VERSION.metadata.json \
+               <%= name %>-$VERSION.html.zip <%= name %>-$VERSION-linux-x64.zip \
+               <%= name %>-$VERSION-win-x64.zip <%= name %>-$VERSION-mac-universal.zip; do
         curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
           -F "file=@$f" \
           "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1

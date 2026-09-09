@@ -36,7 +36,9 @@ RSpec.describe WarpEngine::AssetCoverageChecklist do
   it "shows only the incomplete releases when asked" do
     complete = create(:software, name: "pong", platform: "c64")
     release = create(:release, software: complete, version: "0.1")
-    WarpEngine::ReleaseAsset.create!(release: release, kind: "cartridge", path: "/s/pong-0.1.prg")
+    %w[cartridge html win_x64 linux_x64 mac_universal].each do |kind|
+      WarpEngine::ReleaseAsset.create!(release: release, kind: kind, path: "/s/pong-0.1-#{kind}")
+    end
 
     text = described_class.new(WarpEngine::AssetCoverage.new, only_missing: true).to_s
 

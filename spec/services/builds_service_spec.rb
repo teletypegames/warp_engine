@@ -10,13 +10,13 @@ RSpec.describe WarpEngine::BuildsService do
       expect(result[:platforms]["tic80"][:kinds]).to include("cartridge", "html")
     end
 
-    it "returns c64 with only cartridge" do
-      expect(result[:platforms]["c64"][:kinds]).to eq([ "cartridge" ])
+    it "returns c64 with the cartridge, the browser player and the native players" do
+      expect(result[:platforms]["c64"][:kinds]).to eq(%w[cartridge html win_x64 linux_x64 mac_universal])
     end
 
-    it "returns plus4 with only cartridge" do
+    it "returns plus4 with the same kinds as c64" do
       expect(result[:platforms]["plus4"][:label]).to eq("Plus/4")
-      expect(result[:platforms]["plus4"][:kinds]).to eq([ "cartridge" ])
+      expect(result[:platforms]["plus4"][:kinds]).to eq(result[:platforms]["c64"][:kinds])
     end
 
     it "returns allKinds matching WarpEngine::ReleaseAsset::KINDS" do

@@ -28,6 +28,14 @@ steps:
         cp metadata.json <%= name %>-$VERSION.metadata.json
         ls -lh <%= name %>-$VERSION.*
 
+  - name: package
+    image: <%= exporter %>
+    commands:
+      - |
+        VERSION=$(cat .version)
+        echo "==> Packaging the browser and native players for $VERSION"
+        commodore-pack plus4 <%= name %> $VERSION
+
   - name: artifact
     image: alpine
     environment:
@@ -39,7 +47,9 @@ steps:
       - |
         VERSION=$(cat .version)
         echo "==> Uploading artifacts for version $VERSION"
-        for f in <%= name %>-$VERSION.prg <%= name %>-$VERSION.metadata.json; do
+        for f in <%= name %>-$VERSION.prg <%= name %>-$VERSION.metadata.json \
+                 <%= name %>-$VERSION.html.zip <%= name %>-$VERSION-linux-x64.zip \
+                 <%= name %>-$VERSION-win-x64.zip <%= name %>-$VERSION-mac-universal.zip; do
           curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
             -F "file=@$f" \
             "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1

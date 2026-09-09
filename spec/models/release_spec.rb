@@ -29,15 +29,17 @@ RSpec.describe WarpEngine::Release, type: :model do
     end
 
     it "rejects an html asset on a platform whose updater does not accept one" do
-      %w[c64 plus4].each do |platform|
-        release = release_with_html(platform)
-        expect(release).not_to be_valid
-        expect(release.errors[:base].join).to include("download only")
-      end
+      allow(WarpEngine::Platforms::C64::Service).to receive(:expected_kinds).and_return(%w[cartridge])
+
+      release = release_with_html("c64")
+      expect(release).not_to be_valid
+      expect(release.errors[:base].join).to include("download only")
     end
 
     it "accepts an html asset where the platform expects one" do
-      expect(release_with_html("tic80")).to be_valid
+      %w[tic80 c64 plus4].each do |platform|
+        expect(release_with_html(platform)).to be_valid
+      end
     end
   end
 end
