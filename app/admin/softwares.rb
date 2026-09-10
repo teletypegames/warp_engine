@@ -1,6 +1,6 @@
 ActiveAdmin.register WarpEngine::Software, as: "Software" do
   permit_params :name, :title, :author, :desc, :story,
-                :license, :platform, :status, :highlighted,
+                :license, :platform, :status, :category, :highlighted,
                 software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ],
                 external_links_attributes: [ :id, :label, :url, :_destroy ],
                 releases_attributes: [ :id, :version, :_destroy,
@@ -23,6 +23,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     column :status do |sw|
       status_tag sw.status
     end
+    column :category
     column :highlighted
     column(:releases) { |sw| sw.releases.size }
     column(:image) do |sw|
@@ -40,6 +41,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
   filter :author
   filter :platform, as: :select, collection: WarpEngine::Platform.names
   filter :status,   as: :select, collection: WarpEngine::Software::STATUSES
+  filter :category
   filter :highlighted
 
   sidebar "Quick Links", only: :show, priority: 0 do
@@ -106,6 +108,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         f.input :author
         f.input :platform, as: :select, collection: WarpEngine::Platform.names
         f.input :status,   as: :select, collection: WarpEngine::Software::STATUSES
+        f.input :category, hint: "Free text a client may group titles by — puzzle, action, demo. Empty means uncategorised."
         f.input :highlighted
         f.input :license
         f.input :desc,  as: :text, input_html: { rows: 4 }

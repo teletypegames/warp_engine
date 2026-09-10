@@ -7,6 +7,7 @@ class CreateWarpEngineTables < ActiveRecord::Migration[8.0]
       t.text :desc
       t.text :story
       t.string :license, limit: 128
+      t.string :category, limit: 64
       t.string :platform, limit: 128
       t.string :site
       t.string :status, limit: 20, default: "development"

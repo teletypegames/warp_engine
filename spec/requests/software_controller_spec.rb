@@ -45,6 +45,17 @@ RSpec.describe "GET /api/software", type: :request do
       expect(mine.reload.owner).to eq(owner)
     end
 
+    it "exposes the category, and null where there is none" do
+      create(:software, name: "sorted", category: "puzzle")
+      create(:software, name: "unsorted")
+
+      get "/api/software"
+
+      json = JSON.parse(response.body)
+      categories = json["softwares"].to_h { |sw| [ sw["software"]["name"], sw["software"]["category"] ] }
+      expect(categories).to eq("sorted" => "puzzle", "unsorted" => nil)
+    end
+
     it "excludes soft-deleted software" do
       create(:software, deleted_at: Time.current)
 

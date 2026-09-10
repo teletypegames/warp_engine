@@ -19,10 +19,13 @@ module WarpEngine
     accepts_nested_attributes_for :external_links, allow_destroy: true
     accepts_nested_attributes_for :releases, allow_destroy: true
 
+    normalizes :category, with: ->(value) { value.to_s.strip.presence }
+
     validates :name, presence: true, uniqueness: true
     validates :title, presence: true
     validates :platform, presence: true, inclusion: { in: WarpEngine::Platform::NAMES }
     validates :status, inclusion: { in: STATUSES }, allow_blank: true
+    validates :category, length: { maximum: 64 }, allow_nil: true
 
     ActiveSupport.run_load_hooks(:warp_engine_software, self)
   end

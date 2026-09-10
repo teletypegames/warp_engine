@@ -52,6 +52,21 @@ RSpec.describe WarpEngine::Platforms::Tic80::Service do
     expect(asset_kinds(release)).to match_array(%w[cartridge source html])
   end
 
+  it "reads the category from the cartridge header, and leaves it empty when there is none" do
+    release = described_class.new.update(name, version)
+    expect(WarpEngine::Software.find(release.software_id).category).to be_nil
+
+    File.write(File.join(tmpdir, "#{versioned}.lua"), <<~LUA)
+      -- title: Spec TIC
+      -- name: #{name}
+      -- category: puzzle
+      function TIC() end
+    LUA
+
+    release = described_class.new.update(name, version)
+    expect(WarpEngine::Software.find(release.software_id).category).to eq("puzzle")
+  end
+
   it "registers docs when the docs zip is present" do
     write_zip("#{versioned}-docs.zip", "index.html" => "docs")
 

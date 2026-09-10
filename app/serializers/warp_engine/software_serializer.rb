@@ -14,6 +14,7 @@ module WarpEngine
     field(:license)      { |sw| sw.license.to_s }
     field :platform
     field :status
+    field :category
 
     field(:ownerId) { |sw| sw.owner_id }
     field(:highlighted)  { |sw| sw.highlighted ? true : false }

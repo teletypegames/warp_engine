@@ -98,7 +98,7 @@ the role of the CI pipeline yourself:
 # 1. Fake a build: metadata, a web build and a windows artifact, named by
 #    convention (the love platform requires the .html.zip web build)
 cat > demo-0.1.0.metadata.json <<'JSON'
-{ "name": "demo", "title": "Demo Game", "author": "You", "desc": "Hello", "license": "MIT" }
+{ "name": "demo", "title": "Demo Game", "author": "You", "desc": "Hello", "license": "MIT", "category": "demo" }
 JSON
 echo '<h1>demo</h1>' > index.html && zip demo-0.1.0.html.zip index.html
 echo hello > game.bin && zip demo-0.1.0-win-x64.zip game.bin
@@ -287,6 +287,13 @@ Publishing a release from CI is two steps:
    curl -X POST -H "X-Update-Secret: $UPDATE_SECRET" \
      "https://your-host/build/publish?platform=tic80&name=mygame&version=1.2.0"
    ```
+
+The metadata file (`<name>-<version>.metadata.json`, or the `-- key: value` header of
+a TIC-80 cartridge's source) is what fills the `Software` record: `name`, `title`,
+`author`, `desc`, `license`, and optionally `site` and `repo`, which become external
+links, and `category` — free text a client may group titles by (`puzzle`, `action`,
+`demo`). Every key is optional but `name`; an absent `category` is `null` in the API
+and a client draws no category axis until a catalog publishes one.
 
 WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
 comment header for TIC-80), and upserts the `Software`, `ExternalLink`,
@@ -691,7 +698,7 @@ its own account of who fetched what without reaching into `DownloadService`.
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/service` | What this deployment is: version, whether the catalog gates, and how to sign in (or that you cannot) |
-| `GET /api/software` | Full catalog with releases, assets, links, download counts and an `access` block; `?owner_id=` filters to one publisher |
+| `GET /api/software` | Full catalog with releases, assets, links, download counts, an optional `category` and an `access` block; `?owner_id=` filters to one publisher |
 | `GET /api/software/highlighted` | The currently highlighted title |
 | `GET /api/builds` | Expected asset kinds per platform (build matrix) |
 | `GET /api/softwares/:name/builds` | Actual vs. missing build assets per release |

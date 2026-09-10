@@ -13,6 +13,18 @@ RSpec.describe WarpEngine::Software, type: :model do
   it { should have_many(:external_links) }
   it { should have_many(:software_images).dependent(:destroy) }
 
+  describe "category" do
+    it "stores a trimmed word and turns blank into nothing" do
+      expect(create(:software, category: "  puzzle ").category).to eq("puzzle")
+      expect(create(:software, category: "   ").category).to be_nil
+      expect(create(:software).category).to be_nil
+    end
+
+    it "refuses one longer than the column" do
+      expect(build(:software, category: "x" * 65)).not_to be_valid
+    end
+  end
+
   describe ".kept scope" do
     it "excludes soft-deleted records" do
       active = create(:software)
