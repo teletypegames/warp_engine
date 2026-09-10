@@ -69,7 +69,7 @@ artifact:
       echo "==> Uploading artifacts for version $VERSION"
       for f in <%= name %>-$VERSION.prg <%= name %>-$VERSION.metadata.json \
                <%= name %>-$VERSION.html.zip <%= name %>-$VERSION-linux-x64.zip \
-               <%= name %>-$VERSION-win-x64.zip <%= name %>-$VERSION-mac-universal.zip; do
+               <%= name %>-$VERSION-win-x64.zip <%= name %>-$VERSION-mac-arm64.zip; do
         curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
           -F "file=@$f" \
           "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1

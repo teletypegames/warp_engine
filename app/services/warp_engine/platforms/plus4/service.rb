@@ -7,7 +7,7 @@ module WarpEngine
         include Builds::BuildWeb
         include Builds::BuildWinX64
         include Builds::BuildLinuxX64
-        include Builds::BuildMacUniversal
+        include Builds::BuildMacArm64
 
         label "Plus/4"
 

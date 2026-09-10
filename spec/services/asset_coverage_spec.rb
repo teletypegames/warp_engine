@@ -23,7 +23,7 @@ RSpec.describe WarpEngine::AssetCoverage do
 
     it "calls a release with every expected asset complete" do
       software = create(:software, name: "pong", platform: "c64")
-      release_with(software: software, version: "0.1.0", kinds: %w[cartridge html win_x64 linux_x64 mac_universal])
+      release_with(software: software, version: "0.1.0", kinds: %w[cartridge html win_x64 linux_x64 mac_arm64])
 
       row = described_class.new.rows.first
 

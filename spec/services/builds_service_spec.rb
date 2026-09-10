@@ -11,7 +11,7 @@ RSpec.describe WarpEngine::BuildsService do
     end
 
     it "returns c64 with the cartridge, the browser player and the native players" do
-      expect(result[:platforms]["c64"][:kinds]).to eq(%w[cartridge html win_x64 linux_x64 mac_universal])
+      expect(result[:platforms]["c64"][:kinds]).to eq(%w[cartridge html win_x64 linux_x64 mac_arm64])
     end
 
     it "returns plus4 with the same kinds as c64" do
