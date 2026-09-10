@@ -70,6 +70,19 @@ RSpec.describe WarpEngine::Platforms::Tic80::Service do
     expect(asset_kinds(release)).not_to include("linux_x64")
   end
 
+  it "discards assets of kinds the platform no longer expects and keeps the expected ones" do
+    software = WarpEngine::Software.create!(name: name, platform: "tic80", title: "Spec TIC")
+    release = WarpEngine::Release.create!(software_id: software.id, version: version)
+    WarpEngine::ReleaseAsset.create!(release: release, kind: "mac_universal", path: "/s/#{versioned}-mac-universal.zip")
+    WarpEngine::ReleaseAsset.create!(release: release, kind: "mac_x64", path: "/s/#{versioned}-mac-x64.zip")
+
+    described_class.new.update(name, version)
+
+    kept = WarpEngine::ReleaseAsset.kept.where(release_id: release.id).pluck(:kind)
+    expect(kept).to match_array(%w[cartridge source html mac_x64])
+    expect(WarpEngine::ReleaseAsset.discarded.where(release_id: release.id).pluck(:kind)).to eq(%w[mac_universal])
+  end
+
   it "exposes expected_kinds from included Build concerns" do
     expect(described_class.expected_kinds).to match_array(
       %w[cartridge source html docs win_x64 linux_x64 mac_x64]

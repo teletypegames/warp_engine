@@ -49,6 +49,7 @@ module WarpEngine
 
           release = create_release_if_not_exists(software_id: software.id, version: version)
           sync_release_assets(release, collect_asset_paths(versioned))
+          discard_unexpected_assets(release, self.class.expected_kinds)
           release
         end
       end

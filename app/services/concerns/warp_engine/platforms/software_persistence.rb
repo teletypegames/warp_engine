@@ -33,6 +33,10 @@ module WarpEngine
           asset.save!
         end
       end
+
+      def discard_unexpected_assets(release, expected_kinds)
+        WarpEngine::ReleaseAsset.kept.where(release_id: release.id).where.not(kind: expected_kinds).find_each(&:soft_delete!)
+      end
     end
   end
 end
