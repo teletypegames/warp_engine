@@ -22,14 +22,7 @@ class CreateSoftwareVocabulary < ActiveRecord::Migration[8.1]
     end
 
     statuses = Class.new(ActiveRecord::Base) { self.table_name = "software_statuses" }
-    [
-      [ "released",    "Released",       1, true,  "released" ],
-      [ "demo",        "Demo",           2, true,  "demo" ],
-      [ "development", "In development", 3, false, "development" ],
-      [ "archived",    "Archived",       4, true,  nil ]
-    ].each do |key, label, position, visible, badge|
-      statuses.create!(key: key, label: label, position: position, default_visible: visible, badge: badge)
-    end
+    WarpEngine::SoftwareStatus::DEFAULTS.each { |attributes| statuses.create!(attributes) }
 
     categories = Class.new(ActiveRecord::Base) { self.table_name = "software_categories" }
     keys = select_values("SELECT DISTINCT category FROM softwares WHERE category IS NOT NULL AND category <> ''")

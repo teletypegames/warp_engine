@@ -6,6 +6,13 @@ RSpec.describe WarpEngine::SoftwareStatus, type: :model do
     expect(described_class.default_visible_keys).to eq(%w[released demo archived])
   end
 
+  it "puts the four back into an empty table the moment anything asks, so a schema-loaded database works" do
+    described_class.delete_all
+
+    expect(described_class.keys).to eq(%w[released demo development archived])
+    expect(create(:software)).to be_persisted
+  end
+
   it "keeps keys machine-shaped" do
     expect(described_class.new(key: "Early Access", label: "Early access", position: 5)).not_to be_valid
     expect(described_class.new(key: "early-access", label: "Early access", position: 5)).to be_valid

@@ -307,6 +307,9 @@ the admin and published by `GET /api/software/vocabulary`. A software's `status`
 a known key — the migration seeds `released`, `demo`, `development` and `archived`. A
 category a publish brings that nobody has named yet is **not an error**: it is added to
 the vocabulary with its key as its label and `needs_review` set, for the admin to name.
+A database that got its tables from `db:schema:load` rather than the migration — a test
+database, a fresh install — has no status rows; the model seeds the four the first time
+anything asks, so nothing depends on the migration having run.
 
 WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
 comment header for TIC-80), and upserts the `Software`, `ExternalLink`,

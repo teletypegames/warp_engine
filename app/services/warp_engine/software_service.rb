@@ -49,7 +49,7 @@ module WarpEngine
       counts = visible_scope(subject).group(:category).count
       {
         api: WarpEngine::API_VERSION,
-        statuses: WarpEngine::SoftwareStatus.ordered.map do |status|
+        statuses: WarpEngine::SoftwareStatus.ensured.map do |status|
           { key: status.key, label: status.label, position: status.position,
             defaultVisible: status.default_visible, badge: status.badge }
         end,
