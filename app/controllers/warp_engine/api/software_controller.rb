@@ -28,9 +28,30 @@ module WarpEngine
       property :downloadCount, Integer, desc: "Download count for this release"
     end
 
-    api :GET, "/api/software", "List all software entries with releases"
+    api :GET, "/api/software", "The catalog: every visible software with its releases, whole or one page at a time"
+    desc <<~DESC
+      Without `page` the whole catalog comes back in one envelope, which is what every
+      reader before API version 2 expects to find under `softwares`. With `page` the
+      same envelope carries one page of `per_page` entries (default and ceiling are the
+      host's `catalog_page_size` and `catalog_max_page_size`), and `nextPage` says
+      whether there is another. Filters narrow the catalog before it is paged; the
+      access policy decides visibility before either.
+    DESC
     param :owner_id, :number, required: false, desc: "Filter to the softwares of one owner (publisher)"
-    returns code: 200, desc: "Wrapper object with softwares array" do
+    param :page, :number, required: false, desc: "Page number, from 1; absent means the whole catalog"
+    param :per_page, :number, required: false, desc: "Entries per page, capped by the host"
+    param :status, String, required: false, desc: "Comma-separated status keys (see /api/software/vocabulary)"
+    param :platform, String, required: false, desc: "One platform name"
+    param :category, String, required: false, desc: "One category key"
+    param :q, String, required: false, desc: "Text matched against title and name"
+    param :sort, %w[title updated newest], required: false, desc: "Order; title by default"
+    returns code: 200, desc: "Envelope with the page and the softwares array" do
+      property :api, Integer, desc: "Shape version of this JSON (WarpEngine::API_VERSION)"
+      property :page, Integer, desc: "This page, from 1"
+      property :perPage, Integer, desc: "Entries per page"
+      property :total, Integer, desc: "Softwares matching the filters, all pages"
+      property :totalPages, Integer, desc: "Pages at this size"
+      property :nextPage, Integer, desc: "The next page, or null on the last"
       property :softwares, Array, desc: "Array of software entries" do
         property :ID, Integer, desc: "Software ID"
         property :name, String, desc: "Internal name"
@@ -56,7 +77,22 @@ module WarpEngine
       end
     end
     def index
-      render json: WarpEngine::SoftwareService.new.index(owner_id: params[:owner_id], subject: current_subject)
+      render json: WarpEngine::SoftwareService.new.index(
+        subject: current_subject, page: params[:page], per_page: params[:per_page], sort: params[:sort],
+        **catalog_filters
+      )
+    end
+
+    private
+
+    def catalog_filters
+      {
+        owner_id: params[:owner_id],
+        statuses: params[:status].to_s.split(",").map(&:strip).reject(&:blank?),
+        platform: params[:platform].presence,
+        category: params[:category].presence,
+        query:    params[:q].presence
+      }
     end
   end
 end

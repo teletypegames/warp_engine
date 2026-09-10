@@ -40,7 +40,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
   filter :title
   filter :author
   filter :platform, as: :select, collection: WarpEngine::Platform.names
-  filter :status,   as: :select, collection: WarpEngine::Software::STATUSES
+  filter :status,   as: :select, collection: -> { WarpEngine::SoftwareStatus.keys }
   filter :category
   filter :highlighted
 
@@ -107,8 +107,9 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         f.input :title
         f.input :author
         f.input :platform, as: :select, collection: WarpEngine::Platform.names
-        f.input :status,   as: :select, collection: WarpEngine::Software::STATUSES
-        f.input :category, hint: "Free text a client may group titles by — puzzle, action, demo. Empty means uncategorised."
+        f.input :status,   as: :select, collection: WarpEngine::SoftwareStatus.ordered.map { |s| [ s.label, s.key ] }
+        f.input :category, as: :datalist, collection: WarpEngine::SoftwareCategory.ordered.pluck(:key),
+                hint: "A key from the category vocabulary; a new word is added to it for review. Empty means uncategorised."
         f.input :highlighted
         f.input :license
         f.input :desc,  as: :text, input_html: { rows: 4 }

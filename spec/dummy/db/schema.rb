@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_113343) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_10_132443) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -122,6 +122,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_113343) do
     t.index ["software_id"], name: "idx_releases_software_id"
   end
 
+  create_table "software_categories", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3
+    t.string "key", limit: 64, null: false
+    t.string "label", limit: 128, null: false
+    t.boolean "needs_review", default: false, null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", precision: 3
+    t.index ["key"], name: "idx_software_categories_key", unique: true
+  end
+
   create_table "software_images", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "image_id", null: false
@@ -132,6 +142,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_113343) do
     t.index ["image_id"], name: "fk_rails_a456fbc278"
     t.index ["software_id", "image_id"], name: "index_software_images_on_software_id_and_image_id", unique: true
     t.index ["software_id", "position"], name: "index_software_images_on_software_id_and_position"
+  end
+
+  create_table "software_statuses", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "badge", limit: 32
+    t.datetime "created_at", precision: 3
+    t.boolean "default_visible", default: true, null: false
+    t.string "key", limit: 32, null: false
+    t.string "label", limit: 128, null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", precision: 3
+    t.index ["key"], name: "idx_software_statuses_key", unique: true
   end
 
   create_table "softwares", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

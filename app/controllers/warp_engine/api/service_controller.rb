@@ -20,6 +20,13 @@ module WarpEngine
     returns code: 200, desc: "The descriptor" do
       property :engine, String, desc: "Always 'warp_engine'"
       property :version, String, desc: "Engine version, same value as the WarpEngine-Version header"
+      property :api, Hash, desc: "The JSON shape and the catalog's paging" do
+        property :version, Integer, desc: "Shape version every catalog envelope also carries"
+        property :catalog, Hash, desc: "Paging" do
+          property :pageSize, Integer, desc: "Entries per page when a client asks for a page without saying how many"
+          property :maxPageSize, Integer, desc: "The most a client may ask for"
+        end
+      end
       property :catalog, Hash, desc: "Catalog properties" do
         property :gated, :boolean, desc: "Whether titles here can require an entitlement"
       end
@@ -29,6 +36,13 @@ module WarpEngine
       render json: {
         engine:  "warp_engine",
         version: WarpEngine::VERSION,
+        api: {
+          version: WarpEngine::API_VERSION,
+          catalog: {
+            pageSize:    WarpEngine.config.catalog_page_size.to_i,
+            maxPageSize: WarpEngine.config.catalog_max_page_size.to_i
+          }
+        },
         catalog: { gated: !WarpEngine::AccessPolicy.open? },
         auth:    auth_descriptor
       }

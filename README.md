@@ -260,6 +260,11 @@ Rails.application.config.to_prepare do
     #
     # How to recognise a caller with a session instead of a bearer token.
     # c.subject_resolver = ->(request) { request.env["warden"]&.user }
+
+    # How big a catalog page is when a client asks for one without saying, and the
+    # most it may ask for (see "Paging and filters").
+    # c.catalog_page_size     = 48
+    # c.catalog_max_page_size = 200
   end
 end
 ```
@@ -291,9 +296,17 @@ Publishing a release from CI is two steps:
 The metadata file (`<name>-<version>.metadata.json`, or the `-- key: value` header of
 a TIC-80 cartridge's source) is what fills the `Software` record: `name`, `title`,
 `author`, `desc`, `license`, and optionally `site` and `repo`, which become external
-links, and `category` — free text a client may group titles by (`puzzle`, `action`,
+links, and `category` — a key a client may group titles by (`puzzle`, `action`,
 `demo`). Every key is optional but `name`; an absent `category` is `null` in the API
 and a client draws no category axis until a catalog publishes one.
+
+**Statuses and categories are a vocabulary in the database**, not a list in the code:
+`WarpEngine::SoftwareStatus` (key, label, position, `default_visible`, `badge`) and
+`WarpEngine::SoftwareCategory` (key, label, position, `needs_review`), both editable in
+the admin and published by `GET /api/software/vocabulary`. A software's `status` must be
+a known key — the migration seeds `released`, `demo`, `development` and `archived`. A
+category a publish brings that nobody has named yet is **not an error**: it is added to
+the vocabulary with its key as its label and `needs_review` set, for the admin to name.
 
 WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
 comment header for TIC-80), and upserts the `Software`, `ExternalLink`,
@@ -698,7 +711,9 @@ its own account of who fetched what without reaching into `DownloadService`.
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/service` | What this deployment is: version, whether the catalog gates, and how to sign in (or that you cannot) |
-| `GET /api/software` | Full catalog with releases, assets, links, download counts, an optional `category` and an `access` block; `?owner_id=` filters to one publisher |
+| `GET /api/software` | The catalog with releases, assets, links, download counts, an optional `category` and an `access` block — whole, or one page at a time; see *Paging and filters* |
+| `GET /api/software/facets` | How many softwares each status, platform and category would show under the other filters |
+| `GET /api/software/vocabulary` | The statuses and categories this catalog uses, with labels and display order |
 | `GET /api/software/highlighted` | The currently highlighted title |
 | `GET /api/builds` | Expected asset kinds per platform (build matrix) |
 | `GET /api/softwares/:name/builds` | Actual vs. missing build assets per release |
@@ -712,6 +727,28 @@ its own account of who fetched what without reaching into `DownloadService`.
 Every read endpoint accepts an optional `Authorization: Bearer …`; none requires
 one. What it changes is what the access policy is asked about — an anonymous
 caller is a normal, supported caller.
+
+### Paging and filters
+
+`GET /api/software` answers in an envelope:
+
+```json
+{ "api": 2, "page": 1, "perPage": 48, "total": 131, "totalPages": 3, "nextPage": 2,
+  "softwares": [ { "software": { ... }, "releases": [ ... ], "access": { ... } } ] }
+```
+
+`api` is the shape version of the JSON (`WarpEngine::API_VERSION`), separate from the
+engine's version: it changes when the shape does, and a cached copy carries it where a
+response header cannot follow. **Without `page` the whole catalog comes back** in that
+envelope, which is what every reader before API version 2 finds under `softwares`; with
+`page` (from 1) it is one page of `per_page` entries — `catalog_page_size` when unsaid,
+never more than `catalog_max_page_size` — and `nextPage` is null on the last one.
+
+Filters narrow the catalog before it is paged: `status=released,demo`, `platform=c64`,
+`category=puzzle`, `q=ra` (title and name), `owner_id=7`; `sort` is `title` (default),
+`updated` or `newest`. `/api/software/facets` takes the same filters and answers how many
+softwares each value would show given the *other* filters, and `/api/software/vocabulary`
+says what the status and category keys mean.
 
 ### `WarpEngine-Version`
 

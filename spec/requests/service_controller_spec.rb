@@ -12,6 +12,15 @@ RSpec.describe "GET /api/service", type: :request do
     expect(response.headers["WarpEngine-Version"]).to eq(WarpEngine::VERSION)
   end
 
+  it "names the JSON shape and the catalog's page sizes" do
+    allow(WarpEngine.config).to receive_messages(catalog_page_size: 24, catalog_max_page_size: 100)
+
+    get "/api/service"
+
+    json = JSON.parse(response.body)
+    expect(json["api"]).to eq("version" => WarpEngine::API_VERSION, "catalog" => { "pageSize" => 24, "maxPageSize" => 100 })
+  end
+
   it "reports an open catalog as ungated and offering no sign-in" do
     get "/api/service"
 

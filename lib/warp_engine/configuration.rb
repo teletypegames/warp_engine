@@ -17,7 +17,9 @@ module WarpEngine
                   :identity_verification_url,
                   :device_code_ttl,
                   :device_code_interval,
-                  :ignored_user_agents
+                  :ignored_user_agents,
+                  :catalog_page_size,
+                  :catalog_max_page_size
 
     def initialize
       @site_url                      = nil
@@ -38,6 +40,8 @@ module WarpEngine
       @device_code_ttl               = 600
       @device_code_interval          = 5
       @ignored_user_agents           = []
+      @catalog_page_size             = 48
+      @catalog_max_page_size         = 200
     end
 
     def ignored_user_agent?(ua)
