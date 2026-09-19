@@ -269,6 +269,39 @@ Rails.application.config.to_prepare do
 end
 ```
 
+## Host records on a catalog page
+
+The engine owns the catalog; everything else a site wants to keep next to a
+software — SEO metadata, notes, legal text, translations — belongs to the host.
+`additional_resources` lets the host put its own fields on the engine's admin
+page for a software without the engine knowing what they are:
+
+```ruby
+# The association is the host's; the engine's models all run a load hook.
+ActiveSupport.on_load(:warp_engine_software) do
+  has_many :seo_metadata, as: :subject, class_name: "SeoMetadata", dependent: :destroy
+
+  accepts_nested_attributes_for :seo_metadata, allow_destroy: true
+end
+
+WarpEngine.configure do |c|
+  c.additional_resources = [
+    WarpEngine::AdditionalResource.new(
+      subject:     :software,                 # which engine resource it hangs on
+      association: :seo_metadata,             # the association above
+      label:       "SEO",                     # the fieldset title
+      multiple:    true,                      # has_many (false for has_one)
+      permitted:   %i[id locale title description _destroy],
+      fields:      ->(form) { form.input :locale; form.input :title }
+    )
+  ]
+end
+```
+
+The engine adds `permitted` to the software form's strong parameters and renders
+`fields` in a fieldset of its own. It never loads the host's class, so an empty
+list (the default) leaves the admin page exactly as it was.
+
 ## The updater contract
 
 Publishing a release from CI is two steps:

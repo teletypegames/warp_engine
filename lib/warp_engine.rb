@@ -11,6 +11,7 @@ require "warp_engine/access"
 require "warp_engine/access_denied"
 require "warp_engine/images"
 require "warp_engine/ci"
+require "warp_engine/additional_resource"
 
 module WarpEngine
   def self.table_name_prefix

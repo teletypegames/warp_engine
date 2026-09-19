@@ -1,10 +1,14 @@
 ActiveAdmin.register WarpEngine::Software, as: "Software" do
-  permit_params :name, :title, :author, :desc, :story,
-                :license, :platform, :status, :category, :highlighted,
-                software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ],
-                external_links_attributes: [ :id, :label, :url, :_destroy ],
-                releases_attributes: [ :id, :version, :_destroy,
-                                       { release_assets_attributes: [ :id, :kind, :path, :_destroy ] } ]
+  permit_params do
+    [
+      :name, :title, :author, :desc, :story,
+      :license, :platform, :status, :category, :highlighted,
+      { software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ] },
+      { external_links_attributes: [ :id, :label, :url, :_destroy ] },
+      { releases_attributes: [ :id, :version, :_destroy,
+                               { release_assets_attributes: [ :id, :kind, :path, :_destroy ] } ] }
+    ] + WarpEngine::AdditionalResource.permitted_params_for(:software)
+  end
 
   menu parent: "🌀 WarpEngine", priority: 2, label: "🎮 Softwares"
 
@@ -144,6 +148,20 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
           r.has_many :release_assets, allow_destroy: true, new_record: true do |ra|
             ra.input :kind, as: :select, collection: WarpEngine::ReleaseAsset::KINDS, include_blank: false
             ra.input :path
+          end
+        end
+      end
+
+      WarpEngine::AdditionalResource.for(:software).each do |extra|
+        f.inputs extra.label do
+          if extra.multiple
+            f.has_many extra.association, allow_destroy: true, new_record: true do |nested|
+              extra.render(nested)
+            end
+          else
+            f.semantic_fields_for extra.association do |nested|
+              extra.render(nested)
+            end
           end
         end
       end

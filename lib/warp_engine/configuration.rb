@@ -19,7 +19,8 @@ module WarpEngine
                   :device_code_interval,
                   :ignored_user_agents,
                   :catalog_page_size,
-                  :catalog_max_page_size
+                  :catalog_max_page_size,
+                  :additional_resources
 
     def initialize
       @site_url                      = nil
@@ -42,6 +43,7 @@ module WarpEngine
       @ignored_user_agents           = []
       @catalog_page_size             = 48
       @catalog_max_page_size         = 200
+      @additional_resources          = []
     end
 
     def ignored_user_agent?(ua)
