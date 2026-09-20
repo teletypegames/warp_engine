@@ -17,8 +17,9 @@ RSpec.describe "CI API", type: :request do
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
       expect(json.size).to eq(1)
-      expect(json.first["repo_name"]).to eq("mygame")
-      expect(json.first["repo_id"]).to eq(json.first["woodpecker_repo_id"])
+      expect(json.first["repoName"]).to eq("mygame")
+      expect(json.first.keys).to include("repoId", "repoOwner", "lastPipelineStatus")
+      expect(json.first.keys).not_to include("woodpecker_repo_id", "repo_id")
     end
 
     it "returns 503 when no CI provider is configured" do
@@ -40,8 +41,8 @@ RSpec.describe "CI API", type: :request do
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
-      expect(json["pipeline"]["repo_name"]).to eq("game")
-      expect(json["latest_run"]["status"]).to eq("success")
+      expect(json["pipeline"]["repoName"]).to eq("game")
+      expect(json["latestRun"]["status"]).to eq("success")
     end
 
     it "answers without a run when the provider is unreachable" do
@@ -51,7 +52,7 @@ RSpec.describe "CI API", type: :request do
       get "/api/ci/pipelines/#{repo.id}/status"
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["latest_run"]).to be_nil
+      expect(JSON.parse(response.body)["latestRun"]).to be_nil
     end
   end
 

@@ -53,13 +53,13 @@ module WarpEngine
 
     def generate_codes
       self.device_code = SecureRandom.hex(32) if device_code.blank?
-      self.user_code = self.class.generate_user_code if user_code.blank?
+      self.user_code = generate_user_code if user_code.blank?
     end
 
-    def self.generate_user_code
+    def generate_user_code
       10.times do
         candidate = Array.new(USER_CODE_LENGTH) { USER_CODE_ALPHABET.chars.sample }.join
-        return candidate unless exists?(user_code: candidate)
+        return candidate unless self.class.exists?(user_code: candidate)
       end
       raise "could not generate a free device user code"
     end

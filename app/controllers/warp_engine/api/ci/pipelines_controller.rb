@@ -23,7 +23,7 @@ module WarpEngine
 
           render json: {
             pipeline:   WarpEngine::PipelineSerializer.render_as_hash(pipeline),
-            latest_run: latest_run(pipeline)
+            latestRun: latest_run(pipeline)
           }
         end
 

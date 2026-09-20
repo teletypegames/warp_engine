@@ -4,7 +4,7 @@ WarpEngine::Engine.routes.draw do
 
     namespace :auth do
       post   "device",       to: "devices#create"
-      post   "device/token", to: "devices#token"
+      post   "device/token", to: "device_tokens#create"
       delete "token",        to: "tokens#destroy"
     end
 

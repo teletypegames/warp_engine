@@ -71,7 +71,7 @@ module WarpEngine
       self.owner_type = WarpEngine.config.application_token_owner_class if owner_type.blank?
     end
 
-    def self.permitted_owner_types
+    def permitted_owner_types
       [ WarpEngine.config.application_token_owner_class,
         WarpEngine.config.access_token_owner_class ].compact_blank
     end
@@ -85,7 +85,7 @@ module WarpEngine
     end
 
     def owner_type_matches_configuration
-      permitted = self.class.permitted_owner_types
+      permitted = permitted_owner_types
       if permitted.empty?
         errors.add(:base, "application_token_owner_class is not configured")
       elsif !permitted.include?(owner_type)

@@ -279,7 +279,7 @@ page for a software without the engine knowing what they are:
 ```ruby
 # The association is the host's; the engine's models all run a load hook.
 ActiveSupport.on_load(:warp_engine_software) do
-  has_many :seo_metadata, as: :subject, class_name: "SeoMetadata", dependent: :destroy
+  has_many :seo_metadata, as: :subject, class_name: "Seo::Metadata", dependent: :destroy
 
   accepts_nested_attributes_for :seo_metadata, allow_destroy: true
 end
@@ -456,6 +456,11 @@ c.ci_adapter = WarpEngine::CI::Woodpecker::Adapter.new(
 # and the admin pipeline actions hide themselves
 c.ci_adapter = :none
 ```
+
+`GET /api/ci/pipelines` and `GET /api/ci/pipelines/:id/status` answer in camelCase
+like every other endpoint (`repoOwner`, `repoName`, `repoId`, `lastPipelineStatus`,
+`lastPipelineAt`, `softwareName`, `latestRun`), and each repository id appears under
+one name only.
 
 The engine's own code never names a provider: `WarpEngine.ci` is the adapter,
 `WarpEngine::CI::Repo` and `WarpEngine::CI::Run` are what it hands back, and
