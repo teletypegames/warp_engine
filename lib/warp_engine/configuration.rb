@@ -22,6 +22,8 @@ module WarpEngine
                   :catalog_max_page_size,
                   :additional_resources
 
+    attr_writer :admin_api
+
     def initialize
       @site_url                      = nil
       @file_container_path           = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
@@ -44,6 +46,10 @@ module WarpEngine
       @catalog_page_size             = 48
       @catalog_max_page_size         = 200
       @additional_resources          = []
+    end
+
+    def admin_api
+      @admin_api ||= AdminApi::Configuration.new
     end
 
     def ignored_user_agent?(ua)

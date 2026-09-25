@@ -12,8 +12,11 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   scope("Expired") { |scope| scope.where("expires_at <= ?", Time.current) }
 
   CATALOG_SCOPE_SQL = %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"catalog"')).freeze
-  scope("Publishing") { |scope| scope.where("NOT #{CATALOG_SCOPE_SQL}") }
+  ADMIN_SCOPE_SQL = WarpEngine::ApplicationToken::ADMIN_SCOPES
+                    .map { |s| %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"#{s}"')) }.join(" OR ").freeze
+  scope("Publishing") { |scope| scope.where("NOT #{CATALOG_SCOPE_SQL} AND NOT (#{ADMIN_SCOPE_SQL})") }
   scope("Clients")    { |scope| scope.where(CATALOG_SCOPE_SQL) }
+  scope("Admin API")  { |scope| scope.where(ADMIN_SCOPE_SQL) }
 
   index do
     id_column
@@ -49,7 +52,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       end
       f.input :name
       f.input :scopes_string, label: "Scopes (comma separated)",
-              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload, the "catalog" scope for a client reading the API. Client tokens are normally issued by device sign-in rather than created here.)
+              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload, the "catalog" scope for a client reading the API. Client tokens are normally issued by device sign-in rather than created here. "admin:read", "admin:write" and "admin:tokens" open the Admin API at /api/admin/v1; only an admin owner may hold them.)
       f.input :unrestricted, hint: "Internal token: exempt from owner isolation (enforce_software_ownership)."
       f.input :expires_at, hint: "Leave empty for a token that never expires."
     end
@@ -64,7 +67,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   end
 
   member_action :rotate, method: :post do
-    result = WarpEngine::SecretSyncService.new.rotate(resource)
+    result = WarpEngine::ApplicationTokenService.new.rotate(resource)
     if result[:rotated]
       session[:warp_engine_plain_token] = result[:new_token].plain_token
       redirect_to resource_path(result[:new_token]),
@@ -105,15 +108,11 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
         success.html do
           session[:warp_engine_plain_token] = resource.plain_token
 
-          if WarpEngine.ci.configured?
-            service = WarpEngine::SecretSyncService.new
-            pipelines = service.pipelines_for_token(resource)
-            if pipelines.any?
-              result = service.provision(resource.plain_token, pipelines: pipelines)
-              flash[:notice] = "Token created and synced to #{result[:synced].size} pipeline(s)."
-              if result[:failed].any?
-                flash[:alert] = "Failed to sync to #{result[:failed].size} pipeline(s)."
-              end
+          result = WarpEngine::ApplicationTokenService.new.provision(resource)
+          if result
+            flash[:notice] = "Token created and synced to #{result[:synced].size} pipeline(s)."
+            if result[:failed].any?
+              flash[:alert] = "Failed to sync to #{result[:failed].size} pipeline(s)."
             end
           end
 
@@ -128,10 +127,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
     end
 
     def destroy
-      if WarpEngine.ci.configured?
-        WarpEngine::SecretSyncService.new.deprovision(resource)
-      end
-      resource.revoke!
+      WarpEngine::ApplicationTokenService.new.revoke(resource)
       redirect_to collection_path, notice: "Token revoked and Woodpecker secrets cleaned up."
     end
   end

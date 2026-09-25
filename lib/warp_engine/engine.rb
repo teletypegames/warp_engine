@@ -14,6 +14,10 @@ module WarpEngine
       end
     end
 
+    config.after_initialize do
+      WarpEngine::AdminApi::Mcp.ensure_available! if WarpEngine.config.admin_api.mcp?
+    end
+
     initializer "warp_engine.active_admin" do |app|
       if defined?(ActiveAdmin)
         admin_dir = Engine.root.join("app/admin").to_s

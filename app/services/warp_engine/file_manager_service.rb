@@ -4,12 +4,12 @@ module WarpEngine
       @base_path ||= Pathname.new(WarpEngine.config.file_container_path)
     end
 
-    def list(relative_path = "")
+    def list(relative_path = "", with_download_counts: false)
       full = safe_path!(relative_path)
       raise ArgumentError, "Not a directory" unless full.directory?
 
-      entries = full.children.sort_by { |c| [ c.directory? ? 0 : 1, c.basename.to_s.downcase ] }
-      entries.map do |child|
+      children = full.children.sort_by { |c| [ c.directory? ? 0 : 1, c.basename.to_s.downcase ] }
+      entries = children.map do |child|
         stat = child.stat
         {
           name:  child.basename.to_s,
@@ -19,6 +19,7 @@ module WarpEngine
           mtime: stat.mtime
         }
       end
+      with_download_counts ? add_download_counts(entries) : entries
     end
 
     def upload(relative_dir, uploaded_file)
@@ -71,6 +72,12 @@ module WarpEngine
     end
 
     private
+
+    def add_download_counts(entries)
+      paths = entries.reject { |e| e[:type] == :directory }.map { |e| e[:path] }
+      counts = paths.any? ? Download.where(file_path: paths).group(:file_path).count : {}
+      entries.map { |e| e[:type] == :directory ? e : e.merge(downloads: counts[e[:path]] || 0) }
+    end
 
     def ensure_within_base!(path)
       raise ArgumentError, "Path escape" unless path.to_s.start_with?(base_path.to_s)

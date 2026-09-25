@@ -16,6 +16,9 @@ module WarpEngine
       `catalog.gated` says whether any title here can require an entitlement. A client
       can render a store that never gates differently from one that sometimes does,
       without having to read the whole catalog first to find out.
+
+      `admin` is null unless the host turned the Admin API on. Where present it names the
+      Admin API's version and addresses; what lives there needs an admin token.
     DESC
     returns code: 200, desc: "The descriptor" do
       property :engine, String, desc: "Always 'warp_engine'"
@@ -31,6 +34,13 @@ module WarpEngine
         property :gated, :boolean, desc: "Whether titles here can require an entitlement"
       end
       property :auth, Hash, desc: "How to sign in, or null where there is no sign-in"
+      property :admin, Hash, desc: "The Admin API, or null where it is off" do
+        property :version, Integer, desc: "Admin API version (WarpEngine::AdminApi::VERSION)"
+        property :url, String, desc: "Base address of the Admin API"
+        property :openapiUrl, String, desc: "Its OpenAPI 3.1 document"
+        property :mcpUrl, String, desc: "Its MCP endpoint, or null where MCP is off"
+        property :schemes, Array, desc: "Authorization schemes; always bearer"
+      end
     end
     def show
       render json: {
@@ -44,11 +54,25 @@ module WarpEngine
           }
         },
         catalog: { gated: !WarpEngine::AccessPolicy.open? },
-        auth:    auth_descriptor
+        auth:    auth_descriptor,
+        admin:   admin_descriptor
       }
     end
 
     private
+
+    def admin_descriptor
+      config = WarpEngine.config.admin_api
+      return nil unless config.enabled?
+
+      {
+        version:    WarpEngine::AdminApi::VERSION,
+        url:        "#{request.base_url}#{request.script_name}#{WarpEngine::AdminApi.url_path}",
+        openapiUrl: warp_engine.api_admin_openapi_url,
+        mcpUrl:     config.mcp? ? warp_engine.api_admin_mcp_url : nil,
+        schemes:    [ "bearer" ]
+      }
+    end
 
     def auth_descriptor
       return nil unless WarpEngine.identity_configured?

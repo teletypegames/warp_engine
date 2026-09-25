@@ -12,4 +12,5 @@ group :development, :test do
   gem "webmock", "~> 3.0"
   gem "debug", platforms: %i[mri windows]
   gem "rubocop-rails-omakase", require: false
+  gem "mcp", "~> 1.6"
 end

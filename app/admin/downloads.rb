@@ -13,41 +13,35 @@ ActiveAdmin.register WarpEngine::Download, as: "Download" do
   config.sort_order = "created_at_desc"
 
   sidebar "Summary", only: :index do
+    summary = WarpEngine::DownloadStatsService.new.summary
     dl style: "display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;" do
       dt { strong "Total" }
-      dd { b WarpEngine::Download.count.to_s }
+      dd { b summary[:total].to_s }
 
       dt { strong "Today" }
-      dd { b WarpEngine::Download.where("created_at >= ?", Date.current.beginning_of_day).count.to_s }
+      dd { b summary[:today].to_s }
 
       dt { strong "This week" }
-      dd { b WarpEngine::Download.where("created_at >= ?", 1.week.ago).count.to_s }
+      dd { b summary[:week].to_s }
 
       dt { strong "This month" }
-      dd { b WarpEngine::Download.where("created_at >= ?", 1.month.ago).count.to_s }
+      dd { b summary[:month].to_s }
     end
   end
 
   sidebar "Top 10 Files", only: :index do
-    table_for WarpEngine::Download.group(:file_path)
-                      .select("file_path, COUNT(*) as dl_count, MAX(created_at) as last_dl")
-                      .order("dl_count DESC")
-                      .limit(10) do
-      column("File") { |row| span row.file_path.split("/").last, style: "font-family:monospace;font-size:11px;" }
-      column("DL") { |row| row.dl_count }
+    table_for WarpEngine::DownloadStatsService.new.top_files(limit: 10) do
+      column("File") { |row| span row[:file_path].split("/").last, style: "font-family:monospace;font-size:11px;" }
+      column("DL") { |row| row[:downloads] }
     end
   end
 
   sidebar "Top 5 Software", only: :index do
-    rows = WarpEngine::Download.joins(release: :software)
-                   .group("softwares.title")
-                   .order("count_all DESC")
-                   .limit(5)
-                   .count
+    rows = WarpEngine::DownloadStatsService.new.top_softwares(limit: 5)
     if rows.any?
       table_for rows do
-        column("Software") { |title, _| title }
-        column("DL") { |_, count| count }
+        column("Software") { |row| row[:title] }
+        column("DL") { |row| row[:downloads] }
       end
     else
       para "No data", style: "color:#999;font-style:italic;"

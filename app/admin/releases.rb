@@ -44,21 +44,18 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
     end
 
     panel "Downloads by File" do
-      file_stats = WarpEngine::Download.where(release_id: resource.id)
-                           .group(:file_path)
-                           .select("file_path, COUNT(*) as dl_count, MAX(created_at) as last_dl")
-                           .order("dl_count DESC")
+      file_stats = WarpEngine::DownloadStatsService.new.for_release(resource)
 
       if file_stats.any?
         div style: "margin-bottom:8px;" do
           strong "Total downloads: "
-          b file_stats.sum(&:dl_count).to_s
+          b file_stats.sum { |row| row[:downloads] }.to_s
         end
 
         table_for file_stats do
-          column("File") { |row| span row.file_path, style: "font-family:monospace;font-size:12px;" }
-          column("Downloads") { |row| row.dl_count }
-          column("Last download") { |row| row.last_dl&.strftime("%Y-%m-%d %H:%M") }
+          column("File") { |row| span row[:file_path], style: "font-family:monospace;font-size:12px;" }
+          column("Downloads") { |row| row[:downloads] }
+          column("Last download") { |row| row[:last_download_at]&.strftime("%Y-%m-%d %H:%M") }
         end
       else
         para "No downloads for this release.", style: "color:#999;font-style:italic;"

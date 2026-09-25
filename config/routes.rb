@@ -27,4 +27,18 @@ WarpEngine::Engine.routes.draw do
   post "build/config",  to: "build/configs#create"
 
   get "file/*path", to: "files#show", format: false
+
+  scope WarpEngine::AdminApi.url_path, module: "api/admin", as: "api_admin", format: false do
+    get  "openapi.json", to: "documents#openapi", defaults: { format: "json" }, as: :openapi
+    get  "openapi.yaml", to: "documents#openapi", defaults: { format: "yaml" }, as: :openapi_yaml
+    get  "docs",         to: "documents#docs", as: :docs
+    post "mcp",          to: "mcp#create", as: :mcp
+    match "mcp",         to: "mcp#method_not_allowed", via: %i[get delete]
+
+    WarpEngine::AdminApi::Registry.operations.each do |operation|
+      constraints = operation.path_param_names.grep(/id\z/i).to_h { |name| [ name.to_sym, /\d+/ ] }
+      match operation.path, to: "operations#execute", via: operation.verb,
+                            defaults: { operation: operation.key }, constraints: constraints
+    end
+  end
 end

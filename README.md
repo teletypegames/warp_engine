@@ -48,6 +48,9 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   ready-made resources — a catalog editor with nested release/asset forms, a
   file manager with a picker mode, and download statistics. Without ActiveAdmin the engine runs headless
   (API + updater only).
+- **Admin API (optional, 1.0)**: everything the admin does, as a JSON API under
+  `/api/admin/v1`, turned on in the initializer, described by a live OpenAPI 3.1
+  document and served to LLM agents as an MCP server. Off unless configured.
 - **Pluggable CI**: pipeline configs, repo sync, build triggers and secret
   provisioning all go through one adapter. Woodpecker ships with the engine
   (`WarpEngine::CI::Woodpecker`) and is the default; `:none` turns CI off, and
@@ -301,6 +304,10 @@ end
 The engine adds `permitted` to the software form's strong parameters and renders
 `fields` in a fieldset of its own. It never loads the host's class, so an empty
 list (the default) leaves the admin page exactly as it was.
+
+Give a descriptor an `api_schema:` (an OpenAPI Schema Object for one entry) and
+it also appears in the Admin API, at `/api/admin/v1/softwares/{id}/extras/{association}`.
+Without an `api_serializer:` the permitted attributes are written in camelCase.
 
 ## The updater contract
 
@@ -817,6 +824,63 @@ host:
 - if you generate apipie docs, add
   `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"` to your
   `api_controllers_matcher`.
+
+## Admin API
+
+What the ActiveAdmin resources do — the catalog with its releases, assets, links
+and images, the status and category vocabulary, platform links, download
+statistics, pipelines, the artifact store and the application tokens — is also a
+JSON API. It is **off by default**; a host turns it on in the initializer:
+
+```ruby
+WarpEngine.configure do |c|
+  c.admin_api.enabled = true
+
+  c.admin_api.token_owner_class     = "AdminUser"        # default: application_token_owner_class
+  c.admin_api.resources             = :all               # or %i[softwares releases downloads]
+  c.admin_api.read_only             = false              # true: GET only, the rest answers 405
+  c.admin_api.page_size             = 50
+  c.admin_api.max_page_size         = 200
+  c.admin_api.rate_limit            = { to: 300, within: 1.minute }  # per token, Rails.cache
+  c.admin_api.openapi_requires_auth = true               # false: the document is public
+  c.admin_api.docs_ui               = false              # true: a Redoc page at /api/admin/v1/docs
+  c.admin_api.mcp                   = false              # true: MCP at /api/admin/v1/mcp
+  c.admin_api.mcp_exclude           = %i[application_tokens device_grants]
+  c.admin_api.authenticator         = :application_token # or ->(request) { WarpEngine::AdminApi::Principal.new(...) }
+end
+```
+
+- **Authentication**: `Authorization: Bearer <application token>` carrying admin
+  scopes — `admin:read` (every GET), `admin:write` (every write), `admin:tokens`
+  (the token and device-sign-in resources, reading included). Only a token whose
+  owner is the admin owner class may hold them. A token can grant no admin scope
+  it lacks, no `unrestricted`, and no expiry past its own.
+- **Shape**: camelCase JSON; a list is `{ data: [...], meta: { page, perPage,
+  total, totalPages, nextPage } }`, one record `{ data: {...} }`; errors are
+  `{ error, details? }` with 400/401/403/404/405/409/422/429/502/503. Deleting does
+  what the admin does (the record is destroyed; a token is revoked). The last
+  write wins, as in the admin; there are no batch operations.
+- **Discovery**: `/api/service` carries an `admin` key (null while off) with the
+  addresses; `GET /api/admin/v1/me` tells a token what it may use.
+- **OpenAPI**: `GET /api/admin/v1/openapi.json` (or `.yaml`) is generated from
+  the same registry that routes the requests, so it describes exactly what this
+  host serves: disabled resources, write operations under `read_only` and parts
+  without CI or client sign-in are left out. Each operation carries
+  `x-required-scope`.
+- **MCP**: with `c.admin_api.mcp = true` and `gem "mcp"` in the host's Gemfile
+  (the engine refuses to boot without it), `POST /api/admin/v1/mcp` is a stateless
+  Streamable HTTP MCP server. Every operation is a tool of the same name as its
+  `operationId`, with the same JSON Schema for input and the same answer as
+  structured content; `tools/list` shows only what the token may call. Uploads and
+  the `mcp_exclude` resources stay out — a new plain token has no business in a
+  model's context.
+- **Audit**: every successful write instruments `warp_engine.admin_api.write`
+  with the principal, the operation and `via: :http` or `:mcp`.
+
+```sh
+claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
+  --header "Authorization: Bearer $TOKEN"
+```
 
 ## Behavioral notes
 

@@ -1,5 +1,5 @@
 module WarpEngine
-  VERSION = "0.15.0"
+  VERSION = "1.0.0"
 
   VERSION_HEADER = "WarpEngine-Version".freeze
 

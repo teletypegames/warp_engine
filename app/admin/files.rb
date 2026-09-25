@@ -8,7 +8,7 @@ ActiveAdmin.register_page "Files" do
     picker_field = params[:field].to_s
 
     begin
-      entries = service.list(current_dir)
+      entries = service.list(current_dir, with_download_counts: true)
     rescue ArgumentError
       entries = []
     end
@@ -54,15 +54,6 @@ ActiveAdmin.register_page "Files" do
       end
 
       table class: "fm-table" do
-        file_entries = entries.select { |e| e[:type] != :directory }
-        dl_counts = if file_entries.any?
-          WarpEngine::Download.where(file_path: file_entries.map { |e| e[:path] })
-                  .group(:file_path)
-                  .count
-        else
-          {}
-        end
-
         thead do
           tr do
             th "Name"
@@ -108,7 +99,7 @@ ActiveAdmin.register_page "Files" do
               end
               td do
                 if entry[:type] != :directory
-                  count = dl_counts[entry[:path]] || 0
+                  count = entry[:downloads] || 0
                   span count.to_s, style: count > 0 ? "font-weight:bold;" : "color:#999;"
                 end
               end

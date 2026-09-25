@@ -72,30 +72,24 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
 
   sidebar "Download Statistics", only: :show do
     sw = resource
-    total = WarpEngine::Download.joins(:release).where(releases: { software_id: sw.id }).count
+    stats = WarpEngine::DownloadStatsService.new.for_software(sw)
 
     div style: "margin-bottom:12px;" do
       strong "Total downloads: "
-      span total.to_s, style: "font-size:18px;font-weight:bold;"
+      span stats[:total].to_s, style: "font-size:18px;font-weight:bold;"
     end
 
-    sw.releases.each do |rel|
-      file_stats = WarpEngine::Download.where(release_id: rel.id)
-                           .group(:file_path)
-                           .select("file_path, COUNT(*) as dl_count, MAX(created_at) as last_dl")
-                           .order("dl_count DESC")
-      rel_total = file_stats.sum(&:dl_count)
-
+    stats[:releases].each do |rel|
       div style: "margin-bottom:16px;" do
         h4 do
-          link_to "v#{rel.version}", admin_software_release_path(sw, rel)
-          span " (#{rel_total})", style: "color:#666;"
+          text_node link_to("v#{rel[:version]}", admin_release_path(rel[:release_id]))
+          span " (#{rel[:downloads]})", style: "color:#666;"
         end
-        if file_stats.any?
-          table_for file_stats do
-            column("File") { |row| span row.file_path.split("/").last, style: "font-family:monospace;font-size:11px;" }
-            column("DL") { |row| row.dl_count }
-            column("Last") { |row| row.last_dl&.strftime("%m-%d") }
+        if rel[:files].any?
+          table_for rel[:files] do
+            column("File") { |row| span row[:file_path].split("/").last, style: "font-family:monospace;font-size:11px;" }
+            column("DL") { |row| row[:downloads] }
+            column("Last") { |row| row[:last_download_at]&.strftime("%m-%d") }
           end
         else
           para "No downloads", style: "color:#999;font-style:italic;"

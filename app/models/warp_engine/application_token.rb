@@ -9,6 +9,11 @@ module WarpEngine
 
     CATALOG_SCOPE = "catalog".freeze
 
+    ADMIN_READ_SCOPE   = AdminApi::Scopes::READ
+    ADMIN_WRITE_SCOPE  = AdminApi::Scopes::WRITE
+    ADMIN_TOKENS_SCOPE = AdminApi::Scopes::TOKENS
+    ADMIN_SCOPES       = AdminApi::Scopes::ALL
+
     include SoftDeletable
 
     attr_reader :plain_token
@@ -26,6 +31,7 @@ module WarpEngine
     validates :token_prefix, presence: true
     validates :scopes, presence: true
     validate :owner_type_matches_configuration
+    validate :admin_scopes_need_admin_owner
 
     def self.digest(token)
       Digest::SHA256.hexdigest(token)
@@ -39,6 +45,10 @@ module WarpEngine
       return nil if required_scope.present? && !Array(record.scopes).include?(required_scope)
 
       record
+    end
+
+    def admin?
+      Array(scopes).intersect?(ADMIN_SCOPES)
     end
 
     def expired?
@@ -73,7 +83,19 @@ module WarpEngine
 
     def permitted_owner_types
       [ WarpEngine.config.application_token_owner_class,
-        WarpEngine.config.access_token_owner_class ].compact_blank
+        WarpEngine.config.access_token_owner_class,
+        admin_owner_type ].compact_blank.uniq
+    end
+
+    def admin_owner_type
+      WarpEngine.config.admin_api.owner_class_name
+    end
+
+    def admin_scopes_need_admin_owner
+      return unless admin?
+      return if admin_owner_type.present? && owner_type == admin_owner_type
+
+      errors.add(:scopes, "admin scopes need an owner of #{admin_owner_type.presence || 'the admin owner class'}")
     end
 
     def generate_token
