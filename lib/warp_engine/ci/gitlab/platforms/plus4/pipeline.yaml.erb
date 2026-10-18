@@ -8,7 +8,7 @@ stages:
 
 version:
   stage: version
-  image: alpine
+  image: <%= tools || "alpine" %>
   script:
     - |
       VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' metadata.json | head -n 1)
@@ -58,12 +58,14 @@ package:
 
 artifact:
   stage: artifact
-  image: alpine
+  image: <%= tools || "alpine" %>
   variables:
     UPDATE_SERVER: "<%= update_server %>"
     UPDATE_SECRET: "$application_token"
   script:
+<%- unless tools -%>
     - apk add --no-cache curl
+<%- end -%>
     - |
       VERSION=$(cat .version)
       echo "==> Uploading artifacts for version $VERSION"
@@ -77,12 +79,14 @@ artifact:
 
 publish:
   stage: publish
-  image: alpine
+  image: <%= tools || "alpine" %>
   variables:
     UPDATE_SERVER: "<%= update_server %>"
     UPDATE_SECRET: "$application_token"
   script:
+<%- unless tools -%>
     - apk add --no-cache curl
+<%- end -%>
     - |
       VERSION=$(cat .version)
       echo "==> Publishing version $VERSION"

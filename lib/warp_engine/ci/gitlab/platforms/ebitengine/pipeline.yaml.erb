@@ -8,9 +8,11 @@ stages:
 
 version:
   stage: version
-  image: alpine
+  image: <%= tools || "alpine" %>
   script:
+<%- unless tools -%>
     - apk add --no-cache git jq
+<%- end -%>
     - |
       if [ -f metadata.json ]; then
         VERSION=$(jq -r '.version' metadata.json)
@@ -86,12 +88,14 @@ binaries:
 
 artifact:
   stage: artifact
-  image: alpine
+  image: <%= tools || "alpine" %>
   variables:
     UPDATE_SERVER: "<%= update_server %>"
     UPDATE_SECRET: "$application_token"
   script:
+<%- unless tools -%>
     - apk add --no-cache curl
+<%- end -%>
     - |
       VERSION=$(cat .version)
       FILE="<%= name %>-$VERSION.html.zip"
@@ -107,12 +111,14 @@ artifact:
 
 publish:
   stage: publish
-  image: alpine
+  image: <%= tools || "alpine" %>
   variables:
     UPDATE_SERVER: "<%= update_server %>"
     UPDATE_SECRET: "$application_token"
   script:
+<%- unless tools -%>
     - apk add --no-cache curl
+<%- end -%>
     - |
       VERSION=$(cat .version)
       curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=ebitengine&version=$VERSION"

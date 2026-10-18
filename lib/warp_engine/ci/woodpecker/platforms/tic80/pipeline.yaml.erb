@@ -4,7 +4,7 @@
 # no metadata.json.
 steps:
   - name: version
-    image: alpine
+    image: <%= tools || "alpine" %>
     commands:
       - |
         VERSION=$(sed -n "s/^-- version: //p" inc/meta/meta.header.lua | head -n 1 | tr -d "[:space:]")
@@ -17,12 +17,14 @@ steps:
         echo $VERSION > .version
 
   - name: lint
-    image: alpine
+    image: <%= tools || "alpine" %>
     commands:
+<%- unless tools -%>
       - apk add --no-cache lua5.4 lua5.4-dev luarocks gcc musl-dev
       - ln -sf /usr/bin/lua5.4 /usr/bin/lua
       - ln -sf /usr/bin/luarocks-5.4 /usr/bin/luarocks
       - luarocks install luacheck
+<%- end -%>
       - |
         echo "==> Merging..."
         rm -f /tmp/_lint_combined.lua /tmp/_lint_map.txt
@@ -87,10 +89,12 @@ steps:
         rm -f /tmp/_lint_combined.lua /tmp/_lint_map.txt
 
   - name: minify
-    image: alpine
+    image: <%= tools || "alpine" %>
     commands:
+<%- unless tools -%>
       - apk add --no-cache lua5.4 curl
       - ln -sf /usr/bin/lua5.4 /usr/bin/lua
+<%- end -%>
       - |
         rm -f <%= name %>.lua
         sed 's/\r$//' <%= name %>.inc | while read f; do
@@ -103,12 +107,14 @@ steps:
         lua minify.lua minify <%= name %>.original.lua > <%= name %>.lua
 
   - name: docs
-    image: alpine
+    image: <%= tools || "alpine" %>
     commands:
+<%- unless tools -%>
       - apk add --no-cache lua5.4 lua5.4-dev luarocks gcc musl-dev zip
       - ln -sf /usr/bin/lua5.4 /usr/bin/lua
       - ln -sf /usr/bin/luarocks-5.4 /usr/bin/luarocks
       - luarocks install ldoc
+<%- end -%>
       - |
         VERSION=$(cat .version)
         echo "==> Generating docs from <%= name %>.original.lua"
@@ -164,13 +170,15 @@ steps:
         pack_binary mac-x64 <%= name %>-mac <%= name %>
 
   - name: upload
-    image: alpine
+    image: <%= tools || "alpine" %>
     environment:
       UPDATE_SERVER: <%= update_server %>
       UPDATE_SECRET:
         from_secret: application_token
     commands:
+<%- unless tools -%>
       - apk add --no-cache curl
+<%- end -%>
       - |
         VERSION=$(cat .version)
         echo "==> Uploading artifacts for version $VERSION"
@@ -186,13 +194,15 @@ steps:
         done
 
   - name: publish
-    image: alpine
+    image: <%= tools || "alpine" %>
     environment:
       UPDATE_SERVER: <%= update_server %>
       UPDATE_SECRET:
         from_secret: application_token
     commands:
+<%- unless tools -%>
       - apk add --no-cache curl
+<%- end -%>
       - |
         VERSION=$(cat .version)
         echo "==> Publishing version $VERSION"

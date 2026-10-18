@@ -7,9 +7,11 @@ stages:
 
 version:
   stage: version
-  image: alpine
+  image: <%= tools || "alpine" %>
   script:
+<%- unless tools -%>
     - apk add --no-cache git jq
+<%- end -%>
     - |
       if [ -f metadata.json ]; then
         VERSION=$(jq -r '.version' metadata.json)
@@ -85,12 +87,14 @@ build:
 
 upload:
   stage: upload
-  image: alpine
+  image: <%= tools || "alpine" %>
   variables:
     UPDATE_SERVER: "<%= update_server %>"
     UPDATE_SECRET: "$application_token"
   script:
+<%- unless tools -%>
     - apk add --no-cache curl
+<%- end -%>
     - |
       VERSION=$(cat .version)
       cp metadata.json "<%= name %>-$VERSION.metadata.json"
@@ -103,12 +107,14 @@ upload:
 
 publish:
   stage: publish
-  image: alpine
+  image: <%= tools || "alpine" %>
   variables:
     UPDATE_SERVER: "<%= update_server %>"
     UPDATE_SECRET: "$application_token"
   script:
+<%- unless tools -%>
     - apk add --no-cache curl
+<%- end -%>
     - |
       VERSION=$(cat .version)
       curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=godot&version=$VERSION"

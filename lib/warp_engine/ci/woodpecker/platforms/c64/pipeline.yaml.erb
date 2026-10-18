@@ -1,7 +1,7 @@
 # Generated pipeline — WarpEngine /build/config (platform: c64, name: <%= name %>)
 steps:
   - name: version
-    image: alpine
+    image: <%= tools || "alpine" %>
     commands:
       - |
         VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' metadata.json | head -n 1)
@@ -39,13 +39,15 @@ steps:
         commodore-pack c64 <%= name %> $VERSION
 
   - name: artifact
-    image: alpine
+    image: <%= tools || "alpine" %>
     environment:
       UPDATE_SERVER: <%= update_server %>
       UPDATE_SECRET:
         from_secret: application_token
     commands:
+<%- unless tools -%>
       - apk add --no-cache curl
+<%- end -%>
       - |
         VERSION=$(cat .version)
         echo "==> Uploading artifacts for version $VERSION"
@@ -58,13 +60,15 @@ steps:
         done
 
   - name: publish
-    image: alpine
+    image: <%= tools || "alpine" %>
     environment:
       UPDATE_SERVER: <%= update_server %>
       UPDATE_SECRET:
         from_secret: application_token
     commands:
+<%- unless tools -%>
       - apk add --no-cache curl
+<%- end -%>
       - |
         VERSION=$(cat .version)
         echo "==> Publishing version $VERSION"

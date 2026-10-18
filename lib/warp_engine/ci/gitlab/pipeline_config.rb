@@ -40,7 +40,8 @@ module WarpEngine
             name:          name.to_s,
             update_server: update_server.to_s,
             builder:       spec[:builder],
-            exporter:      spec[:exporter]
+            exporter:      spec[:exporter],
+            tools:         spec[:tools]
           )
         end
 

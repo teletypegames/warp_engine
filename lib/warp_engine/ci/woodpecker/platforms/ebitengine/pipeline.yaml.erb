@@ -1,9 +1,11 @@
 # Generated pipeline — WarpEngine /build/config (platform: ebitengine, name: <%= name %>)
 steps:
   - name: version
-    image: alpine
+    image: <%= tools || "alpine" %>
     commands:
+<%- unless tools -%>
       - apk add --no-cache git jq
+<%- end -%>
       - |
         if [ -f metadata.json ]; then
           VERSION=$(jq -r '.version' metadata.json)
@@ -68,13 +70,15 @@ steps:
         binary_build "linux" "arm64" "1" "" "linux-arm64" "aarch64-linux-gnu-gcc"
 
   - name: artifact
-    image: alpine
+    image: <%= tools || "alpine" %>
     environment:
       UPDATE_SERVER: <%= update_server %>
       UPDATE_SECRET:
         from_secret: application_token
     commands:
+<%- unless tools -%>
       - apk add --no-cache curl
+<%- end -%>
       - |
         VERSION=$(cat .version)
         FILE="<%= name %>-$VERSION.html.zip"
@@ -89,13 +93,15 @@ steps:
         done
 
   - name: publish
-    image: alpine
+    image: <%= tools || "alpine" %>
     environment:
       UPDATE_SERVER: <%= update_server %>
       UPDATE_SECRET:
         from_secret: application_token
     commands:
+<%- unless tools -%>
       - apk add --no-cache curl
+<%- end -%>
       - |
         VERSION=$(cat .version)
         curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=ebitengine&version=$VERSION"

@@ -517,7 +517,12 @@ The adapter's `platforms` maps platform names to builder images
 (`{ "godot" => { builder: "..." }, "c64" => { builder: ..., exporter: ... } }`);
 `exporter` is a second image a template may run a step in — the c64 and plus4
 pipelines package the `.prg` into the browser player and the native players
-there — and an empty map (default) disables the feature. Set the Woodpecker side with
+there — and an empty map (default) disables the feature. `tools` is an optional
+image for the helper steps (version, lint, minify, docs, upload, publish): without
+it they run in `alpine` and install what they need first on every run (`apk add`
+git, jq, curl, zip, lua5.4; `luarocks install` luacheck and ldoc for tic80); with
+it they run in that image and install nothing, so it must already have those, with
+Lua 5.4 as `lua`. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
 per-repo in Settings → Extensions). Templates live with the adapter, in
 `lib/warp_engine/ci/woodpecker/platforms/<platform>/pipeline.yaml.erb` — the
