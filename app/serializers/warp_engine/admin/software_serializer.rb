@@ -3,6 +3,7 @@ module WarpEngine
     class SoftwareSerializer < Blueprinter::Base
       identifier :id
       fields :name, :title, :author, :desc, :story, :license, :platform, :status, :category, :highlighted
+      field :shelf_name, name: :shelfName
       field :owner_type, name: :ownerType
       field :owner_id,   name: :ownerId
       include Timestamps

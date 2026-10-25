@@ -12,6 +12,7 @@ require "warp_engine/access_denied"
 require "warp_engine/images"
 require "warp_engine/ci"
 require "warp_engine/additional_resource"
+require "warp_engine/shelves"
 require "warp_engine/admin_api"
 
 module WarpEngine

@@ -39,6 +39,10 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 - **Pluggable storage**: artifacts are served through a storage adapter
   (`:local` by default); a host can serve them from an object store without
   patching the engine.
+- **Shelves (optional, 1.2)**: a platform's latest public builds as a flat,
+  versionless folder with a plain-text `INDEX.TXT`, kept up to date by the engine
+  itself — for clients too small to speak JSON over HTTPS (a C64 reading it over
+  FTP). Off unless configured.
 - **Publish events**: every published release emits
   `ActiveSupport::Notifications` (`warp_engine.publish`), so hosts can react
   to new builds without model callbacks.
@@ -268,6 +272,12 @@ Rails.application.config.to_prepare do
     # most it may ask for (see "Paging and filters").
     # c.catalog_page_size     = 48
     # c.catalog_max_page_size = 200
+
+    # Flat, versionless copies of a platform's latest builds (see "Shelves").
+    # [] (default) means none.
+    # c.shelves = [
+    #   { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16 }
+    # ]
   end
 end
 ```
@@ -338,7 +348,8 @@ a TIC-80 cartridge's source) is what fills the `Software` record: `name`, `title
 `author`, `desc`, `license`, and optionally `site` and `repo`, which become external
 links, and `category` — a key a client may group titles by (`puzzle`, `action`,
 `demo`). Every key is optional but `name`; an absent `category` is `null` in the API
-and a client draws no category axis until a catalog publishes one.
+and a client draws no category axis until a catalog publishes one. `shelf_name` names the
+title's file on a shelf (see *Shelves*); a publish without it keeps the one set in the admin.
 
 **Statuses and categories are a vocabulary in the database**, not a list in the code:
 `WarpEngine::SoftwareStatus` (key, label, position, `default_visible`, `badge`) and
@@ -595,6 +606,77 @@ signing adapter turns them into redirects without any further change.
 **Serving only.** Ingestion — `POST /build/upload`, archive extraction and
 the admin file manager — still writes to the local disk. A remote adapter
 needs its own upload path today.
+
+## Shelves
+
+A shelf is a folder the engine keeps in step with the catalog: for one platform, the
+latest build of every public title, under a fixed name with no version in it, and an
+`INDEX.TXT` that lists them. It is for clients that cannot read the JSON API — a C64
+store that fetches the index and the files over FTP, say — and it is off unless the
+host asks for one:
+
+```ruby
+c.shelves = [
+  { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16 }
+]
+```
+
+| Key | |
+|---|---|
+| `platform` | whose titles go on the shelf |
+| `kind` | which asset of the release (`ReleaseAsset` kind); one file per title |
+| `path` | the folder, relative to `file_container_path` |
+| `extension` | the extension on the shelf, in capitals |
+| `name_length` | the longest file name, extension included (default 16) |
+| `statuses` | optional; without it, the statuses whose `default_visible` is set |
+
+The configuration is checked at boot: an unknown platform or kind, a path outside the
+container, two shelves in one folder, or a storage adapter other than `:local` stops
+the application rather than leaving a shelf empty.
+
+**What goes on a shelf.** Every kept software of the platform whose status is listed and
+which the access policy shows an anonymous caller without a gate; of each, the latest
+release (`Release.latest_non_dev`) that has the asset. The file is named after the
+software's `shelf_name`, or, without one, its `name` — in capitals, with anything but
+`A–Z`, `0–9` and `-` turned into a dash, cut to fit `name_length`. Two titles that would
+share a name: the older one keeps it, the other is left off and reported.
+
+```
+shelves/C64/
+  INDEX.TXT
+  ARIADNE.PRG
+  BLESSINGOFRA.PRG
+```
+
+**`INDEX.TXT`** is ASCII, one title a line, sorted by title, after a header naming the
+format and the fields:
+
+```
+#SHELF 1 file|version|size|crc32|title|author|description
+ARIADNE.PRG|1.1.0|10561|3c0f5d2a|Thread of Ariadne|Teletype Games|Co-op labyrinth for two.
+```
+
+`crc32` is zlib's, in hexadecimal. Text is transliterated to ASCII, `|` and line breaks
+become spaces, and a line is at most 255 bytes — the description is what gets cut.
+
+**When it changes.** A shelf is rebuilt whole, from the database, whenever something
+that decides its content changes: a publish (`warp_engine.publish`), and any committed
+change or soft delete of a software, a release, a release asset or a status. A rebuild
+that changes nothing writes nothing; a file is copied again only when its version, size
+or source is newer. The new files land under a temporary name and are renamed into
+place, `INDEX.TXT` is replaced last, and only then are the files that left the shelf
+removed — so a reader never finds a line whose file is missing. A rebuild that fails is
+logged and does not fail the save that caused it. The folder belongs to the engine;
+nothing else should write into it.
+
+A change the engine cannot see — an access policy that starts gating a title for
+reasons of its own — needs a rebuild by hand:
+
+```sh
+bin/rails warp_engine:shelves:check            # what each shelf holds and leaves out (STRICT=1 fails on the latter)
+bin/rails warp_engine:shelves:sync             # rebuild every shelf
+DRY_RUN=1 bin/rails warp_engine:shelves:sync   # only say what would change
+```
 
 ## Images
 

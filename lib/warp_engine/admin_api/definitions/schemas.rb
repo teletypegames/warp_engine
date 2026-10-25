@@ -22,7 +22,7 @@ module WarpEngine
           base = {
             id: S.id, name: S.string, title: S.string, author: text, desc: text, story: text,
             license: text, platform: S.enum(WarpEngine::Platform::NAMES), status: text, category: text,
-            highlighted: S.nullable(S.boolean), ownerType: text, ownerId: S.nullable(S.integer), **timestamps
+            highlighted: S.nullable(S.boolean), shelfName: text, ownerType: text, ownerId: S.nullable(S.integer), **timestamps
           }
           included = {
             releases:      S.array(S.ref("Release"), "With include=releases"),
@@ -39,7 +39,8 @@ module WarpEngine
             license: text, platform: S.enum(WarpEngine::Platform::NAMES),
             status: S.nullable(S.string("A key from software_statuses")),
             category: S.nullable(S.string("A key from software_categories; a new word is registered for review")),
-            highlighted: S.boolean
+            highlighted: S.boolean,
+            shelfName: S.nullable(S.string("File name on a shelf (A-Z, 0-9, -); null uses the name"))
           })
         end
 

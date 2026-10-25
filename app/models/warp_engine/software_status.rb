@@ -2,6 +2,8 @@ module WarpEngine
   class SoftwareStatus < ApplicationRecord
     self.table_name = "software_statuses"
 
+    include ShelfRefreshing
+
     KEY_FORMAT = /\A[a-z0-9_-]+\z/
 
     DEFAULTS = [

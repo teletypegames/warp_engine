@@ -2,7 +2,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
   permit_params do
     [
       :name, :title, :author, :desc, :story,
-      :license, :platform, :status, :category, :highlighted,
+      :license, :platform, :status, :category, :highlighted, :shelf_name,
       { software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ] },
       { external_links_attributes: [ :id, :label, :url, :_destroy ] },
       { releases_attributes: [ :id, :version, :_destroy,
@@ -109,6 +109,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         f.input :category, as: :datalist, collection: WarpEngine::SoftwareCategory.ordered.pluck(:key),
                 hint: "A key from the category vocabulary; a new word is added to it for review. Empty means uncategorised."
         f.input :highlighted
+        f.input :shelf_name, hint: "File name on a shelf (A-Z, 0-9, -); empty uses the name"
         f.input :license
         f.input :desc,  as: :text, input_html: { rows: 4 }
         f.input :story, as: :text, input_html: { rows: 8 }

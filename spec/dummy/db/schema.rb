@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_132443) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_25_202844) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -167,6 +167,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_132443) do
     t.bigint "owner_id", unsigned: true
     t.string "owner_type", limit: 128
     t.string "platform", limit: 128
+    t.string "shelf_name", limit: 32
     t.string "site"
     t.string "status", limit: 20, default: "development"
     t.text "story"

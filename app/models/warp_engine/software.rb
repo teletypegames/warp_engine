@@ -3,6 +3,7 @@ module WarpEngine
     self.table_name = "softwares"
 
     include SoftDeletable
+    include ShelfRefreshing
 
     belongs_to :owner, polymorphic: true, optional: true
 
@@ -18,12 +19,15 @@ module WarpEngine
     accepts_nested_attributes_for :releases, allow_destroy: true
 
     normalizes :category, with: ->(value) { value.to_s.strip.presence }
+    normalizes :shelf_name, with: ->(value) { value.to_s.strip.upcase.presence }
 
     validates :name, presence: true, uniqueness: true
     validates :title, presence: true
     validates :platform, presence: true, inclusion: { in: WarpEngine::Platform::NAMES }
     validates :status, inclusion: { in: ->(_) { WarpEngine::SoftwareStatus.keys } }, allow_blank: true
     validates :category, length: { maximum: 64 }, allow_nil: true
+    validates :shelf_name, length: { maximum: 32 }, format: { with: WarpEngine::Shelves::NAME_PATTERN },
+                           uniqueness: { scope: :platform, conditions: -> { kept } }, allow_nil: true
 
     after_save :register_category
 
@@ -43,6 +47,11 @@ module WarpEngine
     end
 
     private
+
+    def shelf_platform
+      previous = saved_changes.fetch("platform", [])[0]
+      previous.present? && previous != platform ? nil : platform
+    end
 
     def register_category
       WarpEngine::SoftwareCategory.register(category) if saved_change_to_category? && category.present?

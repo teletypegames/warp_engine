@@ -3,7 +3,7 @@ require "json"
 module WarpEngine
   module Platforms
     module MetadataParsing
-      METADATA_KEYS = %i[name title author desc site repo license category].freeze
+      METADATA_KEYS = %i[name title author desc site repo license category shelf_name].freeze
 
       private
 

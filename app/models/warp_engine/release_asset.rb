@@ -5,6 +5,7 @@ module WarpEngine
                mac_x64 mac_arm64 mac_universal].freeze
 
     include SoftDeletable
+    include ShelfRefreshing
 
     belongs_to :release
 
@@ -12,6 +13,8 @@ module WarpEngine
 
     validates :path, presence: true
     validates :kind, uniqueness: { scope: :release_id }
+
+    def shelf_platform = release&.software&.platform
 
     def self.for_relative_path(relative)
       absolute = File.join(WarpEngine.config.file_container_path, relative.to_s)

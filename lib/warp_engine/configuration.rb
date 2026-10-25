@@ -20,7 +20,8 @@ module WarpEngine
                   :ignored_user_agents,
                   :catalog_page_size,
                   :catalog_max_page_size,
-                  :additional_resources
+                  :additional_resources,
+                  :shelves
 
     attr_writer :admin_api
 
@@ -46,6 +47,7 @@ module WarpEngine
       @catalog_page_size             = 48
       @catalog_max_page_size         = 200
       @additional_resources          = []
+      @shelves                       = []
     end
 
     def admin_api

@@ -3,6 +3,7 @@ module WarpEngine
     self.table_name = "releases"
 
     include SoftDeletable
+    include ShelfRefreshing
 
     belongs_to :software
     has_many :downloads, -> { kept }
@@ -20,6 +21,8 @@ module WarpEngine
       candidates = sorted.reject { |r| r.version.to_s.start_with?("dev-") }
       candidates.empty? ? sorted.first : candidates.first
     end
+
+    def shelf_platform = software&.platform
 
     def download_only_platform_cannot_be_web_playable
       platform = WarpEngine::Platform.find(software&.platform)

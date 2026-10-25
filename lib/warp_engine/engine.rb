@@ -16,6 +16,13 @@ module WarpEngine
 
     config.after_initialize do
       WarpEngine::AdminApi::Mcp.ensure_available! if WarpEngine.config.admin_api.mcp?
+      WarpEngine::Shelves.validate!
+    end
+
+    initializer "warp_engine.shelves" do
+      ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
+        WarpEngine::Shelves.refresh(platform: payload[:platform])
+      end
     end
 
     initializer "warp_engine.active_admin" do |app|
