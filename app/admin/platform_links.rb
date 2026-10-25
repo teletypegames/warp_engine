@@ -14,6 +14,7 @@ ActiveAdmin.register WarpEngine::PlatformLink, as: "Platform Link" do
   scope("Godot")      { |s| s.where(platform: "godot") }
   scope("Bevy")       { |s| s.where(platform: "bevy") }
   scope("Phaser")     { |s| s.where(platform: "phaser") }
+  scope("DOS")        { |s| s.where(platform: "dos") }
 
   controller do
     def scoped_collection

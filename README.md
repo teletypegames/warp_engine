@@ -252,7 +252,8 @@ Rails.application.config.to_prepare do
     # the adapter is better, because then the settings are here in the open.
     # c.ci_adapter = WarpEngine::CI::Woodpecker::Adapter.new(
     #   url: ENV["WOODPECKER_URL"], api_token: ENV["WOODPECKER_API_TOKEN"],
-    #   platforms: { "godot" => { builder: "registry.example/godot-builder:4.6" } }
+    #   platforms: { "godot" => { builder: "registry.example/godot-builder:4.6" },
+    #                "dos"   => { builder: "registry.example/dos-ci:bookworm", forge_release: true } }
     # )
     # c.ci_adapter = :none   # this host builds nothing
 
@@ -538,6 +539,40 @@ Lua 5.4 as `lua`. Set the Woodpecker side with
 per-repo in Settings → Extensions). Templates live with the adapter, in
 `lib/warp_engine/ci/woodpecker/platforms/<platform>/pipeline.yaml.erb` — the
 YAML dialect belongs to the provider, so a second adapter brings its own.
+
+Keys of the marker besides `platform` and `name` are **options** the platform's
+template may read (letters, digits, `_ . -` only; anything else is dropped). The
+generated pipeline takes the marker file's place; the repo's **other** config
+files (`.woodpecker/*.yaml`) are passed back unchanged, so a repo can keep a
+workflow of its own — a server deploy, say — next to the generated one.
+
+Two more keys of a platform's entry switch optional steps, for the platforms
+whose template has them:
+
+- `forge_release: true` — on a tag, publish a release on the forge (Gitea) with
+  the binaries and the release notes. Off by default; a platform whose template
+  has no such step logs a warning instead.
+- `store: { image:, target:, known_host: }` — on a tag, send the program to a
+  store over SSH (`tar | ssh <target>`), the key from the Woodpecker secret the
+  marker's `store_secret` names (default `deploy_ssh_key`).
+
+#### The `dos` platform
+
+DOS programs (with an optional Win32 build) are published like games, from a
+tag. The repo keeps its own scripts — `scripts/ci-{toolchain,check,build,test}.sh`
+on every event, `scripts/ci-package.sh` (writes `dist/<FOLDER>-<tag>.zip`, the
+installable folder) on a tag, `scripts/ci-upload.sh` for `forge_release`,
+`scripts/ci-store.sh` for `store` — and a `metadata.json` that names the folders:
+
+```json
+{ "name": "dosinst", "title": "DOSINST", "category": "tool",
+  "dos": { "folder": "DOSINST", "win32_folder": "DOSINSTW" } }
+```
+
+The version is the tag without its `v`. The folder zip becomes the `cartridge`
+(`dosinst-0.6.0.zip`) and the Win32 one the `win_x86` asset
+(`dosinst-0.6.0-win-x86.zip`), byte for byte the files of the forge release.
+DOS releases are download only.
 
 ### CI management (the Woodpecker adapter)
 

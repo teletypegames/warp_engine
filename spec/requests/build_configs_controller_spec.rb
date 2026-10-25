@@ -131,6 +131,33 @@ RSpec.describe "Build configs endpoint", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
+    it "passes the marker's options to the pipeline and the repo's other configs through" do
+      serving(woodpecker(platforms: { "dos" => { builder: "registry.example/dos-ci:1",
+                                                 store: { image: "deploy:1", target: "deploy@host", known_host: "host key" } } }))
+      payload = {
+        repo: { name: "ttgwiki" },
+        configuration: [
+          { name: ".woodpecker/deploy.yaml", data: "steps:\n  - name: deploy\n    image: alpine\n" },
+          { name: ".woodpecker/warp.yaml", data: "platform: dos\nstore_secret: store_ssh_key\n" }
+        ]
+      }.to_json
+
+      post "/build/config", params: payload, headers: signed_headers(payload)
+
+      configs = response.parsed_body["configs"]
+      expect(configs.map { |config| config["name"] }).to eq([ "dos", ".woodpecker/deploy.yaml" ])
+      expect(configs.first["data"]).to include("from_secret: store_ssh_key", "ttgwiki-$VERSION.zip")
+      expect(configs.last["data"]).to eq("steps:\n  - name: deploy\n    image: alpine\n")
+    end
+
+    it "previews a pipeline with options" do
+      serving(woodpecker(platforms: { "dos" => { builder: "b", store: { image: "i", target: "t", known_host: "k" } } }))
+
+      get "/build/config", params: { platform: "dos", name: "ttgwiki", options: { store_secret: "store_ssh_key" } }
+
+      expect(response.body).to include("from_secret: store_ssh_key")
+    end
+
     it "returns 204 for a non-marker config" do
       payload = extension_payload("steps:\n  - name: build\n    image: alpine\n")
       post "/build/config", params: payload, headers: signed_headers(payload)

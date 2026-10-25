@@ -15,8 +15,11 @@ module WarpEngine
           "bevy"       => %w[html win_x64 linux_x64 linux_arm64],
           "c64"        => %w[cartridge html win_x64 linux_x64 mac_arm64],
           "plus4"      => %w[cartridge html win_x64 linux_x64 mac_arm64],
-          "phaser"     => %w[html]
+          "phaser"     => %w[html],
+          "dos"        => %w[cartridge win_x86]
         }.freeze
+
+        OPTION_FORMAT = /\A[A-Za-z0-9_.-]{1,64}\z/
 
         def initialize(platforms: {})
           @platforms = platforms.to_h { |key, spec| [ key.to_s, spec.to_h.symbolize_keys ] }
@@ -26,7 +29,7 @@ module WarpEngine
           @platforms
         end
 
-        def render(platform:, name:, update_server:)
+        def render(platform:, name:, update_server:, options: {})
           platform = platform.to_s
           return nil unless platform.match?(PLATFORM_FORMAT)
 
@@ -36,13 +39,31 @@ module WarpEngine
           path = self.class.templates_dir.join(platform, "pipeline.yaml.erb")
           return nil unless path.exist?
 
-          ERB.new(path.read, trim_mode: "-").result_with_hash(
+          template = path.read
+          if spec[:forge_release] && !template.include?("forge_release")
+            Rails.logger.warn("[WarpEngine::CI] forge_release is on for #{platform}, but its pipeline has no release step")
+          end
+
+          ERB.new(template, trim_mode: "-").result_with_hash(
             name:          name.to_s,
             update_server: update_server.to_s,
             builder:       spec[:builder],
             exporter:      spec[:exporter],
-            tools:         spec[:tools]
+            tools:         spec[:tools],
+            forge_release: spec[:forge_release] ? true : false,
+            store:         spec[:store]&.to_h&.symbolize_keys,
+            options:       clean_options(options)
           )
+        end
+
+        def clean_options(options)
+          options.to_h.each_with_object({}) do |(key, value), clean|
+            key = key.to_s
+            next if %w[platform name].include?(key)
+            next unless key.match?(OPTION_FORMAT) && value.to_s.match?(OPTION_FORMAT)
+
+            clean[key] = value.to_s
+          end
         end
 
         def built_kinds(platform)

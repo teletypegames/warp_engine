@@ -93,22 +93,29 @@ module WarpEngine
 
         def config_marker(params)
           configs = params[:configuration].presence || params[:configs].presence || []
-          Array(configs).each do |config|
+          configs = Array(configs)
+          configs.each_with_index do |config, index|
             parsed = parse_marker(config[:data].to_s)
             next unless parsed
 
-            return { platform: parsed["platform"].to_s,
-                     name:     parsed["name"].presence || params.dig(:repo, :name).to_s }
+            marker = { platform: parsed["platform"].to_s,
+                       name:     parsed["name"].presence || params.dig(:repo, :name).to_s }
+            options = parsed.except("platform", "name")
+            marker[:options] = options if options.any?
+            others = configs.reject.with_index { |_, other| other == index }
+                            .map { |other| { name: other[:name].to_s, data: other[:data].to_s } }
+            marker[:others] = others if others.any?
+            return marker
           end
           nil
         end
 
-        def pipeline_config(platform:, name:, update_server:)
-          @config.render(platform: platform, name: name, update_server: update_server)
+        def pipeline_config(platform:, name:, update_server:, options: {})
+          @config.render(platform: platform, name: name, update_server: update_server, options: options)
         end
 
-        def config_response(platform:, config:)
-          { configs: [ { name: platform, data: config } ] }
+        def config_response(platform:, config:, others: [])
+          { configs: [ { name: platform, data: config } ] + others }
         end
 
         private

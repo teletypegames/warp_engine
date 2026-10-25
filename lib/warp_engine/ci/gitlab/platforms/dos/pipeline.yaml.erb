@@ -1,0 +1,124 @@
+# Generated pipeline — WarpEngine /build/config (platform: dos, name: <%= name %>)
+stages:
+  - test
+  - package
+<%- if forge_release -%>
+  - release
+<%- end -%>
+  - artifact
+  - publish
+<%- if store -%>
+  - store
+<%- end -%>
+
+test:
+  stage: test
+  image: <%= builder %>
+  script:
+    - scripts/ci-toolchain.sh
+    - scripts/ci-check.sh
+    - scripts/ci-build.sh
+    - scripts/ci-test.sh
+  artifacts:
+    paths:
+      - "*.EXE"
+      - "*.COM"
+
+package:
+  stage: package
+  image: <%= tools || "alpine" %>
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+<%- unless tools -%>
+    - apk add --no-cache curl jq zip
+<%- end -%>
+    - scripts/ci-package.sh
+    - echo "${CI_COMMIT_TAG#v}" > .version
+  artifacts:
+    paths:
+      - .version
+      - dist/
+<%- if forge_release -%>
+
+release:
+  stage: release
+  image: <%= tools || "alpine" %>
+  rules:
+    - if: $CI_COMMIT_TAG
+  variables:
+    GITEA_TOKEN: "$gitea_token"
+  script:
+<%- unless tools -%>
+    - apk add --no-cache curl jq zip
+<%- end -%>
+    - scripts/ci-upload.sh
+<%- end -%>
+
+artifact:
+  stage: artifact
+  image: <%= tools || "alpine" %>
+  rules:
+    - if: $CI_COMMIT_TAG
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+<%- unless tools -%>
+    - apk add --no-cache curl jq zip
+<%- end -%>
+    - |
+      VERSION=$(cat .version)
+      FOLDER=$(jq -r '.dos.folder // empty' metadata.json)
+      WIN32_FOLDER=$(jq -r '.dos.win32_folder // empty' metadata.json)
+      if [ -z "$FOLDER" ]; then
+        echo "ERROR: no dos.folder in metadata.json!"
+        exit 1
+      fi
+      cp "dist/$FOLDER-$CI_COMMIT_TAG.zip" <%= name %>-$VERSION.zip
+      FILES="<%= name %>-$VERSION.zip <%= name %>-$VERSION.metadata.json"
+      if [ -n "$WIN32_FOLDER" ]; then
+        cp "dist/$WIN32_FOLDER-$CI_COMMIT_TAG.zip" <%= name %>-$VERSION-win-x86.zip
+        FILES="$FILES <%= name %>-$VERSION-win-x86.zip"
+      fi
+      jq --arg version "$VERSION" 'del(.dos) + {version: $version}' metadata.json > <%= name %>-$VERSION.metadata.json
+      echo "==> Uploading $FILES"
+      for f in $FILES; do
+        curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
+          -F "file=@$f" \
+          "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
+      done
+
+publish:
+  stage: publish
+  image: <%= tools || "alpine" %>
+  rules:
+    - if: $CI_COMMIT_TAG
+  variables:
+    UPDATE_SERVER: "<%= update_server %>"
+    UPDATE_SECRET: "$application_token"
+  script:
+<%- unless tools -%>
+    - apk add --no-cache curl
+<%- end -%>
+    - |
+      VERSION=$(cat .version)
+      echo "==> Publishing version $VERSION"
+      curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=dos&version=$VERSION"
+<%- if store -%>
+
+store:
+  stage: store
+  image: <%= store[:image] %>
+  rules:
+    - if: $CI_COMMIT_TAG
+  variables:
+    STORE_SSH_KEY: "$<%= options["store_secret"] || "deploy_ssh_key" %>"
+  script:
+    - rm -rf /tmp/store && mkdir /tmp/store
+    - STORE=/tmp/store scripts/ci-store.sh
+    - mkdir -p -m 700 "$HOME/.ssh"
+    - printf '%s\n' "$STORE_SSH_KEY" > "$HOME/.ssh/id_store" && chmod 600 "$HOME/.ssh/id_store"
+    - echo '<%= store[:known_host] %>' > "$HOME/.ssh/known_hosts"
+    - tar -C /tmp/store -cf - . | ssh -i "$HOME/.ssh/id_store" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes <%= store[:target] %>
+<%- end -%>

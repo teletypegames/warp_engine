@@ -58,8 +58,8 @@ module WarpEngine
 
       def verify_config_request(_request) = false
       def config_marker(_params) = nil
-      def pipeline_config(platform:, name:, update_server:) = nil
-      def config_response(platform:, config:) = {}
+      def pipeline_config(platform:, name:, update_server:, options: {}) = nil
+      def config_response(platform:, config:, others: []) = {}
     end
 
     class << self
