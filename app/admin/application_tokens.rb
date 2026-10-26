@@ -11,12 +11,12 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   scope("Active")  { |scope| scope.where("expires_at IS NULL OR expires_at > ?", Time.current) }
   scope("Expired") { |scope| scope.where("expires_at <= ?", Time.current) }
 
-  CATALOG_SCOPE_SQL = %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"catalog"')).freeze
-  ADMIN_SCOPE_SQL = WarpEngine::ApplicationToken::ADMIN_SCOPES
-                    .map { |s| %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"#{s}"')) }.join(" OR ").freeze
-  scope("Publishing") { |scope| scope.where("NOT #{CATALOG_SCOPE_SQL} AND NOT (#{ADMIN_SCOPE_SQL})") }
-  scope("Clients")    { |scope| scope.where(CATALOG_SCOPE_SQL) }
-  scope("Admin API")  { |scope| scope.where(ADMIN_SCOPE_SQL) }
+  catalog_sql = %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"catalog"'))
+  admin_sql = WarpEngine::ApplicationToken::ADMIN_SCOPES
+              .map { |s| %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"#{s}"')) }.join(" OR ")
+  scope("Publishing") { |scope| scope.where("NOT #{catalog_sql} AND NOT (#{admin_sql})") }
+  scope("Clients")    { |scope| scope.where(catalog_sql) }
+  scope("Admin API")  { |scope| scope.where(admin_sql) }
 
   index do
     id_column

@@ -1112,7 +1112,10 @@ claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp 
 
 ## Behavioral notes
 
-- Every model is soft-deleted (`default_scope { where(deleted_at: nil) }`).
+- Every model is soft-deleted: a `deleted_at` column and the `kept` / `discarded` scopes
+  of `WarpEngine::SoftDeletable`. Since 0.10 there is no `default_scope`, so a query does
+  not filter by itself: a host asks for `WarpEngine::Software.kept`, and a host upgrading
+  from 0.9 or earlier adds `.kept` where it relied on the default scope.
 - The JSON shape is stable and intentionally bug-compatible with the project's
   former Go backend (Go zero-time timestamps, camelCase keys, legacy flat
   path fields).
