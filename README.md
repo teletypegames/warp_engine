@@ -556,6 +556,19 @@ whose template has them:
   store over SSH (`tar | ssh <target>`), the key from the Woodpecker secret the
   marker's `store_secret` names (default `deploy_ssh_key`).
 
+#### The `c64` platform's `build` option
+
+The c64 pipeline assembles `main.asm` with ACME into `<name>.prg`. A marker
+with `build: make` hands that step to the repo's Makefile instead: it runs
+`make <name>.prg` in the builder image (which has ACME and cc65), and the rest —
+packaging the players, upload, publish — is the same. WARP64U, written in C, is
+built this way:
+
+```yaml
+platform: c64
+build: make
+```
+
 #### The `dos` platform
 
 DOS programs (with an optional Win32 build) are published like games, from a
