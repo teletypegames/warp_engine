@@ -9,6 +9,7 @@ module WarpEngine
         include Builds::BuildLinuxArm64
 
         label "Bevy"
+        required_kinds "html"
       end
     end
   end

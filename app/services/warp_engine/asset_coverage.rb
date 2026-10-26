@@ -1,7 +1,7 @@
 module WarpEngine
   class AssetCoverage
-    Row = Struct.new(:software, :release, :platform, :expected, :present, :ci_kinds, keyword_init: true) do
-      def missing = expected - present
+    Row = Struct.new(:software, :release, :platform, :expected, :optional, :present, :ci_kinds, keyword_init: true) do
+      def missing = expected - present - optional.to_a
 
       def buildable_missing
         return missing if ci_kinds.nil?
@@ -25,6 +25,7 @@ module WarpEngine
 
       def state_of(kind)
         return :present if present.include?(kind)
+        return :optional if optional.to_a.include?(kind)
         return :manual if ci_kinds && !ci_kinds.include?(kind)
 
         :missing
@@ -87,6 +88,7 @@ module WarpEngine
         release:  release,
         platform: WarpEngine::Platform.find(software.platform),
         expected: expected,
+        optional: WarpEngine::Platform.find(software.platform)&.optional_kinds || [],
         present:  release ? release.release_assets.map(&:kind).uniq : [],
         ci_kinds: ci_kinds(software.platform)
       )

@@ -12,8 +12,8 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
   scope("Active")   { |s| s.where(active: true) }
   scope("Inactive") { |s| s.where(active: false) }
 
-  WarpEngine::PlatformLink::SUPPORTED_PLATFORMS.each do |p|
-    scope(p.capitalize) { |s| s.where(platform: p) }
+  WarpEngine::Platform.all.each do |platform|
+    scope(platform.label) { |s| s.where(platform: platform.name) }
   end
 
   index do
@@ -40,12 +40,12 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
   end
 
   filter :repo_name
-  filter :platform, as: :select, collection: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS
+  filter :platform, as: :select, collection: -> { WarpEngine::Platform.names }
   filter :active
 
   form do |f|
     f.inputs do
-      f.input :platform, as: :select, collection: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS
+      f.input :platform, as: :select, collection: -> { WarpEngine::Platform.names }
       f.input :software_id, as: :select,
               collection: WarpEngine::Software.kept.order(:title).map { |s| [ s.title, s.id ] },
               include_blank: "- none -",

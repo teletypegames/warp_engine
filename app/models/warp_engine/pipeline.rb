@@ -16,7 +16,7 @@ module WarpEngine
     validates :repo_owner, presence: true
     validates :repo_name, presence: true
     validates :platform, presence: true,
-              inclusion: { in: WarpEngine::PlatformLink::SUPPORTED_PLATFORMS + [ UNKNOWN_PLATFORM ] }
+              inclusion: { in: ->(_) { WarpEngine::Platform.names + [ UNKNOWN_PLATFORM ] } }
 
     scope :active, -> { kept.where(active: true) }
 

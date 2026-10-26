@@ -10,6 +10,7 @@ module WarpEngine
         include Builds::BuildMacArm64
 
         label "Plus/4"
+        required_kinds "cartridge"
 
         def cartridge_ext = ".prg"
       end

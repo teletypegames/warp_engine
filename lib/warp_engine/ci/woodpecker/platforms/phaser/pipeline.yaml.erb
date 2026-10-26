@@ -52,7 +52,11 @@ steps:
           echo "==> Downloading Phaser 3.90.0"
           curl -sSL https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js -o dist/web/phaser.min.js
           echo "==> Downloading index.html"
-          curl -sSL https://git.teletypegames.org/build/phaser-tools/raw/branch/master/web/index.html -o dist/web/index.html
+          <%- if web_shell -%>
+          curl -sSL <%= web_shell %> -o dist/web/index.html
+          <%- else -%>
+          cp web/index.html dist/web/index.html
+          <%- end -%>
           echo "==> Bundling game sources"
           cat src/*.js > dist/web/game.js
           echo "==> Packaging web build for $VERSION"

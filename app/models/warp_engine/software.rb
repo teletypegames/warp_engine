@@ -23,7 +23,7 @@ module WarpEngine
 
     validates :name, presence: true, uniqueness: true
     validates :title, presence: true
-    validates :platform, presence: true, inclusion: { in: WarpEngine::Platform::NAMES }
+    validates :platform, presence: true, inclusion: { in: ->(_) { WarpEngine::Platform.names } }
     validates :status, inclusion: { in: ->(_) { WarpEngine::SoftwareStatus.keys } }, allow_blank: true
     validates :category, length: { maximum: 64 }, allow_nil: true
     validates :shelf_name, length: { maximum: 32 }, format: { with: WarpEngine::Shelves::NAME_PATTERN },

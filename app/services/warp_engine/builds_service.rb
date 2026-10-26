@@ -2,7 +2,8 @@ module WarpEngine
   class BuildsService
     def index
       platforms = WarpEngine::Platform.all.each_with_object({}) do |platform, hash|
-        hash[platform.name] = { label: platform.label, kinds: platform.expected_kinds }
+        hash[platform.name] = { label: platform.label, kinds: platform.expected_kinds,
+                                required: platform.required_kinds, optional: platform.optional_kinds }
       end
 
       all_kinds = WarpEngine::ReleaseAsset::KINDS
@@ -12,7 +13,8 @@ module WarpEngine
 
     def show(name)
       software = WarpEngine::Software.kept.find_by!(name: name)
-      expected = WarpEngine::Platform.find!(software.platform).expected_kinds
+      platform = WarpEngine::Platform.find!(software.platform)
+      expected = platform.expected_kinds
 
       releases = software.releases.includes(:release_assets).order(updated_at: :desc)
 
@@ -20,7 +22,7 @@ module WarpEngine
         actual = release.release_assets.map(&:kind)
         hash[release.version] = {
           actual: actual,
-          missing: expected - actual
+          missing: expected - actual - platform.optional_kinds
         }
       end
 

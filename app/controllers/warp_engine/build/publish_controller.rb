@@ -10,12 +10,13 @@ module WarpEngine
       api :POST, "/build/publish", "Register an uploaded build as a release"
       header "X-Update-Secret", "Shared secret or application token (update scope)", required: true
       param :name, String, required: true, desc: "Software name"
-      param :platform, String, required: true, desc: "Platform (one of WarpEngine::Platform::NAMES)"
+      param :platform, String, required: true, desc: "Platform (one of WarpEngine::Platform.names)"
       param :version, String, required: true, desc: "Version string"
       returns code: 200, desc: "JSON with the published name/platform/version"
       error code: 401, desc: "Invalid secret"
       error code: 403, desc: "Token does not own this software"
       error code: 400, desc: "Missing or invalid arguments"
+      error code: 422, desc: "A kind the platform requires was not uploaded"
       def create
         unless update_authorized?(required_scope: WarpEngine::ApplicationToken::UPDATE_SCOPE)
           return render json: { error: "Unauthorized" }, status: :unauthorized
@@ -36,6 +37,8 @@ module WarpEngine
         claim_software_ownership(input.name)
 
         render json: { published: true, name: input.name, platform: input.platform, version: input.version }
+      rescue WarpEngine::Platforms::MissingAssetsError => e
+        render json: { error: e.message, missing: e.kinds }, status: :unprocessable_content
       end
     end
   end

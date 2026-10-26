@@ -7,7 +7,7 @@ module WarpEngine
     validates :name, presence: true
     validates :version, presence: true
     validates :platform, presence: true
-    validates :platform, inclusion: { in: WarpEngine::Platform::NAMES }, allow_blank: true
+    validates :platform, inclusion: { in: ->(_) { WarpEngine::Platform.names } }, allow_blank: true
 
     def error_message = errors.full_messages.to_sentence
   end

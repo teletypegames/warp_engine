@@ -25,7 +25,7 @@ module WarpEngine
                      name:        S.string("Name contains"),
                      title:       S.string("Title contains"),
                      author:      S.string("Author contains"),
-                     platform:    S.enum(WarpEngine::Platform::NAMES),
+                     platform:    S.enum(WarpEngine::Platform.names),
                      status:      S.string("A status key"),
                      category:    S.string("A category key"),
                      highlighted: S.boolean,

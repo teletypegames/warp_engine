@@ -29,6 +29,16 @@ RSpec.describe "POST /build/publish", type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
+  it "answers 422 with the missing kinds when the platform's required build was not uploaded" do
+    updater = stub_updater
+    allow(updater).to receive(:update).and_raise(WarpEngine::Platforms::MissingAssetsError.new("game-1.0", [ "cartridge" ]))
+
+    publish
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(JSON.parse(response.body)).to include("missing" => [ "cartridge" ])
+  end
+
   it "runs the updater and returns the published release" do
     updater = stub_updater
     expect(updater).to receive(:update).with("game", "1.0")

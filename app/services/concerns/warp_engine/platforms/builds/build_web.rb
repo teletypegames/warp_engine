@@ -12,7 +12,8 @@ module WarpEngine
         private
 
         def prepare_web(versioned)
-          extract_zip_to_dir("#{versioned}.html.zip", versioned)
+          web_zip = "#{versioned}.html.zip"
+          extract_zip_to_dir(web_zip, versioned) if File.file?(full_path(web_zip))
         end
 
         def html_asset_path(versioned)

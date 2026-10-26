@@ -32,6 +32,17 @@ RSpec.describe WarpEngine::AssetCoverage do
       expect(row).not_to be_actionable
     end
 
+    it "does not count an optional kind as missing" do
+      software = create(:software, name: "dosinst", platform: "dos")
+      release_with(software: software, version: "0.6.1", kinds: %w[cartridge])
+
+      row = described_class.new.rows.first
+
+      expect(row.missing).to be_empty
+      expect(row.state_of("win_x86")).to eq(:optional)
+      expect(row).to be_complete
+    end
+
     it "reports an asset the platform does not expect" do
       software = create(:software, name: "phasergame", platform: "phaser")
       release_with(software: software, version: "1.0", kinds: %w[html win_x64])

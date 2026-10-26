@@ -6,15 +6,9 @@ ActiveAdmin.register WarpEngine::PlatformLink, as: "Platform Link" do
   config.sort_order = "platform_asc"
 
   scope :all, default: true
-  scope("TIC-80")     { |s| s.where(platform: "tic80") }
-  scope("Ebitengine") { |s| s.where(platform: "ebitengine") }
-  scope("LOVE")       { |s| s.where(platform: "love") }
-  scope("C64")        { |s| s.where(platform: "c64") }
-  scope("Plus/4")     { |s| s.where(platform: "plus4") }
-  scope("Godot")      { |s| s.where(platform: "godot") }
-  scope("Bevy")       { |s| s.where(platform: "bevy") }
-  scope("Phaser")     { |s| s.where(platform: "phaser") }
-  scope("DOS")        { |s| s.where(platform: "dos") }
+  WarpEngine::Platform.all.each do |platform|
+    scope(platform.label) { |s| s.where(platform: platform.name) }
+  end
 
   controller do
     def scoped_collection

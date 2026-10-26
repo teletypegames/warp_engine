@@ -6,6 +6,7 @@ module WarpEngine
         include Builds::BuildWeb
 
         label "Phaser"
+        required_kinds "html"
       end
     end
   end

@@ -41,7 +41,11 @@ build:
       wasm-bindgen --target web --no-typescript \
         --out-dir dist --out-name game target/wasm32-unknown-unknown/release/<%= name %>.wasm
       echo "==> Downloading index.html"
-      curl -sSL https://git.teletypegames.org/tools/bevy-tools/raw/branch/master/web/index.html -o dist/index.html
+      <%- if web_shell -%>
+      curl -sSL <%= web_shell %> -o dist/index.html
+      <%- else -%>
+      cp web/index.html dist/index.html
+      <%- end -%>
       echo "==> Packaging HTML/WASM for $VERSION"
       zip -r "<%= name %>-$VERSION.html.zip" -j dist/game_bg.wasm dist/game.js dist/index.html
       echo "==> Cleaning temporary files"

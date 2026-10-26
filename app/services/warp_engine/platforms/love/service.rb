@@ -9,6 +9,7 @@ module WarpEngine
         include Builds::BuildMacUniversal
 
         label "LÖVE"
+        required_kinds "html"
       end
     end
   end

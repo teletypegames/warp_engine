@@ -12,6 +12,7 @@ module WarpEngine
         include Builds::BuildMacArm64
 
         label "Ebitengine"
+        required_kinds "html"
       end
     end
   end

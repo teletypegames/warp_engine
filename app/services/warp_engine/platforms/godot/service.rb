@@ -10,6 +10,7 @@ module WarpEngine
         include Builds::BuildMacUniversal
 
         label "Godot"
+        required_kinds "html"
       end
     end
   end

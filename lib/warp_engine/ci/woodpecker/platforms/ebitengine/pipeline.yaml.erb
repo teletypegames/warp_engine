@@ -29,7 +29,11 @@ steps:
         GOOS=js GOARCH=wasm go build -o dist/game.wasm .
         cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/wasm_exec.js
         echo "==> Downloading index.html"
-        curl -sSL https://git.teletypegames.org/tools/ebitengine-tools/raw/branch/master/web/index.html -o dist/index.html
+        <%- if web_shell -%>
+        curl -sSL <%= web_shell %> -o dist/index.html
+        <%- else -%>
+        cp web/index.html dist/index.html
+        <%- end -%>
         echo "==> Packaging HTML/WASM for $VERSION"
         zip -r "<%= name %>-$VERSION.html.zip" -j dist/game.wasm dist/wasm_exec.js dist/index.html
         echo "==> Cleaning temporary files"

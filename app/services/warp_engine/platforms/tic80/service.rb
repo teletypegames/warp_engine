@@ -12,6 +12,7 @@ module WarpEngine
         include Builds::BuildMacX64
 
         label "TIC-80"
+        required_kinds "cartridge"
 
         def cartridge_ext = ".tic"
         def source_ext = ".lua"

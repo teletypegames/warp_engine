@@ -21,7 +21,7 @@ module WarpEngine
         def software
           base = {
             id: S.id, name: S.string, title: S.string, author: text, desc: text, story: text,
-            license: text, platform: S.enum(WarpEngine::Platform::NAMES), status: text, category: text,
+            license: text, platform: S.enum(WarpEngine::Platform.names), status: text, category: text,
             highlighted: S.nullable(S.boolean), shelfName: text, ownerType: text, ownerId: S.nullable(S.integer), **timestamps
           }
           included = {
@@ -36,7 +36,7 @@ module WarpEngine
         def software_body
           S.object({
             name: S.string("Internal name, unique"), title: S.string, author: text, desc: text, story: text,
-            license: text, platform: S.enum(WarpEngine::Platform::NAMES),
+            license: text, platform: S.enum(WarpEngine::Platform.names),
             status: S.nullable(S.string("A key from software_statuses")),
             category: S.nullable(S.string("A key from software_categories; a new word is registered for review")),
             highlighted: S.boolean,
@@ -87,7 +87,7 @@ module WarpEngine
         end
 
         def platform_link_body
-          S.object({ platform: S.enum(WarpEngine::Platform::NAMES), name: S.string, url: S.string,
+          S.object({ platform: S.enum(WarpEngine::Platform.names), name: S.string, url: S.string,
                      position: S.integer(minimum: 0) })
         end
 
@@ -145,7 +145,7 @@ module WarpEngine
         end
 
         def pipeline_body
-          S.object({ platform: S.enum(WarpEngine::Platform::NAMES + [ WarpEngine::Pipeline::UNKNOWN_PLATFORM ]),
+          S.object({ platform: S.enum(WarpEngine::Platform.names + [ WarpEngine::Pipeline::UNKNOWN_PLATFORM ]),
                      softwareId: S.nullable(S.integer("One pipeline per software: taking one moves it here")) })
         end
 

@@ -57,7 +57,7 @@ module WarpEngine
         def platform_links(api)
           api.resource(:platform_links, label: "Platform links") do |r|
             r.list "/platform_links", summary: "List the platform links", item: X.platform_link,
-                   filters: { platform: S.enum(WarpEngine::Platform::NAMES) },
+                   filters: { platform: S.enum(WarpEngine::Platform.names) },
                    sort: { platform: :platform, position: :position, name: :name } do |ctx|
               scope = WarpEngine::PlatformLink.kept
               scope = scope.where(platform: ctx[:platform]) if ctx[:platform].present?

@@ -4,6 +4,7 @@ module WarpEngine
       present:    "[x]",
       missing:    "[ ]",
       manual:     "[-]",
+      optional:   "[~]",
       unexpected: "[+]"
     }.freeze
 
@@ -26,7 +27,7 @@ module WarpEngine
       [
         "WarpEngine release asset coverage — #{coverage.releases == :all ? 'every release' : 'latest release per software'}",
         "expected: the kinds a platform's updater registers · #{MARKERS[:missing]} the CI builds it · " \
-        "#{MARKERS[:manual]} the CI does not, upload it by hand",
+        "#{MARKERS[:manual]} the CI does not, upload it by hand · #{MARKERS[:optional]} optional, may be absent",
         ""
       ]
     end

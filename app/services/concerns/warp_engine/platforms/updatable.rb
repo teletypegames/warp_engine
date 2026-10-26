@@ -25,6 +25,16 @@ module WarpEngine
           expected_kinds << kind unless expected_kinds.include?(kind)
         end
 
+        def required_kinds(*kinds)
+          @required_kinds ||= []
+          @required_kinds |= kinds.flatten.map(&:to_s)
+        end
+
+        def optional_kinds(*kinds)
+          @optional_kinds ||= []
+          @optional_kinds |= kinds.flatten.map(&:to_s)
+        end
+
         def prepare_steps
           @prepare_steps ||= []
         end
@@ -38,6 +48,10 @@ module WarpEngine
         versioned = "#{name}-#{version}"
         prepare_files(versioned)
 
+        asset_paths = collect_asset_paths(versioned)
+        missing = self.class.required_kinds - asset_paths.keys
+        raise MissingAssetsError.new(versioned, missing) if missing.any?
+
         metadata = parse_metadata(versioned)
         site_url = metadata.delete(:site)
         repo_url = metadata.delete(:repo)
@@ -48,7 +62,7 @@ module WarpEngine
           upsert_external_link(software.id, "Repository", repo_url) if repo_url.present?
 
           release = create_release_if_not_exists(software_id: software.id, version: version)
-          sync_release_assets(release, collect_asset_paths(versioned))
+          sync_release_assets(release, asset_paths)
           discard_unexpected_assets(release, self.class.expected_kinds)
           release
         end

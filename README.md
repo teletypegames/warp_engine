@@ -363,6 +363,14 @@ A database that got its tables from `db:schema:load` rather than the migration �
 database, a fresh install — has no status rows; the model seeds the four the first time
 anything asks, so nothing depends on the migration having run.
 
+**Each kind is required, expected or optional on its platform.** A *required* kind
+must be uploaded, or the publish answers `422` with the missing kinds and records
+nothing: the `cartridge` on tic80, c64, plus4 and dos, the `html` build elsewhere.
+Every other kind the platform registers is *expected*: a publish without it goes
+through, and the checklist below reports it missing. An *optional* kind may be absent
+for good (DOS's `win_x86`, the Win32 build only some programs have) and is not
+counted as missing. `GET /api/builds` lists all three per platform.
+
 WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
 comment header for TIC-80), and upserts the `Software`, `ExternalLink`,
 `Release` and `ReleaseAsset` records in a single transaction. Previously
@@ -399,7 +407,7 @@ checklist:
 $ bin/rails warp_engine:builds:check
 
 WarpEngine release asset coverage — latest release per software
-expected: the kinds a platform's updater registers · [ ] the CI builds it · [-] the CI does not, upload it by hand
+expected: the kinds a platform's updater registers · [ ] the CI builds it · [-] the CI does not, upload it by hand · [~] optional, may be absent
 
 rabbitroller  ebitengine  v1.1.1  3/7
   [x] html
@@ -556,18 +564,57 @@ whose template has them:
   store over SSH (`tar | ssh <target>`), the key from the Woodpecker secret the
   marker's `store_secret` names (default `deploy_ssh_key`).
 
-#### The `c64` platform's `build` option
+#### When a pipeline publishes: `release`
 
-The c64 pipeline assembles `main.asm` with ACME into `<name>.prg`. A marker
-with `build: make` hands that step to the repo's Makefile instead: it runs
-`make <name>.prg` in the builder image (which has ACME and cc65), and the rest —
-packaging the players, upload, publish — is the same. WARP64U, written in C, is
-built this way:
+A generated pipeline builds on every event and, by default, uploads and publishes
+on every push too, the version taken from `metadata.json` (`dev-<version>-<branch>`
+off the default branch). A marker with `release: tag` keeps the build on every event
+but runs the release steps (`upload`, `artifact`, `publish`, `release`, `store`)
+on tags only — Woodpecker `when: event: tag`, GitLab `rules: if: $CI_COMMIT_TAG`:
+
+```yaml
+platform: godot
+release: tag
+```
+
+The `dos` pipeline is tag-only whatever the marker says: its version is the tag.
+
+#### Values a template takes from the host
+
+A platform's entry may carry values that differ from host to host; the templates
+hold no host's addresses:
+
+- `web_shell:` — the bevy, ebitengine and phaser browser builds wrap the game in an
+  `index.html` page. With a URL here the pipeline downloads it; without one it
+  takes the repo's own `web/index.html`.
+- `bundle_id_prefix:` — the LÖVE macOS app's bundle id is `<prefix>.<name>`
+  (default `org.warpengine`).
+
+```ruby
+platforms: {
+  "bevy" => { builder: "registry.example/bevy-builder:1", web_shell: "https://example.org/bevy/index.html" },
+  "love" => { builder: "registry.example/love-builder:1", bundle_id_prefix: "com.example" }
+}
+```
+
+#### The `c64` and `plus4` platforms
+
+The pipeline assembles `main.asm` with ACME into `<name>.prg`. A marker with
+`build: make` hands that step to the repo's Makefile instead: it runs
+`make <name>.prg` in the builder image, and the rest — packaging the players,
+upload, publish — is the same. WARP64U, written in C with cc65, is built this way:
 
 ```yaml
 platform: c64
 build: make
 ```
+
+The `exporter` image packages the players. Its contract is one command,
+`commodore-pack <c64|plus4> <name> <version>`, run in the workspace next to
+`<name>-<version>.prg` and `metadata.json`, which writes `<name>-<version>.html.zip`
+and the `-linux-x64.zip`, `-win-x64.zip` and `-mac-arm64.zip` players (the
+`build/c64-tools` `player.Dockerfile` is one such image). Only the PRG is required:
+a program without the players still publishes.
 
 #### The `dos` platform
 
@@ -586,6 +633,38 @@ The version is the tag without its `v`. The folder zip becomes the `cartridge`
 (`dosinst-0.6.0.zip`) and the Win32 one the `win_x86` asset
 (`dosinst-0.6.0-win-x86.zip`), byte for byte the files of the forge release.
 DOS releases are download only.
+
+### Platforms of your own
+
+The built-in platforms are the gem's; a host adds its own in the initializer — a
+service class, the kinds its CI builds and a pipeline template per CI adapter:
+
+```ruby
+c.register_platform "amiga",
+                    service:     "AmigaPlatform",
+                    built_kinds: %w[cartridge],
+                    templates:   { woodpecker: Rails.root.join("ci/amiga.woodpecker.yaml.erb") }
+```
+
+```ruby
+class AmigaPlatform
+  include WarpEngine::Platforms::Updatable
+  include WarpEngine::Platforms::Builds::BuildCartridge
+
+  platform "amiga"
+  label "Amiga"
+  required_kinds "cartridge"
+
+  def cartridge_ext = ".adf"
+end
+```
+
+From then on `amiga` is a platform like the others: a software may be on it, the
+publish runs its service, the admin lists it, the config extension renders its
+template (the same ERB variables as the built-in ones: `name`, `builder`, `exporter`,
+`tools`, `options`, …), and a shelf may serve it. The CI adapter still needs an entry
+for it under `platforms:`, as every platform does. A host may also register a
+built-in name to replace that platform's service or template.
 
 ### CI management (the Woodpecker adapter)
 
@@ -1016,6 +1095,20 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 1.5
+
+- **The templates hold no host's addresses.** The bevy, ebitengine and phaser browser
+  builds took their `index.html` from Teletype Games' forge; now they take the
+  platform entry's `web_shell:` URL, or the repo's own `web/index.html` without one.
+  The LÖVE macOS bundle id is `<bundle_id_prefix>.<name>`, `org.warpengine` by default
+  (it was `org.teletypegames`). Set both in the CI adapter's `platforms:` to keep a
+  pipeline as it was.
+- **A publish without the platform's required kind answers `422`** instead of recording
+  a release without it (the `cartridge` on tic80, c64, plus4 and dos; `html` elsewhere).
+- **A c64 or plus4 release without a browser player publishes**; before, it failed.
+- `WarpEngine::Platform::NAMES` is the built-in list; `Platform.names` adds the ones a
+  host registers, and is what to call.
 
 ## Behavioral notes
 

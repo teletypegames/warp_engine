@@ -129,7 +129,7 @@ binaries:
       cp dist/<%= name %>.love "$PKG_DIR/<%= name %>.app/Contents/Resources/"
       PLIST="$PKG_DIR/<%= name %>.app/Contents/Info.plist"
       sed -i.bak "s|<string>LÖVE</string>|<string><%= name %></string>|g" "$PLIST" && rm "$PLIST.bak"
-      sed -i.bak "s|org\.love2d\.love|org.teletypegames.<%= name %>|g" "$PLIST" && rm "$PLIST.bak"
+      sed -i.bak "s|org\.love2d\.love|<%= bundle_id_prefix %>.<%= name %>|g" "$PLIST" && rm "$PLIST.bak"
       zip -qry "$PKG_DIR.zip" "$PKG_DIR"
       rm -rf "$PKG_DIR" dist/macos
       echo "==> $PKG_DIR.zip kesz"
