@@ -253,7 +253,7 @@ Rails.application.config.to_prepare do
     # c.ci_adapter = WarpEngine::CI::Woodpecker::Adapter.new(
     #   url: ENV["WOODPECKER_URL"], api_token: ENV["WOODPECKER_API_TOKEN"],
     #   platforms: { "godot" => { builder: "registry.example/godot-builder:4.6" },
-    #                "dos"   => { builder: "registry.example/dos-ci:bookworm", forge_release: true } }
+    #                "dos"   => { builder: "registry.example/dos-builder:latest", forge_release: true } }
     # )
     # c.ci_adapter = :none   # this host builds nothing
 
@@ -619,15 +619,29 @@ a program without the players still publishes.
 #### The `dos` platform
 
 DOS programs (with an optional Win32 build) are published like games, from a
-tag. The repo keeps its own scripts — `scripts/ci-{toolchain,check,build,test}.sh`
-on every event, `scripts/ci-package.sh` (writes `dist/<FOLDER>-<tag>.zip`, the
-installable folder) on a tag, `scripts/ci-upload.sh` for `forge_release`,
-`scripts/ci-store.sh` for `store` — and a `metadata.json` that names the folders:
+tag. Like every other platform, the repo holds a `platform: dos` marker and a
+`metadata.json`; the steps are commands of the builder image (`build/dos-tools`,
+`git.teletypegames.org/build/dos-builder`): `dos-check`, `dos-build` and
+`dos-test` on every event, `dos-pack` on a tag, `dos-release` for
+`forge_release`, and the store step sends the folders `dos-pack` put under
+`dist/store/`. The repo's side of the contract is `SOURCE/build.sh` (Open Watcom
+in `$WATCOM`), its tests where the commands look for them (`SOURCE/test/unit/run.sh`,
+`SOURCE/test/run.sh`, `runw32.sh`, `run.py`, `server/test`), and the `dos` block of
+`metadata.json`, which says what a release holds:
 
 ```json
 { "name": "dosinst", "title": "DOSINST", "category": "tool",
-  "dos": { "folder": "DOSINST", "win32_folder": "DOSINSTW" } }
+  "dos": { "folder": "DOSINST",
+           "files": ["DOSINST.EXE", "DOSINST.CFG", "README.md", "LICENSE"],
+           "settings": ["DOSINST.CFG"],
+           "store_name": "DOSInst Store", "store_description": "…",
+           "win32_folder": "DOSINSTW",
+           "win32_files": ["DOSINSTW.EXE", "DOSINST.CFG", "README.md", "LICENSE"],
+           "win32_store_name": "…", "win32_store_description": "…" } }
 ```
+
+`settings` go into the release zip but not into a store update, so an update never
+overwrites an installed program's configuration.
 
 The version is the tag without its `v`. The folder zip becomes the `cartridge`
 (`dosinst-0.6.0.zip`) and the Win32 one the `win_x86` asset

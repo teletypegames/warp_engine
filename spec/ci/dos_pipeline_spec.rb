@@ -16,12 +16,13 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
     expect(jobs.keys).to eq(%w[test package artifact publish])
   end
 
-  it "adds the forge release with the repo's own upload script when forge_release is on" do
+  it "adds the forge release, made by the builder image's dos-release, when forge_release is on" do
     yaml = render(config_class, { forge_release: true })
     jobs = jobs_of.call(YAML.safe_load(yaml))
 
     expect(jobs.keys).to eq(%w[test package release artifact publish])
-    expect(yaml).to include("scripts/ci-upload.sh", "gitea_token")
+    expect(yaml).to include("dos-release", "gitea_token")
+    expect(yaml).not_to include("scripts/ci-")
   end
 
   it "adds the store step from the host's store settings, with the marker's secret" do
@@ -37,6 +38,13 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
 
     expect(yaml).to include("deploy_ssh_key")
     expect(yaml).not_to include("x; rm")
+  end
+
+  it "runs the builder image's commands and no script of the repo's own" do
+    yaml = render(config_class, { store: store })
+
+    expect(yaml).to include("dos-check", "dos-build", "dos-test", "dos-pack", "tar -C dist/store")
+    expect(yaml).not_to include("scripts/ci-")
   end
 
   it "uploads the program folder and the Win32 folder under WarpEngine names" do

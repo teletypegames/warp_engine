@@ -15,10 +15,9 @@ test:
   stage: test
   image: <%= builder %>
   script:
-    - scripts/ci-toolchain.sh
-    - scripts/ci-check.sh
-    - scripts/ci-build.sh
-    - scripts/ci-test.sh
+    - dos-check
+    - dos-build
+    - dos-test
   artifacts:
     paths:
       - "*.EXE"
@@ -26,14 +25,11 @@ test:
 
 package:
   stage: package
-  image: <%= tools || "alpine" %>
+  image: <%= builder %>
   rules:
     - if: $CI_COMMIT_TAG
   script:
-<%- unless tools -%>
-    - apk add --no-cache curl jq zip
-<%- end -%>
-    - scripts/ci-package.sh
+    - dos-pack
     - echo "${CI_COMMIT_TAG#v}" > .version
   artifacts:
     paths:
@@ -43,16 +39,13 @@ package:
 
 release:
   stage: release
-  image: <%= tools || "alpine" %>
+  image: <%= builder %>
   rules:
     - if: $CI_COMMIT_TAG
   variables:
     GITEA_TOKEN: "$gitea_token"
   script:
-<%- unless tools -%>
-    - apk add --no-cache curl jq zip
-<%- end -%>
-    - scripts/ci-upload.sh
+    - dos-release
 <%- end -%>
 
 artifact:
@@ -115,10 +108,8 @@ store:
   variables:
     STORE_SSH_KEY: "$<%= options["store_secret"] || "deploy_ssh_key" %>"
   script:
-    - rm -rf /tmp/store && mkdir /tmp/store
-    - STORE=/tmp/store scripts/ci-store.sh
     - mkdir -p -m 700 "$HOME/.ssh"
     - printf '%s\n' "$STORE_SSH_KEY" > "$HOME/.ssh/id_store" && chmod 600 "$HOME/.ssh/id_store"
     - echo '<%= store[:known_host] %>' > "$HOME/.ssh/known_hosts"
-    - tar -C /tmp/store -cf - . | ssh -i "$HOME/.ssh/id_store" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes <%= store[:target] %>
+    - tar -C dist/store -cf - . | ssh -i "$HOME/.ssh/id_store" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes <%= store[:target] %>
 <%- end -%>

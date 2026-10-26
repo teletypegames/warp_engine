@@ -10,33 +10,26 @@ steps:
     image: <%= builder %>
     pull: true
     commands:
-      - scripts/ci-toolchain.sh
-      - scripts/ci-check.sh
-      - scripts/ci-build.sh
-      - scripts/ci-test.sh
+      - dos-check
+      - dos-build
+      - dos-test
 
   - name: package
-    image: <%= tools || "alpine" %>
+    image: <%= builder %>
     commands:
-<%- unless tools -%>
-      - apk add --no-cache curl jq zip
-<%- end -%>
-      - scripts/ci-package.sh
+      - dos-pack
       - echo "${CI_COMMIT_TAG#v}" > .version
     when:
       - event: tag
 <%- if forge_release -%>
 
   - name: release
-    image: <%= tools || "alpine" %>
+    image: <%= builder %>
     environment:
       GITEA_TOKEN:
         from_secret: gitea_token
     commands:
-<%- unless tools -%>
-      - apk add --no-cache curl jq zip
-<%- end -%>
-      - scripts/ci-upload.sh
+      - dos-release
     when:
       - event: tag
 <%- end -%>
@@ -99,12 +92,10 @@ steps:
       STORE_SSH_KEY:
         from_secret: <%= options["store_secret"] || "deploy_ssh_key" %>
     commands:
-      - rm -rf /tmp/store && mkdir /tmp/store
-      - STORE=/tmp/store scripts/ci-store.sh
       - mkdir -p -m 700 "$HOME/.ssh"
       - printf '%s\n' "$STORE_SSH_KEY" > "$HOME/.ssh/id_store" && chmod 600 "$HOME/.ssh/id_store"
       - echo '<%= store[:known_host] %>' > "$HOME/.ssh/known_hosts"
-      - tar -C /tmp/store -cf - . | ssh -i "$HOME/.ssh/id_store" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes <%= store[:target] %>
+      - tar -C dist/store -cf - . | ssh -i "$HOME/.ssh/id_store" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes <%= store[:target] %>
     when:
       - event: tag
 <%- end -%>
