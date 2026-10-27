@@ -193,6 +193,25 @@ RSpec.describe "Steps every generated pipeline shares" do
     end
   end
 
+  it "starts a Woodpecker pipeline on every event but release, and leaves a template's own filter alone" do
+    document = YAML.safe_load(render(WarpEngine::CI::Woodpecker::PipelineConfig, "godot"))
+
+    expect(document["when"]).to eq([ { "event" => %w[push pull_request pull_request_closed pull_request_metadata tag deployment
+                                                     cron manual] } ])
+    expect(YAML.safe_load(render(WarpEngine::CI::Gitlab::PipelineConfig, "godot"))).not_to have_key("when")
+
+    config = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "amiga" => { builder: "b" } })
+    Dir.mktmpdir do |dir|
+      template = File.join(dir, "amiga.yaml.erb")
+      File.write(template, "when:\n  - event: tag\nsteps:\n  - name: build\n    image: b\n    commands: [ make ]\n")
+      WarpEngine.config.register_platform("amiga", service: "WarpEngine::Platforms::Phaser::Service", templates: { woodpecker: template })
+
+      expect(YAML.safe_load(config.render(platform: "amiga", name: "x", update_server: "u"))["when"]).to eq([ { "event" => "tag" } ])
+    end
+  ensure
+    WarpEngine.config.platforms.delete("amiga")
+  end
+
   it "makes no forge release of a dev tag" do
     [ WarpEngine::CI::Woodpecker::PipelineConfig, WarpEngine::CI::Gitlab::PipelineConfig ].each do |config_class|
       expect(render(config_class, "godot", spec: { forge_release: true })).to include('case "$CI_COMMIT_TAG" in dev-*)')

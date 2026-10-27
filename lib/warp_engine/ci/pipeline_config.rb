@@ -73,6 +73,7 @@ module WarpEngine
           add_tag_step(document, image: spec[:tools], script: tag_script)
         end
         add_release_step(document, image: spec[:tools], script: release_script(name.to_s)) if spec[:forge_release]
+        limit_events(document)
         YAML.dump(document)
       end
 
@@ -192,6 +193,8 @@ module WarpEngine
       def default_branch_expression = raise(NotImplementedError)
 
       def add_tag_step(document, image:, script:) = raise(NotImplementedError)
+
+      def limit_events(_document) = nil
 
       def forge_tag_setup = raise(NotImplementedError)
 

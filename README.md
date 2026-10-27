@@ -648,6 +648,10 @@ every push build, makes them from the version.
   with no version) moves the branch's `dev-<branch>` tag onto the pushed commit, so
   every push releases the branch's newest dev build. A dev tag makes no forge release.
 
+Generated Woodpecker pipelines start on every event but `release` (a workflow
+`when`, left out where a template has its own): moving a dev tag makes the forge
+send a release event as well, which would build the same commit twice.
+
 A tag made by hand works as before, and the step leaves it alone. The step needs a
 token that may write tags: on Woodpecker the `gitea_token` secret (a Gitea or
 Forgejo token with repository write access; a global or organization secret serves

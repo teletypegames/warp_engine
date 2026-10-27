@@ -4,6 +4,10 @@ module WarpEngine
   module CI
     module Woodpecker
       class PipelineConfig < WarpEngine::CI::PipelineConfig
+        # Every event but release: moving a dev tag makes the forge send a release
+        # event too, which would build the tag a second time.
+        EVENTS = %w[push pull_request pull_request_closed pull_request_metadata tag deployment cron manual].freeze
+
         def self.adapter = :woodpecker
 
         def self.templates_dir
@@ -30,6 +34,10 @@ module WarpEngine
             "commands"    => commands + [ script ],
             "when"        => [ { "event" => "tag" } ]
           } ]
+        end
+
+        def limit_events(document)
+          document["when"] ||= [ { "event" => EVENTS } ]
         end
 
         def add_tag_step(document, image:, script:)
