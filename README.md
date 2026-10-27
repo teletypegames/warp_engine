@@ -211,24 +211,27 @@ mount WarpEngine::Engine => "/"
 
 ## Configuration
 
+The initializer is a block without a parameter; each line names one setting.
+Everything below is optional.
+
 ```ruby
 # config/initializers/warp_engine.rb
 Rails.application.config.to_prepare do
-  WarpEngine.configure do |c|
+  WarpEngine.configure do
     # Where CI drops build artifacts
-    c.file_container_path = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
+    file_container_path ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
 
     # Where the site this catalog belongs to lives. The admin links a software
     # to its public page from here; left nil, the link is left out.
-    c.site_url = ENV["SITE_URL"]
+    site_url ENV["SITE_URL"]
 
     # Your image model (see "Images" below). "Image" is the default.
-    # c.image_class_name = "Media::Picture"
-    # c.image_adapter    = MyImageLibrary.new
+    # image_class "Media::Picture"
+    # image_adapter MyImageLibrary.new
 
     # Shared secret for the /build/* endpoints.
     # nil => the endpoints reject every request.
-    c.update_secret = ENV["UPDATE_SECRET"]
+    update_secret ENV["UPDATE_SECRET"]
 
     # Authentication source for /build/* — an exclusive choice:
     #   :env      — the shared secret above is accepted (default)
@@ -236,52 +239,63 @@ Rails.application.config.to_prepare do
     #               "update" scope are accepted; the shared secret stops
     #               working the moment you switch.
     # :database mode also requires the owner class every token belongs to:
-    # c.application_token_source = :database
-    # c.application_token_owner_class = "AdminUser"
+    # application_tokens from: :database, owner: "AdminUser"
 
     # Size cap for /build/upload and the admin file manager, in bytes (default 500MB).
-    # c.max_upload_size = 500 * 1024 * 1024
+    # max_upload_size 500 * 1024 * 1024
 
     # Owner isolation: a database token may only upload/publish softwares
     # owned by its own owner (unrestricted tokens are exempt). Enable only
     # after backfilling owners — ownerless softwares are claimable by anyone.
-    # c.enforce_software_ownership = true
+    # enforce_software_ownership true
 
-    # Which CI server builds the games (see "CI" below). :woodpecker (default)
-    # reads WOODPECKER_URL / WOODPECKER_API_TOKEN from the environment; naming
-    # the adapter is better, because then the settings are here in the open.
-    # c.ci_adapter = WarpEngine::CI::Woodpecker::Adapter.new(
-    #   url: ENV["WOODPECKER_URL"], api_token: ENV["WOODPECKER_API_TOKEN"],
-    #   platforms: { "godot" => { builder: "registry.example/godot-builder:4.6" },
-    #                "dos"   => { builder: "registry.example/dos-builder:latest", forge_release: true } }
-    # )
-    # c.ci_adapter = :none   # this host builds nothing
+    # User agents whose downloads the statistics leave out ("*" matches anything).
+    # ignore_user_agents "warpstore/*"
+
+    # Which CI server builds the games (see "CI" below). Without this line it is
+    # Woodpecker, configured from WOODPECKER_URL / WOODPECKER_API_TOKEN; naming
+    # it is better, because then the settings are here in the open.
+    # ci :woodpecker do
+    #   url       ENV["WOODPECKER_URL"]
+    #   api_token ENV["WOODPECKER_API_TOKEN"]
+    #   platform :godot, builder: "registry.example/godot-builder:4.6"
+    #   platform :dos,   builder: "registry.example/dos-builder:latest", forge_release: true
+    # end
+    # ci :none   # this host builds nothing
 
     # Who may see a title and who may download it (see "Access" below).
     # :open (default) lists everything and serves everything.
-    # c.access_policy = MyStore::AccessPolicy.new
+    # access_policy MyStore::AccessPolicy.new
 
     # Client sign-in (see "Client sign-in" below). nil (default) means there is
     # none: /api/auth/* answers 404 and GET /api/service reports auth: null.
-    # c.access_token_owner_class  = "User"
-    # c.identity_verification_url = "/devices"
+    # access_token_owner_class  "User"
+    # identity_verification_url "/devices"
     #
     # How to recognise a caller with a session instead of a bearer token.
-    # c.subject_resolver = ->(request) { request.env["warden"]&.user }
+    # subject_resolver { |request| request.env["warden"]&.user }
 
     # How big a catalog page is when a client asks for one without saying, and the
     # most it may ask for (see "Paging and filters").
-    # c.catalog_page_size     = 48
-    # c.catalog_max_page_size = 200
+    # catalog_page_size     48
+    # catalog_max_page_size 200
 
     # Flat, versionless copies of a platform's latest builds (see "Shelves").
-    # [] (default) means none.
-    # c.shelves = [
-    #   { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16 }
-    # ]
+    # None by default.
+    # shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16
   end
 end
 ```
+
+An unknown setting stops the boot with a `NoMethodError`, an unknown shelf, CI or
+platform key with an `ArgumentError`. `to_prepare` runs the block again on every
+code reload; a shelf (by path), an additional resource (by subject and association)
+and a platform (by name) replace their earlier selves instead of adding up.
+
+The block may also take the configuration as a parameter and set its attributes
+— `WarpEngine.configure { |c| c.site_url = ENV["SITE_URL"] }`, the form before 1.8.
+Both write the same `WarpEngine.config`, and the attribute names are the ones the
+sections below mention.
 
 ## Host records on a catalog page
 
@@ -298,27 +312,47 @@ ActiveSupport.on_load(:warp_engine_software) do
   accepts_nested_attributes_for :seo_metadata, allow_destroy: true
 end
 
-WarpEngine.configure do |c|
-  c.additional_resources = [
-    WarpEngine::AdditionalResource.new(
-      subject:     :software,                 # which engine resource it hangs on
-      association: :seo_metadata,             # the association above
-      label:       "SEO",                     # the fieldset title
-      multiple:    true,                      # has_many (false for has_one)
-      permitted:   %i[id locale title description _destroy],
-      fields:      ->(form) { form.input :locale; form.input :title }
-    )
-  ]
+WarpEngine.configure do
+  # the association above, on the engine resource it hangs on, under a fieldset title;
+  # multiple: false for a has_one
+  additional_resource :seo_metadata, on: :software, label: "SEO", multiple: true do
+    permit :id, :locale, :title, :description, :og_type, :_destroy
+
+    form do |f|
+      f.input :locale
+      f.input :title
+    end
+  end
 end
 ```
 
-The engine adds `permitted` to the software form's strong parameters and renders
-`fields` in a fieldset of its own. It never loads the host's class, so an empty
-list (the default) leaves the admin page exactly as it was.
+The engine adds the `permit`ted attributes to the software form's strong parameters
+and renders `form` in a fieldset of its own. It never loads the host's class, so
+none (the default) leaves the admin page exactly as it was.
 
-Give a descriptor an `api_schema:` (an OpenAPI Schema Object for one entry) and
-it also appears in the Admin API, at `/api/admin/v1/softwares/{id}/extras/{association}`.
-Without an `api_serializer:` the permitted attributes are written in camelCase.
+Give it an `api_schema` and it also appears in the Admin API, at
+`/api/admin/v1/softwares/{id}/extras/{association}`:
+
+```ruby
+api_schema do
+  integer :id
+  string  :locale, enum: %w[en hu]
+  string  :title, :description, :og_type, null: true   # ["string", "null"]
+end
+```
+
+The schema describes one entry: an object whose properties carry the attribute
+names in camelCase (`ogType`), as the API writes them. `string`, `integer`,
+`number`, `boolean`, `array` and `object` take any number of names; `null: true`
+lets a property be null (its `enum` gets a `nil`), and every other option goes
+into the property as it is (`format: "date-time"`). A ready OpenAPI Schema Object
+works too: `api_schema({ type: "object", ... })`. Without an `api_serializer`
+(a block that gets the record) the permitted attributes are written in camelCase.
+
+`config.additional_resources` holds the `WarpEngine::AdditionalResource`s these
+lines build; the class takes the same settings as keywords (`subject:`,
+`association:`, `label:`, `multiple:`, `permitted:`, `fields:`, `api_schema:`,
+`api_serializer:`).
 
 ## The updater contract
 
@@ -467,22 +501,36 @@ with the engine as `WarpEngine::CI::Woodpecker`, and it is the default:
 
 ```ruby
 # nothing set: Woodpecker, configured from ENV, exactly as before
-c.ci_adapter = :woodpecker
+ci :woodpecker
 
 # named explicitly (recommended — the host says what its CI is)
-c.ci_adapter = WarpEngine::CI::Woodpecker::Adapter.new(
-  url:            ENV["WOODPECKER_URL"],
-  api_token:      ENV["WOODPECKER_API_TOKEN"],
-  repo_owner:     ENV["WOODPECKER_REPO_OWNER"],
-  public_key_url: "https://ci.example.org/api/signature/public-key",
-  update_server:  "https://catalog.example.org",
-  platforms:      { "godot" => { builder: "registry.example/godot-builder:4.6" } }
-)
+ci :woodpecker do
+  url            ENV["WOODPECKER_URL"]
+  api_token      ENV["WOODPECKER_API_TOKEN"]
+  repo_owner     ENV["WOODPECKER_REPO_OWNER"]
+  public_key_url "https://ci.example.org/api/signature/public-key"
+  update_server  "https://catalog.example.org"
+  tools          "registry.example/ci-tools:latest"   # every platform's, unless it names its own
+
+  platform :godot,  builder: "registry.example/godot-builder:4.6"
+  platform :phaser, builder: "registry.example/phaser-builder:latest",
+                    web_shell: "https://example.org/phaser/index.html"
+  platform :dos,    builder: "registry.example/dos-builder:latest", forge_release: true
+end
 
 # this host builds nothing: /api/ci/* answers 503, /build/config refuses,
 # and the admin pipeline actions hide themselves
-c.ci_adapter = :none
+ci :none
 ```
+
+A Woodpecker adapter takes `url`, `api_token`, `repo_owner`, `public_key` or
+`public_key_url`, and `update_server`; `ci :gitlab` takes `url`, `api_token`,
+`webhook_secret` and `update_server`. Settings left out come from ENV, as before.
+A `platform` needs a `builder` and may name an `exporter`, `tools`, `web_shell`,
+`bundle_id_prefix` and `forge_release`. Any object with the adapter's methods
+works as well: `ci MyCI::Adapter.new`. The block builds
+`WarpEngine::CI::Woodpecker::Adapter.new(url:, ..., platforms: { "godot" => { builder: ... } })`
+into `config.ci_adapter`.
 
 `GET /api/ci/pipelines` and `GET /api/ci/pipelines/:id/status` answer in camelCase
 like every other endpoint (`repoOwner`, `repoName`, `repoId`, `lastPipelineStatus`,
@@ -669,11 +717,11 @@ The built-in platforms are the gem's; a host adds its own in the initializer —
 service class, the kinds its CI builds and a pipeline template per CI adapter:
 
 ```ruby
-c.register_platform "amiga",
-                    service:        "AmigaPlatform",
-                    built_kinds:    %w[cartridge],
-                    templates:      { woodpecker: Rails.root.join("ci/amiga.woodpecker.yaml.erb") },
-                    version_source: "cat VERSION"
+register_platform "amiga",
+                  service:        "AmigaPlatform",
+                  built_kinds:    %w[cartridge],
+                  templates:      { woodpecker: Rails.root.join("ci/amiga.woodpecker.yaml.erb") },
+                  version_source: "cat VERSION"
 ```
 
 ```ruby
@@ -736,7 +784,7 @@ local filesystem under `file_container_path` — byte for byte the behaviour
 the engine always had:
 
 ```ruby
-c.storage_adapter = :local   # default
+storage :local   # default
 ```
 
 A host that keeps its artifacts elsewhere (an object store behind a CDN, for
@@ -754,7 +802,7 @@ class MyObjectStore
   def locate(relative_path, filename: nil, expires_in: nil) = ...
 end
 
-c.storage_adapter = MyObjectStore.new
+storage MyObjectStore.new
 ```
 
 `GET /api/download` and `GET /file/*` both go through the adapter, so a
@@ -776,12 +824,10 @@ store that fetches the index and the files over plain HTTP, a DOS installer that
 folders over FTP — and it is off unless the host asks for one:
 
 ```ruby
-c.shelves = [
-  { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16,
-    urls: [ "ftp://ftp.example.org/C64", "http://archive.example.org/C64" ] },
-  { platform: "dos", kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
-    urls: [ "ftp://ftp.example.org/APPS" ] }
-]
+shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16,
+            urls: [ "ftp://ftp.example.org/C64", "http://archive.example.org/C64" ]
+shelf :dos, kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
+            urls: [ "ftp://ftp.example.org/APPS" ]
 ```
 
 | Key | |
@@ -884,7 +930,7 @@ writes a working one (`app/models/image.rb`, `app/controllers/api/images_control
 a `create_images` migration); the engine talks to it through an adapter:
 
 ```ruby
-c.image_class_name = "Image"   # default
+image_class "Image"   # default
 ```
 
 The default adapter expects that model to answer `original_filename`,
@@ -904,7 +950,7 @@ class MyImageLibrary
   def select_options            = Media::Picture.order(:title).pluck(:title, :id)
 end
 
-c.image_adapter = MyImageLibrary.new
+image_adapter MyImageLibrary.new
 ```
 
 `url_for` is what lands in the catalog JSON (`imageUrl`, `images[].url`) and in
@@ -922,7 +968,7 @@ both — every software listed, every artifact served, no prices — which is th
 catalog the engine always had:
 
 ```ruby
-c.access_policy = :open   # default
+access_policy :open   # default
 ```
 
 A host that sells supplies a policy instead. The contract is three methods:
@@ -946,7 +992,7 @@ class MyStore::AccessPolicy
   def authorize_download(asset:, subject:, request:) = WarpEngine::Access::Grant.new
 end
 
-c.access_policy = MyStore::AccessPolicy.new
+access_policy MyStore::AccessPolicy.new
 ```
 
 `subject` is whoever the request authenticated as, or `nil` for an anonymous
@@ -977,10 +1023,10 @@ a browser. The engine implements the device authorization grant (RFC 8628)
 instead — but only where a host has said whose tokens these are:
 
 ```ruby
-c.access_token_owner_class  = "User"      # nil (default): no sign-in at all
-c.identity_verification_url = "/devices"  # your page where a person types the code
-c.device_code_ttl           = 600
-c.device_code_interval      = 5
+access_token_owner_class  "User"      # nil (default): no sign-in at all
+identity_verification_url "/devices"  # your page where a person types the code
+device_code_ttl           600
+device_code_interval      5
 ```
 
 With `access_token_owner_class` unset, `/api/auth/*` answers 404 and
@@ -1004,7 +1050,7 @@ recognised on these endpoints too — so that clicking a download link on the si
 works the same way the client's download does — says how:
 
 ```ruby
-c.subject_resolver = ->(request) { request.env["warden"]&.user }
+subject_resolver { |request| request.env["warden"]&.user }
 ```
 
 Without one, a request with no bearer token is anonymous, which is what the
@@ -1116,20 +1162,22 @@ statistics, pipelines, the artifact store and the application tokens — is also
 JSON API. It is **off by default**; a host turns it on in the initializer:
 
 ```ruby
-WarpEngine.configure do |c|
-  c.admin_api.enabled = true
+WarpEngine.configure do
+  admin_api do
+    enable
 
-  c.admin_api.token_owner_class     = "AdminUser"        # default: application_token_owner_class
-  c.admin_api.resources             = :all               # or %i[softwares releases downloads]
-  c.admin_api.read_only             = false              # true: GET only, the rest answers 405
-  c.admin_api.page_size             = 50
-  c.admin_api.max_page_size         = 200
-  c.admin_api.rate_limit            = { to: 300, within: 1.minute }  # per token, Rails.cache
-  c.admin_api.openapi_requires_auth = true               # false: the document is public
-  c.admin_api.docs_ui               = false              # true: a Redoc page at /api/admin/v1/docs
-  c.admin_api.mcp                   = false              # true: MCP at /api/admin/v1/mcp
-  c.admin_api.mcp_exclude           = %i[application_tokens device_grants]
-  c.admin_api.authenticator         = :application_token # or ->(request) { WarpEngine::AdminApi::Principal.new(...) }
+    token_owner      "AdminUser"           # default: the application_tokens owner
+    resources        :all                  # or :softwares, :releases, :downloads
+    # read_only                            # GET only, the rest answers 405 (default: off)
+    page_size        50
+    max_page_size    200
+    # rate_limit     300, per: 1.minute    # per token, Rails.cache (default: none)
+    # public_openapi                       # the document needs no token (default: it does)
+    # docs_ui                              # a Redoc page at /api/admin/v1/docs (default: off)
+    # mcp                                  # MCP at /api/admin/v1/mcp (default: off)
+    exclude_from_mcp :application_tokens, :device_grants
+    authenticator    :application_token    # or ->(request) { WarpEngine::AdminApi::Principal.new(...) }
+  end
 end
 ```
 
@@ -1150,7 +1198,7 @@ end
   host serves: disabled resources, write operations under `read_only` and parts
   without CI or client sign-in are left out. Each operation carries
   `x-required-scope`.
-- **MCP**: with `c.admin_api.mcp = true` and `gem "mcp"` in the host's Gemfile
+- **MCP**: with `mcp` in the `admin_api` block and `gem "mcp"` in the host's Gemfile
   (the engine refuses to boot without it), `POST /api/admin/v1/mcp` is a stateless
   Streamable HTTP MCP server. Every operation is a tool of the same name as its
   `operationId`, with the same JSON Schema for input and the same answer as

@@ -24,8 +24,8 @@ module WarpEngine
     @config ||= Configuration.new
   end
 
-  def self.configure
-    yield(config)
+  def self.configure(&block)
+    block.arity.zero? ? Configuration::DSL.apply(config, &block) : yield(config)
   end
 
   def self.instruments_publish?

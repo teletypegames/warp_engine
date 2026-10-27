@@ -85,3 +85,5 @@ module WarpEngine
     end
   end
 end
+
+require "warp_engine/configuration/dsl"
