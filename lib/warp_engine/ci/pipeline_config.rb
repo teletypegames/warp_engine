@@ -107,12 +107,13 @@ module WarpEngine
           SOURCE_VERSION=$(#{version_source(platform)})
           TAG="${CI_COMMIT_TAG:-}"
           TAG_VERSION=""
-          case "$TAG" in v[0-9]*|[0-9]*) TAG_VERSION="${TAG#v}" ;; esac
+          case "$TAG" in v[0-9]*|[0-9]*) TAG_VERSION=$(printf '%s' "$TAG" | sed 's/^v//') ;; esac
           if [ -n "$TAG_VERSION" ] && [ -n "$SOURCE_VERSION" ] && [ "$TAG_VERSION" != "$SOURCE_VERSION" ]; then
             echo "ERROR: the tag $TAG does not match the version $SOURCE_VERSION of the source!"
             exit 1
           fi
-          VERSION="${SOURCE_VERSION:-$TAG_VERSION}"
+          VERSION="$SOURCE_VERSION"
+          if [ -z "$VERSION" ]; then VERSION="$TAG_VERSION"; fi
           if [ -z "$VERSION" ]; then
             SHA="${CI_COMMIT_SHA:-unknown}"
             VERSION="dev-$(printf '%.7s' "$SHA")"
@@ -136,7 +137,7 @@ module WarpEngine
           fi
           [ -n "$FILES" ] || { echo "ERROR: nothing to attach to the release"; exit 1; }
           TITLE=$(jq -r '.title // .name // empty' metadata.json 2>/dev/null || true)
-          TITLE="${TITLE:-#{name}}"
+          if [ -z "$TITLE" ]; then TITLE="#{name}"; fi
           NOTES=""
           if [ -f RELEASE_NOTES.md ]; then NOTES=$(cat RELEASE_NOTES.md); fi
         SH

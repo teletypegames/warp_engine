@@ -21,7 +21,7 @@ package:
   stage: package
   image: <%= builder %>
   script:
-    - TAG="${CI_COMMIT_TAG:-v$(cat .version)}" dos-pack
+    - dos-pack
   artifacts:
     paths:
       - dist/
@@ -39,7 +39,7 @@ upload:
 <%- end -%>
     - |
       VERSION=$(cat .version)
-      TAG="${CI_COMMIT_TAG:-v$VERSION}"
+      TAG="$CI_COMMIT_TAG"
       FOLDER=$(jq -r '.dos.folder // empty' metadata.json)
       WIN32_FOLDER=$(jq -r '.dos.win32_folder // empty' metadata.json)
       if [ -z "$FOLDER" ]; then

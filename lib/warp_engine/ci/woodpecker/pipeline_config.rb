@@ -35,7 +35,7 @@ module WarpEngine
             set -eu
             VERSION=$(cat .version)
           SH
-            FORGE="${CI_FORGE_URL%/}/api/v1"
+            FORGE="$(printf '%s' "$CI_FORGE_URL" | sed 's|/*$||')/api/v1"
             AUTH="Authorization: token $GITEA_TOKEN"
             api() { method="$1"; path="$2"; shift 2; curl -fsS -X "$method" -H "$AUTH" "$FORGE$path" "$@"; }
             RELEASE_ID=$(curl -sS -H "$AUTH" "$FORGE/repos/$CI_REPO/releases/tags/$CI_COMMIT_TAG" | jq -r '.id // empty')

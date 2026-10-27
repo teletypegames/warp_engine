@@ -92,6 +92,14 @@ RSpec.describe "Steps every generated pipeline shares" do
     end
   end
 
+  it "leaves the CI's own variables the only ${...} in the shared steps, which Woodpecker substitutes before the shell runs" do
+    config = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "godot" => { builder: "b", forge_release: true } })
+    document = YAML.safe_load(config.render(platform: "godot", name: "game", update_server: "u"))
+    shared = document["steps"].select { |step| %w[version release].include?(step["name"]) }.flat_map { |step| step["commands"] }.join("\n")
+
+    expect(shared.scan(/\$\{(\w+)/).flatten.uniq - %w[CI_COMMIT_TAG CI_COMMIT_SHA CI_COMMIT_SOURCE_BRANCH CI_COMMIT_BRANCH]).to eq([])
+  end
+
   it "attaches a build's own list when it writes .release-assets, and the uploaded files otherwise" do
     yaml = render(WarpEngine::CI::Woodpecker::PipelineConfig, "godot", spec: { forge_release: true })
 
