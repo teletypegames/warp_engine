@@ -22,13 +22,20 @@ RSpec.describe "Generated pipeline options" do
       expect(document["build"]["rules"]).to be_nil
     end
 
-    it "publishes on every push by default, and ignores a rule it does not know" do
+    it "publishes from tags by default, and ignores a rule it does not know" do
       config = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "c64" => { builder: "b" } })
 
-      expect(config.release_rule("c64", {})).to eq("push")
-      expect(config.release_rule("c64", { "release" => "nightly" })).to eq("push")
-      expect(render(WarpEngine::CI::Woodpecker::PipelineConfig, "c64", options: { "release" => "push" }))
+      expect(config.release_rule("c64", {})).to eq("tag")
+      expect(config.release_rule("c64", { "release" => "nightly" })).to eq("tag")
+      expect(render(WarpEngine::CI::Woodpecker::PipelineConfig, "c64", options: { "release" => "tag" }))
         .to eq(render(WarpEngine::CI::Woodpecker::PipelineConfig, "c64"))
+    end
+
+    it "publishes on every push and tags nothing with release: push" do
+      steps = YAML.safe_load(render(WarpEngine::CI::Woodpecker::PipelineConfig, "c64", options: { "release" => "push" }))["steps"]
+
+      expect(steps.map { |step| step["name"] }).not_to include("tag")
+      expect(steps.map { |step| step["when"] }).to all(be_nil)
     end
 
     it "keeps DOS on tags whatever the marker says" do

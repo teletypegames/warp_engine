@@ -6,11 +6,11 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
                 .render(platform: "dos", name: "dosinst", update_server: "https://games.example", options: options)
   end
 
-  it "tests, packs, uploads and publishes, with no store step of its own" do
+  it "tests, packs, uploads and publishes, tags after a push, and has no store step of its own" do
     yaml = render(config_class, {})
     jobs = jobs_of.call(YAML.safe_load(yaml))
 
-    expect(jobs.keys).to eq(%w[version test package upload publish])
+    expect(jobs.keys).to eq(%w[version test package upload publish tag])
     expect(yaml).not_to include("ssh", "dist/store", "store_secret")
   end
 
@@ -47,6 +47,7 @@ RSpec.describe WarpEngine::CI::Woodpecker::PipelineConfig do
 
     expect(by_name.values_at("package", "upload", "publish", "release")).to all(eq([ { "event" => "tag" } ]))
     expect(by_name.values_at("version", "test")).to all(be_nil)
+    expect(by_name["tag"]).to eq([ { "event" => %w[push manual] } ])
   end
 end
 
@@ -58,7 +59,7 @@ RSpec.describe WarpEngine::CI::Gitlab::PipelineConfig do
     document = YAML.safe_load(described_class.new(platforms: { "dos" => { builder: "b", forge_release: true } })
                                              .render(platform: "dos", name: "x", update_server: "u"))
 
-    expect(document["stages"]).to eq(%w[version test package upload publish release])
+    expect(document["stages"]).to eq(%w[version test package upload publish tag release])
     expect(document.keys.first(2)).to eq(%w[stages version])
   end
 end

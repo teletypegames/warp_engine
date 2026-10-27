@@ -39,6 +39,37 @@ RSpec.describe "POST /build/publish", type: :request do
     expect(JSON.parse(response.body)).to include("missing" => [ "cartridge" ])
   end
 
+  describe "an older version than the newest published" do
+    let(:software) { create(:software, name: "game") }
+
+    before do
+      create(:release, software: software, version: "1.10.0")
+      create(:release, software: software, version: "dev-abcdef0")
+    end
+
+    it "answers 409 and leaves the catalog alone" do
+      updater = stub_updater
+      expect(updater).not_to receive(:update)
+
+      publish(params: { version: "1.9.0" })
+
+      expect(response).to have_http_status(:conflict)
+      expect(JSON.parse(response.body)["error"]).to include("1.10.0")
+    end
+
+    it "publishes the same version again, a newer one, and any dev version" do
+      updater = stub_updater
+
+      [ "1.10.0", "1.11.0", "dev-1.0.0-feature-x" ].each do |version|
+        expect(updater).to receive(:update).with("game", version)
+
+        publish(params: { version: version })
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+  end
+
   it "runs the updater and returns the published release" do
     updater = stub_updater
     expect(updater).to receive(:update).with("game", "1.0")

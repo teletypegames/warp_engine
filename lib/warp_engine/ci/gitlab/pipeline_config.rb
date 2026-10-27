@@ -14,6 +14,8 @@ module WarpEngine
 
         def branch_expression = "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-${CI_COMMIT_BRANCH:-}}"
 
+        def default_branch_expression = "${CI_DEFAULT_BRANCH:-}"
+
         def add_version_step(document, image:, script:)
           job = { "stage" => "version", "image" => image || "alpine", "script" => [ script ],
                   "artifacts" => { "paths" => [ ".version" ] } }
@@ -32,9 +34,41 @@ module WarpEngine
           }
         end
 
+        def add_tag_step(document, image:, script:)
+          document["stages"] = Array(document["stages"]) - [ "tag" ] + [ "tag" ]
+          document["tag"] = {
+            "stage"  => "tag",
+            "image"  => image || "alpine",
+            "rules"  => [ { "if" => "$CI_COMMIT_BRANCH" } ],
+            "script" => (image ? [] : [ "apk add --no-cache curl" ]) + [ script ]
+          }
+        end
+
+        # The job token cannot write tags: TAG_TOKEN is a project or group access
+        # token with the api scope, a CI/CD variable of the project.
+        def forge_tag_setup
+          <<~'SH'
+            API="$CI_API_V4_URL/projects/$CI_PROJECT_ID/repository/tags"
+            AUTH="PRIVATE-TOKEN: $TAG_TOKEN"
+          SH
+        end
+
+        def forge_tag_lookup
+          <<~'SH'.chomp
+            curl -sS -H "$AUTH" "$API/$TAG" | sed -n 's/.*"commit":{[^}]*"id":"\([0-9a-f]*\)".*/\1/p'
+          SH
+        end
+
+        def forge_tag_delete = %(curl -fsS -X DELETE -H "$AUTH" "$API/$TAG")
+
+        def forge_tag_create
+          %(curl -fsS -X POST -H "$AUTH" --data-urlencode "tag_name=$TAG" --data-urlencode "ref=$CI_COMMIT_SHA" "$API")
+        end
+
         def release_script(name)
           <<~SH + release_files_script(name) + <<~'SH'
             set -eu
+            case "$CI_COMMIT_TAG" in dev-*) echo "==> $CI_COMMIT_TAG is a dev build: no release"; exit 0 ;; esac
             VERSION=$(cat .version)
           SH
             API="$CI_API_V4_URL/projects/$CI_PROJECT_ID"

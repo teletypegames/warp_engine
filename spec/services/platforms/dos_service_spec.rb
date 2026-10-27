@@ -57,7 +57,7 @@ RSpec.describe WarpEngine::Platforms::Dos::Service do
 
     it "releases from tags" do
       expect(described_class.release_rule).to eq("tag")
-      expect(WarpEngine::Platforms::C64::Service.release_rule).to eq("push")
+      expect(WarpEngine::Platforms::C64::Service.release_rule).to be_nil
     end
   end
 end

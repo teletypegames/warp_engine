@@ -37,7 +37,7 @@ module WarpEngine
 
         def release_rule(value = nil)
           @release_rule = value.to_s if value
-          @release_rule || "push"
+          @release_rule
         end
 
         def shelf_folder(_metadata, _kind) = nil

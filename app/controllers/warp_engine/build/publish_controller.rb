@@ -17,6 +17,7 @@ module WarpEngine
       error code: 403, desc: "Token does not own this software"
       error code: 400, desc: "Missing or invalid arguments"
       error code: 422, desc: "A kind the platform requires was not uploaded"
+      error code: 409, desc: "A newer version is published already"
       def create
         unless update_authorized?(required_scope: WarpEngine::ApplicationToken::UPDATE_SCOPE)
           return render json: { error: "Unauthorized" }, status: :unauthorized
@@ -39,6 +40,8 @@ module WarpEngine
         render json: { published: true, name: input.name, platform: input.platform, version: input.version }
       rescue WarpEngine::Platforms::MissingAssetsError => e
         render json: { error: e.message, missing: e.kinds }, status: :unprocessable_content
+      rescue WarpEngine::PublishService::StaleVersionError => e
+        render json: { error: e.message }, status: :conflict
       end
     end
   end

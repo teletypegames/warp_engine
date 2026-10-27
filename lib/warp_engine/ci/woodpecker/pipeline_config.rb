@@ -14,6 +14,8 @@ module WarpEngine
 
         def branch_expression = "${CI_COMMIT_SOURCE_BRANCH:-${CI_COMMIT_BRANCH:-}}"
 
+        def default_branch_expression = "${CI_REPO_DEFAULT_BRANCH:-}"
+
         def add_version_step(document, image:, script:)
           document["steps"] = [ { "name" => "version", "image" => image || "alpine", "commands" => [ script ] } ] +
                               Array(document["steps"])
@@ -30,9 +32,41 @@ module WarpEngine
           } ]
         end
 
+        def add_tag_step(document, image:, script:)
+          commands = image ? [] : [ "apk add --no-cache curl" ]
+          document["steps"] = Array(document["steps"]) + [ {
+            "name"        => "tag",
+            "image"       => image || "alpine",
+            "environment" => { "GITEA_TOKEN" => { "from_secret" => "gitea_token" } },
+            "commands"    => commands + [ script ],
+            "when"        => [ { "event" => %w[push manual] } ]
+          } ]
+        end
+
+        def forge_tag_setup
+          <<~'SH'
+            FORGE="$(printf '%s' "$CI_FORGE_URL" | sed 's|/*$||')/api/v1/repos/$CI_REPO"
+            AUTH="Authorization: token $GITEA_TOKEN"
+          SH
+        end
+
+        def forge_tag_lookup
+          <<~'SH'.chomp
+            curl -sS -H "$AUTH" "$FORGE/tags/$TAG" | sed -n 's/.*"commit":{[^}]*"sha":"\([0-9a-f]*\)".*/\1/p'
+          SH
+        end
+
+        def forge_tag_delete = %(curl -fsS -X DELETE -H "$AUTH" "$FORGE/tags/$TAG")
+
+        def forge_tag_create
+          %(printf '{"tag_name":"%s","target":"%s"}' "$TAG" "$CI_COMMIT_SHA" | ) +
+            %(curl -fsS -X POST -H "$AUTH" -H 'Content-Type: application/json' -d @- "$FORGE/tags")
+        end
+
         def release_script(name)
           <<~SH + release_files_script(name) + <<~'SH'
             set -eu
+            case "$CI_COMMIT_TAG" in dev-*) echo "==> $CI_COMMIT_TAG is a dev build: no forge release"; exit 0 ;; esac
             VERSION=$(cat .version)
           SH
             FORGE="$(printf '%s' "$CI_FORGE_URL" | sed 's|/*$||')/api/v1"

@@ -405,6 +405,11 @@ through, and the checklist below reports it missing. An *optional* kind may be a
 for good (DOS's `win_x86`, the Win32 build only some programs have) and is not
 counted as missing. `GET /api/builds` lists all three per platform.
 
+**A version older than the newest one published is refused** with `409`: it would
+become the latest release and bring back its metadata. Publishing the same version
+again, a newer one, or any `dev-` version goes through; a version `Gem::Version`
+cannot read is not compared.
+
 WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
 comment header for TIC-80), and upserts the `Software`, `ExternalLink`,
 `Release` and `ReleaseAsset` records in a single transaction. Previously
@@ -604,17 +609,20 @@ workflow of its own — a server deploy, say — next to the generated one.
 
 #### Steps every pipeline shares
 
-The engine adds two steps to every template it renders, so no template carries them:
+The engine adds these steps to every template it renders, so no template carries them:
 
 - **`version`**, first. The version comes from the source — `metadata.json`'s
   `version`, or the `-- version:` line of the Lua header on tic80 (a registered
   platform names its own with `version_source:`) — and on a tag from the tag too: a
   version tag (`v1.2.3` or `1.2.3`) has to match the source, and is the version where
-  the source names none. Off the default branch it becomes `dev-<version>-<branch>`;
-  with no version at all the build is `dev-<commit>`, which is never the latest. It
-  writes `.version`, which every later step reads.
+  the source names none. Off the repo's default branch (`CI_REPO_DEFAULT_BRANCH`,
+  `CI_DEFAULT_BRANCH`; `main` or `master` where the CI names none) it becomes
+  `dev-<version>-<branch>`, and on a `dev-<branch>` tag likewise; with no version at
+  all the build is `dev-<commit>`, which is never the latest. It writes `.version`,
+  which every later step reads.
+- **`tag`**, after a push (see below), unless the marker says `release: push`.
 - **`release`**, last, only with `forge_release: true` in the platform's entry, and
-  only on a tag: the forge release of the tag, named `<title> <tag>`, with
+  only on a version tag (a `dev-` tag makes none): the forge release of the tag, named `<title> <tag>`, with
   `RELEASE_NOTES.md` as its text. It attaches the files a build listed in
   `.release-assets`, or else the ones the upload step uploaded (`<name>-<version>.*`
   and `<name>-<version>-*`, without the metadata). On Woodpecker it is a Gitea or
@@ -624,17 +632,34 @@ The engine adds two steps to every template it renders, so no template carries t
 Every template names its steps the same way: the one that sends the files to
 `/build/upload` is `upload`, the one that calls `/build/publish` is `publish`.
 
-#### When a pipeline publishes: `release`
+#### When a pipeline publishes: tags
 
-A generated pipeline builds on every event and, by default, uploads and publishes
-on every push too, the version taken from `metadata.json` (`dev-<version>-<branch>`
-off the default branch). A marker with `release: tag` keeps the build on every event
-but runs the release steps (`package`, `upload`, `publish`, `release`)
-on tags only — Woodpecker `when: event: tag`, GitLab `rules: if: $CI_COMMIT_TAG`:
+A generated pipeline builds on every event; the release steps (`package`, `upload`,
+`publish`, `release`) run on tags only — Woodpecker `when: event: tag`, GitLab
+`rules: if: $CI_COMMIT_TAG`. Nobody has to make the tags: the `tag` step, after
+every push build, makes them from the version.
+
+- **A new version** gets its tag: `metadata.json` says `1.2.0` and there is no
+  `v1.2.0` yet, so the step tags the pushed commit `v1.2.0`, and that tag's pipeline
+  releases it. Raising the version in the source is the whole release.
+- **A version tagged already** releases nothing: a push that leaves the version as
+  it is only builds.
+- **A dev build** (`dev-<version>-<branch>` off the default branch, `dev-<commit>`
+  with no version) moves the branch's `dev-<branch>` tag onto the pushed commit, so
+  every push releases the branch's newest dev build. A dev tag makes no forge release.
+
+A tag made by hand works as before, and the step leaves it alone. The step needs a
+token that may write tags: on Woodpecker the `gitea_token` secret (a Gitea or
+Forgejo token with repository write access; a global or organization secret serves
+every repo), on GitLab a `TAG_TOKEN` CI/CD variable (an access token with the `api`
+scope), as the job token cannot write tags.
+
+A marker with `release: push` goes back to the way before 1.9 for that repo: it
+uploads and publishes on every push and makes no tags.
 
 ```yaml
 platform: godot
-release: tag
+release: push
 ```
 
 A platform may say it releases from tags only (`release_rule "tag"` in its service);
@@ -1212,6 +1237,18 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 1.9
+
+- **Releases come from tags, and the pipeline makes them.** A push no longer
+  publishes; it builds and tags (see *When a pipeline publishes: tags*). Every
+  Woodpecker repo needs the `gitea_token` secret, every GitLab project a `TAG_TOKEN`
+  variable, before its next pipeline — a missing secret stops the pipeline. A repo
+  that should publish on every push says `release: push` in its marker.
+- **The default branch is the repo's**, not `main` or `master`: a repo whose default
+  branch is `develop` publishes its version from `develop`.
+- **`/build/publish` refuses an older version** than the newest published, with `409`.
+- **A platform service's `release_rule` is `nil`** unless it sets one (it was `"push"`).
 
 ## Upgrading to 1.7
 
