@@ -8,7 +8,7 @@ namespace :warp_engine do
 
       shelves.each do |shelf|
         result = WarpEngine::ShelfService.new(shelf).sync!(dry_run: dry_run)
-        puts "#{shelf.platform} → #{shelf.directory}#{' (dry run)' if dry_run}"
+        puts "#{shelf.describe} → #{shelf.directory}#{' (dry run)' if dry_run}"
         puts "  #{result.entries.size} on the shelf"
         result.written.each { |entry| puts "  write   #{entry.file} #{entry.version}" }
         result.removed.each { |file| puts "  remove  #{file}" }
@@ -26,8 +26,9 @@ namespace :warp_engine do
       shelves.each do |shelf|
         entries, skipped = WarpEngine::ShelfService.new(shelf).plan
         skipped_total += skipped.size
-        puts "#{shelf.platform} (#{shelf.kind}) → #{shelf.directory}"
-        entries.each { |entry| puts "  ok      #{entry.file.ljust(shelf.name_length)} #{entry.version}  #{entry.software.name}" }
+        puts "#{shelf.describe} → #{shelf.directory}"
+        shelf.urls.each { |url| puts "  served  #{url}" }
+        entries.each { |entry| puts "  ok      #{entry.file.ljust(shelf.name_length)} #{entry.version}  #{entry.software.name} (#{entry.kind})" }
         skipped.each { |skip| puts "  skipped #{skip}" }
       end
 

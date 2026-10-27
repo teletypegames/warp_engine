@@ -35,4 +35,29 @@ RSpec.describe WarpEngine::Platforms::Dos::Service do
     expect(release).not_to be_valid
     expect(release.errors[:base].join).to include("DOS releases cannot be web playable")
   end
+
+  describe ".shelf_folder" do
+    let(:dos) do
+      { "folder" => "DOSINST", "settings" => [ "DOSINST.CFG" ], "store_name" => "DOSInst Store", "store_description" => "Installs.",
+        "win32_folder" => "DOSINSTW", "win32_store_name" => "DOSInst for Windows" }
+    end
+
+    it "reads the DOS folder and the Win32 folder from the dos block, with the settings of both" do
+      expect(described_class.shelf_folder({ "dos" => dos }, "cartridge"))
+        .to eq(folder: "DOSINST", settings: [ "DOSINST.CFG" ], name: "DOSInst Store", description: "Installs.", platform: "DOS")
+      expect(described_class.shelf_folder({ "dos" => dos }, "win_x86"))
+        .to eq(folder: "DOSINSTW", settings: [ "DOSINST.CFG" ], name: "DOSInst for Windows", description: "", platform: "WIN32")
+    end
+
+    it "has nothing for a release without a dos block, a kind it does not build or a missing Win32 folder" do
+      expect(described_class.shelf_folder({}, "cartridge")).to be_nil
+      expect(described_class.shelf_folder({ "dos" => dos }, "html")).to be_nil
+      expect(described_class.shelf_folder({ "dos" => dos.except("win32_folder") }, "win_x86")).to be_nil
+    end
+
+    it "releases from tags" do
+      expect(described_class.release_rule).to eq("tag")
+      expect(WarpEngine::Platforms::C64::Service.release_rule).to eq("push")
+    end
+  end
 end

@@ -1,24 +1,5 @@
 # Generated pipeline — WarpEngine /build/config (platform: godot, name: <%= name %>)
 steps:
-  - name: version
-    image: <%= tools || "alpine" %>
-    commands:
-<%- unless tools -%>
-      - apk add --no-cache git jq
-<%- end -%>
-      - |
-        if [ -f metadata.json ]; then
-          VERSION=$(jq -r '.version' metadata.json)
-        else
-          VERSION=$(git rev-parse --short HEAD)
-        fi
-        BRANCH=$(git rev-parse --abbrev-ref HEAD)
-        if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
-          VERSION="dev-$VERSION-$BRANCH"
-        fi
-        echo "VERSION is: $VERSION"
-        echo $VERSION > .version
-
   - name: build
     image: <%= builder %>
     commands:

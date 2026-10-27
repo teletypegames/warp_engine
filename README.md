@@ -554,22 +554,34 @@ generated pipeline takes the marker file's place; the repo's **other** config
 files (`.woodpecker/*.yaml`) are passed back unchanged, so a repo can keep a
 workflow of its own — a server deploy, say — next to the generated one.
 
-Two more keys of a platform's entry switch optional steps, for the platforms
-whose template has them:
+#### Steps every pipeline shares
 
-- `forge_release: true` — on a tag, publish a release on the forge (Gitea) with
-  the binaries and the release notes. Off by default; a platform whose template
-  has no such step logs a warning instead.
-- `store: { image:, target:, known_host: }` — on a tag, send the program to a
-  store over SSH (`tar | ssh <target>`), the key from the Woodpecker secret the
-  marker's `store_secret` names (default `deploy_ssh_key`).
+The engine adds two steps to every template it renders, so no template carries them:
+
+- **`version`**, first. The version comes from the source — `metadata.json`'s
+  `version`, or the `-- version:` line of the Lua header on tic80 (a registered
+  platform names its own with `version_source:`) — and on a tag from the tag too: a
+  version tag (`v1.2.3` or `1.2.3`) has to match the source, and is the version where
+  the source names none. Off the default branch it becomes `dev-<version>-<branch>`;
+  with no version at all the build is `dev-<commit>`, which is never the latest. It
+  writes `.version`, which every later step reads.
+- **`release`**, last, only with `forge_release: true` in the platform's entry, and
+  only on a tag: the forge release of the tag, named `<title> <tag>`, with
+  `RELEASE_NOTES.md` as its text. It attaches the files a build listed in
+  `.release-assets`, or else the ones the upload step uploaded (`<name>-<version>.*`
+  and `<name>-<version>-*`, without the metadata). On Woodpecker it is a Gitea or
+  Forgejo release made with the `gitea_token` secret; on GitLab a GitLab release whose
+  files are in the project's generic package registry, made with the job token.
+
+Every template names its steps the same way: the one that sends the files to
+`/build/upload` is `upload`, the one that calls `/build/publish` is `publish`.
 
 #### When a pipeline publishes: `release`
 
 A generated pipeline builds on every event and, by default, uploads and publishes
 on every push too, the version taken from `metadata.json` (`dev-<version>-<branch>`
 off the default branch). A marker with `release: tag` keeps the build on every event
-but runs the release steps (`upload`, `artifact`, `publish`, `release`, `store`)
+but runs the release steps (`package`, `upload`, `publish`, `release`)
 on tags only — Woodpecker `when: event: tag`, GitLab `rules: if: $CI_COMMIT_TAG`:
 
 ```yaml
@@ -577,7 +589,8 @@ platform: godot
 release: tag
 ```
 
-The `dos` pipeline is tag-only whatever the marker says: its version is the tag.
+A platform may say it releases from tags only (`release_rule "tag"` in its service);
+then a marker cannot turn that off. `dos` is such a platform.
 
 #### Values a template takes from the host
 
@@ -614,7 +627,8 @@ The `exporter` image packages the players. Its contract is one command,
 `<name>-<version>.prg` and `metadata.json`, which writes `<name>-<version>.html.zip`
 and the `-linux-x64.zip`, `-win-x64.zip` and `-mac-arm64.zip` players (the
 `build/c64-tools` `player.Dockerfile` is one such image). Only the PRG is required:
-a program without the players still publishes.
+a program without the players still publishes, and only the players that were
+built are uploaded.
 
 #### The `dos` platform
 
@@ -622,9 +636,8 @@ DOS programs (with an optional Win32 build) are published like games, from a
 tag. Like every other platform, the repo holds a `platform: dos` marker and a
 `metadata.json`; the steps are commands of the builder image (`build/dos-tools`,
 `git.teletypegames.org/build/dos-builder`): `dos-check`, `dos-build` and
-`dos-test` on every event, `dos-pack` on a tag, `dos-release` for
-`forge_release`, and the store step sends the folders `dos-pack` put under
-`dist/store/`. The repo's side of the contract is `SOURCE/build.sh` (Open Watcom
+`dos-test` on every event, `dos-pack` on a tag (it lists the release zips and
+executables in `.release-assets` for the shared release step). The repo's side of the contract is `SOURCE/build.sh` (Open Watcom
 in `$WATCOM`), its tests where the commands look for them (`SOURCE/test/unit/run.sh`,
 `SOURCE/test/run.sh`, `runw32.sh`, `run.py`, `server/test`), and the `dos` block of
 `metadata.json`, which says what a release holds:
@@ -641,7 +654,9 @@ in `$WATCOM`), its tests where the commands look for them (`SOURCE/test/unit/run
 ```
 
 `settings` go into the release zip but not into a store update, so an update never
-overwrites an installed program's configuration.
+overwrites an installed program's configuration. The uploaded metadata keeps the `dos`
+block: a `folders` shelf (see *Shelves*) reads the folder, the settings and the store
+text from it.
 
 The version is the tag without its `v`. The folder zip becomes the `cartridge`
 (`dosinst-0.6.0.zip`) and the Win32 one the `win_x86` asset
@@ -655,9 +670,10 @@ service class, the kinds its CI builds and a pipeline template per CI adapter:
 
 ```ruby
 c.register_platform "amiga",
-                    service:     "AmigaPlatform",
-                    built_kinds: %w[cartridge],
-                    templates:   { woodpecker: Rails.root.join("ci/amiga.woodpecker.yaml.erb") }
+                    service:        "AmigaPlatform",
+                    built_kinds:    %w[cartridge],
+                    templates:      { woodpecker: Rails.root.join("ci/amiga.woodpecker.yaml.erb") },
+                    version_source: "cat VERSION"
 ```
 
 ```ruby
@@ -676,7 +692,10 @@ end
 From then on `amiga` is a platform like the others: a software may be on it, the
 publish runs its service, the admin lists it, the config extension renders its
 template (the same ERB variables as the built-in ones: `name`, `builder`, `exporter`,
-`tools`, `options`, …), and a shelf may serve it. The CI adapter still needs an entry
+`tools`, `options`, …) with the shared `version` and `release` steps around it
+(`version_source:` is the shell command that prints its version; `metadata.json`'s by
+default), and a shelf may serve it. A service may also say `release_rule "tag"`, and
+answer `self.shelf_folder(metadata, kind)` for a `folders` shelf (see *Shelves*). The CI adapter still needs an entry
 for it under `platforms:`, as every platform does. A host may also register a
 built-in name to replace that platform's service or template.
 
@@ -753,27 +772,38 @@ needs its own upload path today.
 A shelf is a folder the engine keeps in step with the catalog: for one platform, the
 latest build of every public title, under a fixed name with no version in it, and an
 `INDEX.TXT` that lists them. It is for clients that cannot read the JSON API — a C64
-store that fetches the index and the files over FTP, say — and it is off unless the
-host asks for one:
+store that fetches the index and the files over plain HTTP, a DOS installer that reads
+folders over FTP — and it is off unless the host asks for one:
 
 ```ruby
 c.shelves = [
-  { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16 }
+  { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16,
+    urls: [ "ftp://ftp.example.org/C64", "http://archive.example.org/C64" ] },
+  { platform: "dos", kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
+    urls: [ "ftp://ftp.example.org/APPS" ] }
 ]
 ```
 
 | Key | |
 |---|---|
 | `platform` | whose titles go on the shelf |
-| `kind` | which asset of the release (`ReleaseAsset` kind); one file per title |
+| `kind` | which asset of the release (`ReleaseAsset` kind), or a list of them |
+| `layout` | `flat` (default): one file a title; `folders`: one folder a title (below) |
 | `path` | the folder, relative to `file_container_path` |
-| `extension` | the extension on the shelf, in capitals |
-| `name_length` | the longest file name, extension included (default 16) |
+| `extension` | `flat` only: the extension on the shelf, in capitals |
+| `name_length` | the longest file name, extension included (default 16); for `folders`, the longest folder name (default 8, as DOS has it) |
 | `statuses` | optional; without it, the statuses whose `default_visible` is set |
+| `urls` | optional: where the host serves the folder (`ftp`, `http`, `https`) |
 
-The configuration is checked at boot: an unknown platform or kind, a path outside the
-container, two shelves in one folder, or a storage adapter other than `:local` stops
-the application rather than leaving a shelf empty.
+The configuration is checked at boot: an unknown platform, kind or layout, a path outside
+the container, two shelves in one folder, a URL without one of those schemes, or a storage
+adapter other than `:local` stops the application rather than leaving a shelf empty.
+
+**Serving it is the host's.** The engine writes the folder; it runs no FTP or HTTP server
+of its own. A host points its servers at the folder and names their addresses in `urls`,
+which `GET /api/service` lists under `shelves` — so a page or a client can say where a
+shelf is. A machine that cannot speak HTTPS cannot ask the API, so a client for one keeps
+its own default address and lets its user change it.
 
 **What goes on a shelf.** Every kept software of the platform whose status is listed and
 which the access policy shows an anonymous caller without a gate; of each, the latest
@@ -800,6 +830,31 @@ ARIADNE.PRG|1.1.0|10561|3c0f5d2a|Thread of Ariadne|Teletype Games|Co-op labyrint
 `crc32` is zlib's, in hexadecimal. Text is transliterated to ASCII, `|` and line breaks
 become spaces, and a line is at most 255 bytes — the description is what gets cut.
 
+**A `folders` shelf** holds a folder for each title and kind, the layout DOSINST reads:
+the asset is a zip with the folder at its top, and the platform's service names the folder
+from the release's uploaded metadata (`shelf_folder(metadata, kind)`; on `dos` the `dos`
+block: `folder` for the `cartridge`, `win32_folder` for `win_x86`). The engine unpacks the
+folder without its `settings` files, so an update never overwrites an installed program's
+configuration, and writes two files into it:
+
+```
+shelves/APPS/
+  INDEX.TXT
+  DOSINST/  DOSINST.EXE  README.md  LICENSE  INFO.INI  FILES.LST
+  DOSINSTW/ DOSINSTW.EXE README.md  LICENSE  INFO.INI  FILES.LST
+```
+
+- `INFO.INI`: `[program]` with `name`, `description`, `version` and `platform` (`DOS` or
+  `WIN32`), CRLF line ends;
+- `FILES.LST`: `crc32 size path` for every file but itself, sorted, CRLF line ends, which
+  the client checks its downloads against.
+
+A title without the metadata, or with a folder name that does not fit, is left off and
+reported. `INDEX.TXT` lists the folders as a flat shelf lists files (its name has a dot,
+so DOSINST does not take it for a program). A folder is built next to the old one and
+swapped in. Only folders the index listed are ever removed, so a folder put there by hand
+stays.
+
 **When it changes.** A shelf is rebuilt whole, from the database, whenever something
 that decides its content changes: a publish (`warp_engine.publish`), and any committed
 change or soft delete of a software, a release, a release asset or a status. A rebuild
@@ -807,7 +862,7 @@ that changes nothing writes nothing; a file is copied again only when its versio
 or source is newer. The new files land under a temporary name and are renamed into
 place, `INDEX.TXT` is replaced last, and only then are the files that left the shelf
 removed — so a reader never finds a line whose file is missing. A rebuild that fails is
-logged and does not fail the save that caused it. The folder belongs to the engine;
+logged and does not fail the save that caused it. A flat shelf's folder belongs to the engine;
 nothing else should write into it.
 
 A change the engine cannot see — an access policy that starts gating a title for
@@ -986,7 +1041,7 @@ its own account of who fetched what without reaching into `DownloadService`.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/service` | What this deployment is: version, whether the catalog gates, and how to sign in (or that you cannot) |
+| `GET /api/service` | What this deployment is: version, whether the catalog gates, how to sign in (or that you cannot), and its shelves with their addresses |
 | `GET /api/software` | The catalog with releases, assets, links, download counts, an optional `category` and an `access` block — whole, or one page at a time; see *Paging and filters* |
 | `GET /api/software/facets` | How many softwares each status, platform and category would show under the other filters |
 | `GET /api/software/vocabulary` | The statuses and categories this catalog uses, with labels and display order |
@@ -1109,6 +1164,26 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 1.7
+
+- **The shared `version` step.** Templates no longer carry a version step; the engine
+  adds one (see *Steps every pipeline shares*). A version tag that does not match the
+  version in the source now fails the pipeline, and a build with no version is
+  `dev-<commit>` (it was the bare commit hash, published as a release).
+- **`forge_release` works on every platform**, as the shared `release` step. `dos-release`
+  is gone from the dos builder; `dos-pack` writes `.release-assets` instead.
+- **No `store:` step.** The dos pipeline no longer sends folders anywhere over SSH: a
+  `folders` shelf builds the store from the catalog. Drop `store:` from the `dos` entry
+  and `store_secret` from markers, and add the shelf. The uploaded metadata keeps its
+  `dos` block (it was stripped), so a release published before 1.7 needs its
+  `<name>-<version>.metadata.json` given the block back, or a new release, before it can
+  go on a folders shelf.
+- **Step names.** `artifact` is `upload` on c64, plus4, ebitengine and dos; `package` is a
+  release step under `release: tag`.
+- **`shelves`' `kind` may be a list**, and a `Shelf` has `kinds` (not `kind`), `layout`
+  and `urls`.
+- **LÖVE pipelines no longer upload `<name>-<version>.love.zip`**, which no asset kind took.
 
 ## Upgrading to 1.5
 

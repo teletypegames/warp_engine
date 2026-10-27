@@ -35,6 +35,13 @@ module WarpEngine
           @optional_kinds |= kinds.flatten.map(&:to_s)
         end
 
+        def release_rule(value = nil)
+          @release_rule = value.to_s if value
+          @release_rule || "push"
+        end
+
+        def shelf_folder(_metadata, _kind) = nil
+
         def prepare_steps
           @prepare_steps ||= []
         end

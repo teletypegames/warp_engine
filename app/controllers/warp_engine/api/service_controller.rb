@@ -19,6 +19,10 @@ module WarpEngine
 
       `admin` is null unless the host turned the Admin API on. Where present it names the
       Admin API's version and addresses; what lives there needs an admin token.
+
+      `shelves` lists the shelves the host keeps: the latest build of every listed title of
+      a platform, in a folder a machine without HTTPS can read, and where that folder is
+      served (`urls`, as the host configured them; empty when it named none).
     DESC
     returns code: 200, desc: "The descriptor" do
       property :engine, String, desc: "Always 'warp_engine'"
@@ -41,6 +45,13 @@ module WarpEngine
         property :mcpUrl, String, desc: "Its MCP endpoint, or null where MCP is off"
         property :schemes, Array, desc: "Authorization schemes; always bearer"
       end
+      property :shelves, Array, desc: "The shelves of this deployment" do
+        property :platform, String, desc: "The platform whose titles are on it"
+        property :kinds, Array, desc: "The asset kinds it holds"
+        property :layout, String, desc: "flat (one file a title) or folders (one folder a title, with INFO.INI and FILES.LST)"
+        property :index, String, desc: "The index file in its folder"
+        property :urls, Array, desc: "Where the folder is served"
+      end
     end
     def show
       render json: {
@@ -55,7 +66,8 @@ module WarpEngine
         },
         catalog: { gated: !WarpEngine::AccessPolicy.open? },
         auth:    auth_descriptor,
-        admin:   admin_descriptor
+        admin:   admin_descriptor,
+        shelves: WarpEngine::Shelves.descriptors
       }
     end
 

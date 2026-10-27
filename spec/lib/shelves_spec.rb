@@ -21,7 +21,8 @@ RSpec.describe WarpEngine::Shelves do
 
       shelf = described_class.validate!.first
 
-      expect(shelf.to_h).to include(platform: "c64", kind: "cartridge", extension: ".PRG", name_length: 16, statuses: [])
+      expect(shelf.to_h).to include(platform: "c64", kinds: [ "cartridge" ], layout: "flat", extension: ".PRG",
+                                    name_length: 16, statuses: [], urls: [])
       expect(shelf.directory).to eq(File.join(WarpEngine.config.file_container_path, "shelves/C64"))
     end
 
@@ -32,13 +33,36 @@ RSpec.describe WarpEngine::Shelves do
       "no room for a name"          => { name_length: 4 },
       "an absolute path"            => { path: "/srv/C64" },
       "a path out of the container" => { path: "../C64" },
-      "an unknown key"              => { colour: "blue" }
+      "an unknown key"              => { colour: "blue" },
+      "an unknown layout"           => { layout: "tree" },
+      "no kind"                     => { kind: [] },
+      "a url without a scheme"      => { urls: [ "archive.example/C64" ] },
+      "a url of another scheme"     => { urls: [ "gopher://archive.example/C64" ] }
     }.each do |description, change|
       it "refuses #{description}" do
         configure(c64.merge(change))
 
         expect { described_class.validate! }.to raise_error(described_class::ConfigurationError)
       end
+    end
+
+    it "reads a folders shelf of two kinds, with DOS-sized names and the urls it is served at" do
+      configure({ platform: "dos", kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
+                  urls: [ "ftp://ftp.example/APPS", "http://archive.example/APPS" ] })
+
+      shelf = described_class.validate!.first
+
+      expect(shelf.to_h).to include(kinds: %w[cartridge win_x86], layout: "folders", extension: "", name_length: 8,
+                                    urls: [ "ftp://ftp.example/APPS", "http://archive.example/APPS" ])
+      expect(shelf.folder_name_valid?("DOSINSTW")).to be(true)
+      expect(shelf.folder_name_valid?("DOSINSTWX")).to be(false)
+      expect(shelf.folder_name_valid?("dosinst")).to be(false)
+    end
+
+    it "refuses an extension on a folders shelf" do
+      configure({ platform: "dos", kind: "cartridge", layout: "folders", path: "shelves/APPS", extension: ".ZIP" })
+
+      expect { described_class.validate! }.to raise_error(described_class::ConfigurationError, /no extension/)
     end
 
     it "refuses two shelves in one folder" do
@@ -52,6 +76,18 @@ RSpec.describe WarpEngine::Shelves do
       allow(WarpEngine::Storage).to receive(:local?).and_return(false)
 
       expect { described_class.validate! }.to raise_error(described_class::ConfigurationError, /:local storage/)
+    end
+  end
+
+  describe ".descriptors" do
+    it "says what each shelf holds and where it is served, and nothing when the configuration is broken" do
+      configure(c64.merge(urls: [ "http://archive.example/C64" ]))
+
+      expect(described_class.descriptors).to eq([ { platform: "c64", kinds: [ "cartridge" ], layout: "flat",
+                                                    index: "INDEX.TXT", urls: [ "http://archive.example/C64" ] } ])
+
+      configure(c64.merge(platform: "amiga"))
+      expect(described_class.descriptors).to eq([])
     end
   end
 

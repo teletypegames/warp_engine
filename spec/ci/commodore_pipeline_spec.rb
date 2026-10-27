@@ -23,6 +23,13 @@ RSpec.describe "Commodore pipelines" do
         expect(yaml).not_to include("acme")
         expect { YAML.safe_load(yaml) }.not_to raise_error
       end
+
+      it "uploads the program and its metadata always, and the players only when they were built" do
+        yaml = render(config_class)
+
+        expect(yaml).to include('FILES="warp64u-$VERSION.prg warp64u-$VERSION.metadata.json"',
+                                'if [ -f "$f" ]; then FILES="$FILES $f"; fi')
+      end
     end
   end
 end

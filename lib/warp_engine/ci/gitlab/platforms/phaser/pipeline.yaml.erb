@@ -1,33 +1,8 @@
 # Generated pipeline — WarpEngine /build/config (platform: phaser, name: <%= name %>)
 stages:
-  - version
   - build
   - upload
   - publish
-
-version:
-  stage: version
-  image: <%= tools || "alpine" %>
-  script:
-<%- unless tools -%>
-    - apk add --no-cache git jq
-<%- end -%>
-    - |
-      if [ -f metadata.json ]; then
-        VERSION=$(jq -r '.version' metadata.json)
-      else
-        VERSION=$(git rev-parse --short HEAD)
-      fi
-      BRANCH=$(git rev-parse --abbrev-ref HEAD)
-      if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
-        VERSION="dev-$VERSION-$BRANCH"
-      fi
-      echo "VERSION is: $VERSION"
-      echo $VERSION > .version
-  artifacts:
-    paths:
-      - .version
-      - metadata.json
 
 build:
   stage: build

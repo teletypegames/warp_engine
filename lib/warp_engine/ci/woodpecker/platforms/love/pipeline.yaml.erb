@@ -1,24 +1,5 @@
 # Generated pipeline — WarpEngine /build/config (platform: love, name: <%= name %>)
 steps:
-  - name: version
-    image: <%= tools || "alpine" %>
-    commands:
-<%- unless tools -%>
-      - apk add --no-cache git jq
-<%- end -%>
-      - |
-        if [ -f metadata.json ]; then
-          VERSION=$(jq -r '.version' metadata.json)
-        else
-          VERSION=$(git rev-parse --short HEAD)
-        fi
-        BRANCH=$(git rev-parse --abbrev-ref HEAD)
-        if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
-          VERSION="dev-$VERSION-$BRANCH"
-        fi
-        echo "VERSION is: $VERSION"
-        echo $VERSION > .version
-
   - name: export
     image: <%= builder %>
     pull: true
@@ -56,8 +37,6 @@ steps:
         echo "==> Patching index.html"
         sed -i.bak 's|<base href="/play/">|<base href="/file/<%= name %>-'"$VERSION"'/">|g' dist/web/index.html && rm dist/web/index.html.bak
         echo "==> Web build ready in dist/web"
-        echo "==> Packaging Love2D for $VERSION"
-        zip -r <%= name %>-$VERSION.love.zip dist/<%= name %>.love
         echo "==> Packaging web build for $VERSION"
         (cd dist/web && zip -r ../../<%= name %>-$VERSION.html.zip .)
         echo "==> Cleaning temporary files"
@@ -159,7 +138,7 @@ steps:
         for slug in win-x64 mac-universal linux-x64; do
           [ -f "<%= name %>-$VERSION-$slug.zip" ] && BINS="$BINS <%= name %>-$VERSION-$slug.zip"
         done
-        for f in "<%= name %>-$VERSION.love.zip" "<%= name %>-$VERSION.html.zip" "<%= name %>-$VERSION.metadata.json" $BINS; do
+        for f in "<%= name %>-$VERSION.html.zip" "<%= name %>-$VERSION.metadata.json" $BINS; do
           curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
             -F "file=@$f" \
             "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1

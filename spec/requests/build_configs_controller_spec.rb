@@ -132,30 +132,29 @@ RSpec.describe "Build configs endpoint", type: :request do
     end
 
     it "passes the marker's options to the pipeline and the repo's other configs through" do
-      serving(woodpecker(platforms: { "dos" => { builder: "registry.example/dos-ci:1",
-                                                 store: { image: "deploy:1", target: "deploy@host", known_host: "host key" } } }))
+      serving(woodpecker(platforms: { "c64" => { builder: "registry.example/c64-builder:1" } }))
       payload = {
         repo: { name: "ttgwiki" },
         configuration: [
           { name: ".woodpecker/deploy.yaml", data: "steps:\n  - name: deploy\n    image: alpine\n" },
-          { name: ".woodpecker/warp.yaml", data: "platform: dos\nstore_secret: store_ssh_key\n" }
+          { name: ".woodpecker/warp.yaml", data: "platform: c64\nbuild: make\n" }
         ]
       }.to_json
 
       post "/build/config", params: payload, headers: signed_headers(payload)
 
       configs = response.parsed_body["configs"]
-      expect(configs.map { |config| config["name"] }).to eq([ "dos", ".woodpecker/deploy.yaml" ])
-      expect(configs.first["data"]).to include("from_secret: store_ssh_key", "ttgwiki-$VERSION.zip")
+      expect(configs.map { |config| config["name"] }).to eq([ "c64", ".woodpecker/deploy.yaml" ])
+      expect(configs.first["data"]).to include("make ttgwiki.prg", "ttgwiki-$VERSION.prg")
       expect(configs.last["data"]).to eq("steps:\n  - name: deploy\n    image: alpine\n")
     end
 
     it "previews a pipeline with options" do
-      serving(woodpecker(platforms: { "dos" => { builder: "b", store: { image: "i", target: "t", known_host: "k" } } }))
+      serving(woodpecker(platforms: { "c64" => { builder: "b" } }))
 
-      get "/build/config", params: { platform: "dos", name: "ttgwiki", options: { store_secret: "store_ssh_key" } }
+      get "/build/config", params: { platform: "c64", name: "ttgwiki", options: { build: "make" } }
 
-      expect(response.body).to include("from_secret: store_ssh_key")
+      expect(response.body).to include("make ttgwiki.prg")
     end
 
     it "returns 204 for a non-marker config" do

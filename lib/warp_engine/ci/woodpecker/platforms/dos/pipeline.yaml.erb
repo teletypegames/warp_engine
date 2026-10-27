@@ -1,10 +1,4 @@
 # Generated pipeline — WarpEngine /build/config (platform: dos, name: <%= name %>)
-when:
-  - event: [push, manual]
-    branch: [main, master]
-  - event: pull_request
-  - event: tag
-
 steps:
   - name: test
     image: <%= builder %>
@@ -17,24 +11,9 @@ steps:
   - name: package
     image: <%= builder %>
     commands:
-      - dos-pack
-      - echo "${CI_COMMIT_TAG#v}" > .version
-    when:
-      - event: tag
-<%- if forge_release -%>
+      - TAG="${CI_COMMIT_TAG:-v$(cat .version)}" dos-pack
 
-  - name: release
-    image: <%= builder %>
-    environment:
-      GITEA_TOKEN:
-        from_secret: gitea_token
-    commands:
-      - dos-release
-    when:
-      - event: tag
-<%- end -%>
-
-  - name: artifact
+  - name: upload
     image: <%= tools || "alpine" %>
     environment:
       UPDATE_SERVER: <%= update_server %>
@@ -42,31 +21,30 @@ steps:
         from_secret: application_token
     commands:
 <%- unless tools -%>
-      - apk add --no-cache curl jq zip
+      - apk add --no-cache curl jq
 <%- end -%>
       - |
         VERSION=$(cat .version)
+        TAG="${CI_COMMIT_TAG:-v$VERSION}"
         FOLDER=$(jq -r '.dos.folder // empty' metadata.json)
         WIN32_FOLDER=$(jq -r '.dos.win32_folder // empty' metadata.json)
         if [ -z "$FOLDER" ]; then
           echo "ERROR: no dos.folder in metadata.json!"
           exit 1
         fi
-        cp "dist/$FOLDER-$CI_COMMIT_TAG.zip" <%= name %>-$VERSION.zip
+        cp "dist/$FOLDER-$TAG.zip" <%= name %>-$VERSION.zip
         FILES="<%= name %>-$VERSION.zip <%= name %>-$VERSION.metadata.json"
         if [ -n "$WIN32_FOLDER" ]; then
-          cp "dist/$WIN32_FOLDER-$CI_COMMIT_TAG.zip" <%= name %>-$VERSION-win-x86.zip
+          cp "dist/$WIN32_FOLDER-$TAG.zip" <%= name %>-$VERSION-win-x86.zip
           FILES="$FILES <%= name %>-$VERSION-win-x86.zip"
         fi
-        jq --arg version "$VERSION" 'del(.dos) + {version: $version}' metadata.json > <%= name %>-$VERSION.metadata.json
+        jq --arg version "$VERSION" '. + {version: $version}' metadata.json > <%= name %>-$VERSION.metadata.json
         echo "==> Uploading $FILES"
         for f in $FILES; do
           curl -fsS -H "X-Update-Secret: $UPDATE_SECRET" \
             -F "file=@$f" \
             "$UPDATE_SERVER/build/upload?name=<%= name %>&version=$VERSION" || exit 1
         done
-    when:
-      - event: tag
 
   - name: publish
     image: <%= tools || "alpine" %>
@@ -82,20 +60,3 @@ steps:
         VERSION=$(cat .version)
         echo "==> Publishing version $VERSION"
         curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=<%= name %>&platform=dos&version=$VERSION"
-    when:
-      - event: tag
-<%- if store -%>
-
-  - name: store
-    image: <%= store[:image] %>
-    environment:
-      STORE_SSH_KEY:
-        from_secret: <%= options["store_secret"] || "deploy_ssh_key" %>
-    commands:
-      - mkdir -p -m 700 "$HOME/.ssh"
-      - printf '%s\n' "$STORE_SSH_KEY" > "$HOME/.ssh/id_store" && chmod 600 "$HOME/.ssh/id_store"
-      - echo '<%= store[:known_host] %>' > "$HOME/.ssh/known_hosts"
-      - tar -C dist/store -cf - . | ssh -i "$HOME/.ssh/id_store" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes <%= store[:target] %>
-    when:
-      - event: tag
-<%- end -%>

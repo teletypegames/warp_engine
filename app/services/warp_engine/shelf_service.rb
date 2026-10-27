@@ -1,13 +1,17 @@
 require "zlib"
 require "fileutils"
+require "json"
 
 module WarpEngine
   class ShelfService
     HEADER = "#SHELF 1 file|version|size|crc32|title|author|description".freeze
     LINE_LIMIT = 255
     CHUNK = 64 * 1024
+    INFO_FILE = "INFO.INI".freeze
+    MANIFEST_FILE = "FILES.LST".freeze
 
-    Entry = Struct.new(:file, :version, :size, :crc32, :title, :author, :description, :source, :software, keyword_init: true) do
+    Entry = Struct.new(:file, :kind, :version, :size, :crc32, :title, :author, :description, :source, :software,
+                       :folder, keyword_init: true) do
       def line
         fields = [ file, version, size, crc32, ShelfService.clean(title), ShelfService.clean(author) ]
         head = fields.join("|") + "|"
@@ -39,14 +43,16 @@ module WarpEngine
       taken = {}
 
       candidates.each do |software|
-        reason, entry = consider(software)
-        if reason
-          skipped << Skip.new(software: software, reason: reason)
-        elsif taken.key?(entry.file)
-          skipped << Skip.new(software: software, reason: "#{entry.file} is taken by #{taken[entry.file].name}")
-        else
-          taken[entry.file] = software
-          entries << entry
+        found, reasons = consider(software)
+        skipped << Skip.new(software: software, reason: reasons.join("; ")) if found.empty?
+
+        found.each do |entry|
+          if taken.key?(entry.file)
+            skipped << Skip.new(software: software, reason: "#{entry.file} is taken by #{taken[entry.file].name}")
+          else
+            taken[entry.file] = software
+            entries << entry
+          end
         end
       end
 
@@ -59,7 +65,7 @@ module WarpEngine
         previous = read_index
         written = entries.select { |entry| stale?(entry, previous[entry.file]) }
         (entries - written).each { |entry| entry.crc32 = previous.dig(entry.file, :crc32) }
-        removed = present_files - entries.map(&:file)
+        removed = removable(previous) - entries.map(&:file)
 
         unless dry_run
           FileUtils.mkdir_p(shelf.directory)
@@ -71,7 +77,7 @@ module WarpEngine
 
         unless dry_run
           replace_index(index) if index_changed
-          removed.each { |file| FileUtils.rm_f(File.join(shelf.directory, file)) }
+          removed.each { |file| FileUtils.rm_rf(File.join(shelf.directory, file)) }
         end
 
         Result.new(shelf: shelf, entries: entries, skipped: skipped, written: written,
@@ -92,27 +98,58 @@ module WarpEngine
     end
 
     def consider(software)
-      return [ "gated" ] if WarpEngine.access_policy.access_for(software: software, subject: nil).gated
+      return [ [], [ "gated" ] ] if WarpEngine.access_policy.access_for(software: software, subject: nil).gated
 
-      file = shelf.file_name_for(software)
-      return [ "no usable shelf name" ] if file.nil?
-
-      release, source = latest_with_asset(software)
-      return [ "no #{shelf.kind} asset in any release" ] if release.nil?
-
-      [ nil, Entry.new(file: file, version: release.version, size: File.size(source), title: software.title,
-                       author: software.author, description: software.desc, source: source, software: software) ]
+      entries = []
+      reasons = []
+      shelf.kinds.each do |kind|
+        reason, entry = consider_kind(software, kind)
+        reason ? reasons << reason : entries << entry
+      end
+      [ entries, reasons ]
     end
 
-    def latest_with_asset(software)
+    def consider_kind(software, kind)
+      release, source = latest_with_asset(software, kind)
+      return [ "no #{kind} asset in any release" ] if release.nil?
+
+      folder = nil
+      if shelf.folders?
+        folder = folder_for(software, release, source, kind)
+        return [ "no #{kind} folder in the metadata of #{release.version}" ] if folder.nil?
+        return [ "#{folder[:folder].inspect} is not a usable folder name" ] unless shelf.folder_name_valid?(folder[:folder])
+
+        file = folder[:folder]
+      else
+        file = shelf.file_name_for(software)
+        return [ "no usable shelf name" ] if file.nil?
+      end
+
+      [ nil, Entry.new(file: file, kind: kind, version: release.version, size: File.size(source), title: software.title,
+                       author: software.author, description: software.desc, source: source, software: software,
+                       folder: folder) ]
+    end
+
+    def latest_with_asset(software, kind)
       sources = {}
       software.releases.each do |release|
-        asset = release.release_assets.find { |candidate| candidate.kind == shelf.kind }
+        asset = release.release_assets.find { |candidate| candidate.kind == kind }
         path = asset && absolute(asset.path)
         sources[release] = path if path && File.file?(path)
       end
       release = WarpEngine::Release.latest_non_dev(sources.keys)
       release ? [ release, sources[release] ] : nil
+    end
+
+    def folder_for(software, release, source, kind)
+      metadata_path = File.join(File.dirname(source), "#{software.name}-#{release.version}.metadata.json")
+      return nil unless File.file?(metadata_path)
+
+      metadata = JSON.parse(File.read(metadata_path))
+      spec = WarpEngine::Platform.find(shelf.platform)&.service_class&.shelf_folder(metadata, kind)
+      spec&.to_h&.symbolize_keys
+    rescue JSON::ParserError
+      nil
     end
 
     def absolute(path)
@@ -121,14 +158,19 @@ module WarpEngine
 
     def stale?(entry, previous)
       target = File.join(shelf.directory, entry.file)
-      return true unless previous && previous[:crc32].present? && File.file?(target)
+      return true unless previous && previous[:crc32].present?
+      return true unless shelf.folders? ? File.directory?(target) : File.file?(target)
       return true unless previous[:version] == entry.version && previous[:size] == entry.size
-      return true unless File.size(target) == entry.size
+      return true unless shelf.folders? || File.size(target) == entry.size
 
       File.mtime(entry.source) > File.mtime(target)
     end
 
     def place(entry)
+      shelf.folders? ? place_folder(entry) : place_file(entry)
+    end
+
+    def place_file(entry)
       target = File.join(shelf.directory, entry.file)
       temporary = "#{target}.NEW"
       crc = 0
@@ -144,6 +186,69 @@ module WarpEngine
       entry.crc32 = format("%08x", crc)
     ensure
       FileUtils.rm_f(temporary) if temporary && File.exist?(temporary)
+    end
+
+    def place_folder(entry)
+      target = File.join(shelf.directory, entry.file)
+      staging = "#{target}.NEW"
+      retired = "#{target}.OLD"
+      FileUtils.rm_rf([ staging, retired ])
+      FileUtils.mkdir_p(staging)
+
+      unpack_folder(entry, staging)
+      File.binwrite(File.join(staging, INFO_FILE), info_text(entry))
+      File.binwrite(File.join(staging, MANIFEST_FILE), manifest_text(staging))
+      FileUtils.chmod_R("a+rX", staging)
+
+      File.rename(target, retired) if File.exist?(target)
+      File.rename(staging, target)
+      FileUtils.rm_rf(retired)
+      entry.crc32 = format("%08x", file_crc(entry.source))
+    ensure
+      FileUtils.rm_rf(staging) if staging && File.exist?(staging)
+    end
+
+    def unpack_folder(entry, staging)
+      prefix = "#{entry.folder[:folder]}/"
+      settings = Array(entry.folder[:settings]).map(&:to_s)
+      Zip::File.open(entry.source) do |zip|
+        zip.each do |item|
+          next if item.directory? || !item.name.start_with?(prefix)
+
+          relative = item.name.delete_prefix(prefix)
+          parts = relative.split("/")
+          raise ArgumentError, "unsafe path in #{entry.source}: #{item.name}" if relative.empty? || parts.include?("..") || parts.include?("")
+          next if settings.include?(relative) || [ INFO_FILE, MANIFEST_FILE ].include?(relative)
+
+          destination = File.join(staging, relative)
+          FileUtils.mkdir_p(File.dirname(destination))
+          File.binwrite(destination, item.get_input_stream.read)
+        end
+      end
+    end
+
+    def info_text(entry)
+      folder = entry.folder
+      [ "[program]",
+        "name=#{self.class.clean(folder[:name].presence || folder[:folder])}",
+        "description=#{self.class.clean(folder[:description])}",
+        "version=#{entry.version}",
+        ("platform=#{self.class.clean(folder[:platform])}" if folder[:platform].present?) ].compact.map { |line| "#{line}\r\n" }.join
+    end
+
+    def manifest_text(staging)
+      Dir.glob("**/*", base: staging).select { |relative| File.file?(File.join(staging, relative)) }
+         .reject { |relative| relative == MANIFEST_FILE }.sort
+         .map do |relative|
+           path = File.join(staging, relative)
+           "#{format('%08x', file_crc(path))} #{File.size(path)} #{relative}\r\n"
+         end.join
+    end
+
+    def file_crc(path)
+      crc = 0
+      File.open(path, "rb") { |input| (crc = Zlib.crc32(input.read(CHUNK), crc)) until input.eof? }
+      crc
     end
 
     def render(entries)
@@ -174,6 +279,12 @@ module WarpEngine
 
         index[file] = { version: version, size: size.to_i, crc32: crc32 }
       end
+    end
+
+    def removable(previous)
+      return previous.keys.select { |name| File.directory?(File.join(shelf.directory, name)) } if shelf.folders?
+
+      present_files
     end
 
     def present_files

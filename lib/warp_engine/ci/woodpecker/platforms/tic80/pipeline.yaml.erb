@@ -3,19 +3,6 @@
 # comment) — WarpEngine parses tic80 metadata from the Lua header too, hence
 # no metadata.json.
 steps:
-  - name: version
-    image: <%= tools || "alpine" %>
-    commands:
-      - |
-        VERSION=$(sed -n "s/^-- version: //p" inc/meta/meta.header.lua | head -n 1 | tr -d "[:space:]")
-        BRANCH=${CI_COMMIT_BRANCH:-${WOODPECKER_BRANCH}}
-        BRANCH=$(echo "$BRANCH" | tr '/' '-')
-        if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ] && [ -n "$BRANCH" ]; then
-          VERSION=dev-$VERSION-$BRANCH
-        fi
-        echo "VERSION is: $VERSION"
-        echo $VERSION > .version
-
   - name: lint
     image: <%= tools || "alpine" %>
     commands:

@@ -5,7 +5,7 @@ module WarpEngine
 
     FORMAT = /\A[a-z0-9_]{2,32}\z/
 
-    Registration = Struct.new(:name, :service, :built_kinds, :templates, keyword_init: true)
+    Registration = Struct.new(:name, :service, :built_kinds, :templates, :version_source, keyword_init: true)
 
     class << self
       def names = BUILTIN + (registrations.keys - BUILTIN)

@@ -20,9 +20,17 @@ module WarpEngine
         "dos"        => %w[cartridge win_x86]
       }.freeze
 
-      RELEASE_STEPS = %w[upload artifact publish release store].freeze
+      RELEASE_STEPS = %w[package upload publish release].freeze
       RELEASE_RULES = %w[push tag].freeze
-      TAG_ONLY = %w[dos].freeze
+
+      METADATA_VERSION = <<~'SH'.chomp.freeze
+        sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' metadata.json 2>/dev/null | head -n 1
+      SH
+      VERSION_SOURCES = {
+        "tic80" => <<~'SH'.chomp.freeze
+          sed -n 's/^-- version: //p' inc/meta/meta.header.lua 2>/dev/null | head -n 1 | tr -d '[:space:]'
+        SH
+      }.freeze
 
       def self.adapter = raise(NotImplementedError)
 
@@ -44,13 +52,8 @@ module WarpEngine
         path = template_path(platform)
         return nil unless path&.exist?
 
-        template = path.read
-        if spec[:forge_release] && !template.include?("forge_release")
-          Rails.logger.warn("[WarpEngine::CI] forge_release is on for #{platform}, but its pipeline has no release step")
-        end
-
         options = clean_options(options)
-        config = ERB.new(template, trim_mode: "-").result_with_hash(
+        config = ERB.new(path.read, trim_mode: "-").result_with_hash(
           name:             name.to_s,
           update_server:    update_server.to_s,
           builder:          spec[:builder],
@@ -58,19 +61,23 @@ module WarpEngine
           tools:            spec[:tools],
           web_shell:        spec[:web_shell],
           bundle_id_prefix: spec[:bundle_id_prefix] || "org.warpengine",
-          forge_release:    spec[:forge_release] ? true : false,
-          store:            spec[:store]&.to_h&.symbolize_keys,
           options:          options
         )
-        return config if TAG_ONLY.include?(platform) || release_rule(platform, options) == "push"
 
-        restrict_release_to_tags(config)
+        document = YAML.safe_load(config)
+        return config unless document.is_a?(Hash)
+
+        add_version_step(document, image: spec[:tools], script: version_script(platform))
+        add_release_step(document, image: spec[:tools], script: release_script(name.to_s)) if spec[:forge_release]
+        tag_only(document) if release_rule(platform, options) == "tag"
+        YAML.dump(document)
       end
 
       def release_rule(platform, options)
-        return "tag" if TAG_ONLY.include?(platform.to_s)
+        return "tag" if WarpEngine::Platform.find(platform)&.service_class&.release_rule == "tag"
 
-        RELEASE_RULES.include?(options["release"]) ? options["release"] : "push"
+        chosen = options.to_h.transform_keys(&:to_s)["release"]
+        RELEASE_RULES.include?(chosen) ? chosen : "push"
       end
 
       def clean_options(options)
@@ -90,21 +97,68 @@ module WarpEngine
         WarpEngine::Platform.registration(platform)&.built_kinds.presence || BUILT_KINDS[platform]
       end
 
+      def version_source(platform)
+        WarpEngine::Platform.registration(platform)&.version_source.presence ||
+          VERSION_SOURCES.fetch(platform.to_s, METADATA_VERSION)
+      end
+
+      def version_script(platform)
+        <<~SH
+          SOURCE_VERSION=$(#{version_source(platform)})
+          TAG="${CI_COMMIT_TAG:-}"
+          TAG_VERSION=""
+          case "$TAG" in v[0-9]*|[0-9]*) TAG_VERSION="${TAG#v}" ;; esac
+          if [ -n "$TAG_VERSION" ] && [ -n "$SOURCE_VERSION" ] && [ "$TAG_VERSION" != "$SOURCE_VERSION" ]; then
+            echo "ERROR: the tag $TAG does not match the version $SOURCE_VERSION of the source!"
+            exit 1
+          fi
+          VERSION="${SOURCE_VERSION:-$TAG_VERSION}"
+          if [ -z "$VERSION" ]; then
+            SHA="${CI_COMMIT_SHA:-unknown}"
+            VERSION="dev-$(printf '%.7s' "$SHA")"
+            echo "No version in the source and no version tag: this build is $VERSION"
+          fi
+          BRANCH=$(printf '%s' "#{branch_expression}" | tr '/' '-')
+          if [ -z "$TAG" ] && [ -n "$BRANCH" ] && [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
+            case "$VERSION" in dev-*) ;; *) VERSION="dev-$VERSION-$BRANCH" ;; esac
+          fi
+          echo "VERSION is: $VERSION"
+          echo "$VERSION" > .version
+        SH
+      end
+
+      def release_files_script(name)
+        <<~SH
+          if [ -f .release-assets ]; then
+            FILES=$(cat .release-assets)
+          else
+            FILES=$(find . -maxdepth 1 -type f \\( -name "#{name}-$VERSION.*" -o -name "#{name}-$VERSION-*" \\) ! -name '*.metadata.json' | sed 's|^\\./||' | sort)
+          fi
+          [ -n "$FILES" ] || { echo "ERROR: nothing to attach to the release"; exit 1; }
+          TITLE=$(jq -r '.title // .name // empty' metadata.json 2>/dev/null || true)
+          TITLE="${TITLE:-#{name}}"
+          NOTES=""
+          if [ -f RELEASE_NOTES.md ]; then NOTES=$(cat RELEASE_NOTES.md); fi
+        SH
+      end
+
       private
+
+      def branch_expression = raise(NotImplementedError)
+
+      def add_version_step(document, image:, script:) = raise(NotImplementedError)
+
+      def add_release_step(document, image:, script:) = raise(NotImplementedError)
+
+      def release_script(name) = raise(NotImplementedError)
+
+      def tag_only(document) = raise(NotImplementedError)
 
       def template_path(platform)
         registered = WarpEngine::Platform.registration(platform)&.templates&.dig(self.class.adapter)
         return registered if registered
 
         self.class.templates_dir.join(platform, "pipeline.yaml.erb")
-      end
-
-      def restrict_release_to_tags(config)
-        document = YAML.safe_load(config)
-        return config unless document.is_a?(Hash)
-
-        tag_only(document)
-        YAML.dump(document)
       end
     end
   end

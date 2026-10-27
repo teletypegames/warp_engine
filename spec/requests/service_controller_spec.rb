@@ -21,6 +21,19 @@ RSpec.describe "GET /api/service", type: :request do
     expect(json["api"]).to eq("version" => WarpEngine::API_VERSION, "catalog" => { "pageSize" => 24, "maxPageSize" => 100 })
   end
 
+  it "lists the shelves and where they are served" do
+    allow(WarpEngine.config).to receive(:shelves).and_return(
+      [ { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", urls: [ "http://archive.example/C64" ] } ]
+    )
+
+    get "/api/service"
+
+    expect(JSON.parse(response.body)["shelves"]).to eq(
+      [ { "platform" => "c64", "kinds" => [ "cartridge" ], "layout" => "flat", "index" => "INDEX.TXT",
+          "urls" => [ "http://archive.example/C64" ] } ]
+    )
+  end
+
   it "reports an open catalog as ungated and offering no sign-in" do
     get "/api/service"
 

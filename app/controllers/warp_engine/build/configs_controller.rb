@@ -8,7 +8,7 @@ module WarpEngine
       api :GET, "/build/config", "Preview the generated pipeline config for a platform"
       param :platform, String, required: true, desc: "Platform (a platform the CI adapter serves, e.g. tic80)"
       param :name, String, required: false, desc: "Software name substituted into the pipeline (default: example)"
-      param :options, Hash, required: false, desc: "Marker options the platform's pipeline reads (e.g. store_secret)"
+      param :options, Hash, required: false, desc: "Marker options the platform's pipeline reads (e.g. build, release)"
       returns code: 200, desc: "Pipeline YAML (text/yaml)"
       error code: 404, desc: "Unknown platform"
       def show

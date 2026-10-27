@@ -52,15 +52,16 @@ module WarpEngine
       @platforms                     = {}
     end
 
-    def register_platform(name, service:, built_kinds: [], templates: {})
+    def register_platform(name, service:, built_kinds: [], templates: {}, version_source: nil)
       name = name.to_s
       raise ArgumentError, "platform name #{name.inspect} must match #{Platform::FORMAT.inspect}" unless name.match?(Platform::FORMAT)
 
       @platforms[name] = Platform::Registration.new(
-        name:        name,
-        service:     service.to_s,
-        built_kinds: Array(built_kinds).map(&:to_s),
-        templates:   templates.to_h.to_h { |adapter, path| [ adapter.to_sym, Pathname.new(path.to_s) ] }
+        name:           name,
+        service:        service.to_s,
+        built_kinds:    Array(built_kinds).map(&:to_s),
+        templates:      templates.to_h.to_h { |adapter, path| [ adapter.to_sym, Pathname.new(path.to_s) ] },
+        version_source: version_source&.to_s
       )
     end
 
