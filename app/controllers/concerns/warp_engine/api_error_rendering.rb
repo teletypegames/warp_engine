@@ -1,4 +1,13 @@
 module WarpEngine
+  # Controller concern that turns exceptions into JSON error responses.
+  #
+  # Including it installs +rescue_from+ handlers that render
+  # <tt>{ "error": ... }</tt> with:
+  #
+  # [ActiveRecord::RecordNotFound, Errno::ENOENT] 404 <tt>Not found</tt>
+  # [ArgumentError]                              400 with the exception message
+  # [any other StandardError]                    500 <tt>Internal server error</tt>,
+  #                                              after logging the exception
   module ApiErrorRendering
     extend ActiveSupport::Concern
 

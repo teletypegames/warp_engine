@@ -1,7 +1,12 @@
 module WarpEngine
+  # Finds the highlighted software of the catalog.
   class SoftwareHighlightedService
     include SoftwareResponseBuilder
 
+    # Returns the catalog response of the newest highlighted software that the
+    # access policy shows +subject+ (+nil+ for anonymous), built like a
+    # WarpEngine::SoftwareDetailSerializer entry of the catalog, or +nil+ when
+    # there is none.
     def index(subject: nil)
       software = visible_scope(subject)
         .includes(releases: :release_assets)

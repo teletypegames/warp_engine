@@ -1,4 +1,17 @@
 module WarpEngine
+  # A title in the catalog (table +softwares+): unique +name+, +title+,
+  # author, descriptions, license, +platform+ (one of
+  # WarpEngine::Platform.names), +status+ (a WarpEngine::SoftwareStatus key),
+  # +category+ (a WarpEngine::SoftwareCategory key, registered on save),
+  # +highlighted+ flag, optional +shelf_name+ (its name on the platform's
+  # shelf) and an optional polymorphic +owner+, the publisher.
+  #
+  # Has its gallery (+software_images+, +images+), kept +releases+ and their
+  # +downloads+, kept +external_links+ and its +pipeline+; images, links and
+  # releases are editable as nested attributes. Filter scopes:
+  # +with_statuses+, +with_platform+, +with_category+, +with_owner+ (each a
+  # no-op for a blank value) and +search+ (title or name contains the text).
+  # Soft-deletable; changes refresh the shelves of its platform.
   class Software < ApplicationRecord
     self.table_name = "softwares"
 
@@ -42,6 +55,7 @@ module WarpEngine
       where("softwares.title LIKE :q OR softwares.name LIKE :q", q: pattern)
     }
 
+    # Returns every status key (WarpEngine::SoftwareStatus.keys).
     def self.statuses
       WarpEngine::SoftwareStatus.keys
     end

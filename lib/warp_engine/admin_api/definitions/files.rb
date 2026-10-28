@@ -1,12 +1,17 @@
 module WarpEngine
   module AdminApi
     module Definitions
+      # The +files+ resource: browsing and changing the artifact store through WarpEngine::FileManagerService.
       module Files
+        # Short name of AdminApi::Schema.
         S = AdminApi::Schema
+        # Short name of Definitions::Schemas.
         X = Schemas
 
         module_function
 
+        # Declares the +files+ resource on +api+: list a directory, upload a file
+        # (multipart), create a directory, rename and delete.
         def define(api)
           api.resource(:files, label: "Files") do |r|
             r.action :get, "/files", name: :list, summary: "One directory of the artifact store",
@@ -43,8 +48,10 @@ module WarpEngine
           end
         end
 
+        # A new WarpEngine::FileManagerService.
         def service = WarpEngine::FileManagerService.new
 
+        # The +FileEntry+ answer of one directory listing +entry+.
         def entry_payload(entry)
           {
             name:       entry[:name],

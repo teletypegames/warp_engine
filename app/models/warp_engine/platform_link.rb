@@ -1,7 +1,11 @@
 module WarpEngine
+  # A link shown with every software of a platform (table +platform_links+),
+  # e.g. where to get the emulator. Has a +name+, a +url+, a +platform+ and a
+  # +position+ (scope +ordered+). Soft-deletable.
   class PlatformLink < ApplicationRecord
     self.table_name = "platform_links"
 
+    # The built-in platforms (WarpEngine::Platform::BUILTIN).
     SUPPORTED_PLATFORMS = WarpEngine::Platform::BUILTIN
 
     include SoftDeletable
@@ -12,6 +16,7 @@ module WarpEngine
 
     scope :ordered, -> { order(:position) }
 
+    # Returns the kept links of +platform+ in position order, as an Array.
     def self.for_platform(platform)
       kept.ordered.where(platform: platform).to_a
     end

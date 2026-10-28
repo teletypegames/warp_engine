@@ -1,12 +1,16 @@
 module WarpEngine
   module AdminApi
     module Definitions
+      # The vocabulary resources: software statuses, software categories and platform links.
       module Vocabulary
+        # Short name of AdminApi::Schema.
         S = AdminApi::Schema
+        # Short name of Definitions::Schemas.
         X = Schemas
 
         module_function
 
+        # Declares the +software_statuses+, +software_categories+ and +platform_links+ resources on +api+.
         def define(api)
           crud(api, :software_statuses, label: "Software statuses", model: -> { seeded_statuses },
                     item: X.software_status, body: X.software_status_body, required: %i[key label],
@@ -25,6 +29,18 @@ module WarpEngine
           platform_links(api)
         end
 
+        # Declares a resource +name+ with list, get, create, update and delete
+        # operations under <tt>/name</tt>.
+        #
+        # [label]      the resource label
+        # [model]      a callable returning the model class
+        # [item]       the answer schema
+        # [body]       the create and update body schema
+        # [required]   the fields required on create
+        # [serializer] a callable returning the serializer
+        # [filters]    the list filter schemas
+        #
+        # The block takes the list scope and the Context and returns the filtered scope.
         def crud(api, name, label:, model:, item:, body:, required:, serializer:, filters:, &filter)
           path = "/#{name}"
           api.resource(name, label: label) do |r|
@@ -54,6 +70,7 @@ module WarpEngine
           end
         end
 
+        # Declares the +platform_links+ resource on +api+.
         def platform_links(api)
           api.resource(:platform_links, label: "Platform links") do |r|
             r.list "/platform_links", summary: "List the platform links", item: X.platform_link,
@@ -88,6 +105,7 @@ module WarpEngine
           end
         end
 
+        # WarpEngine::SoftwareStatus, after seeding its default rows.
         def seeded_statuses
           WarpEngine::SoftwareStatus.seed_defaults!
           WarpEngine::SoftwareStatus

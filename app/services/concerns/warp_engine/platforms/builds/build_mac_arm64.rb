@@ -1,6 +1,7 @@
 module WarpEngine
   module Platforms
     module Builds
+      # Adds the +mac_arm64+ kind: the file <tt><name-version>-mac-arm64.zip</tt>.
       module BuildMacArm64
         extend ActiveSupport::Concern
 
@@ -10,6 +11,7 @@ module WarpEngine
 
         private
 
+        # Returns <tt>{ "mac_arm64" => path }</tt> when the zip exists, else +nil+.
         def mac_arm64_asset_path(versioned)
           path = full_path("#{versioned}-mac-arm64.zip")
           { "mac_arm64" => path } if File.file?(path)

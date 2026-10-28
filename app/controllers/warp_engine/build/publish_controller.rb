@@ -1,5 +1,7 @@
 module WarpEngine
   module Build
+    # Registers uploaded build artifacts as a release. Needs the update
+    # credential in <tt>X-Update-Secret</tt> (see WarpEngine::UpdateAuthentication).
     class PublishController < ApiController
       include UpdateAuthentication
 
@@ -18,6 +20,19 @@ module WarpEngine
       error code: 400, desc: "Missing or invalid arguments"
       error code: 422, desc: "A kind the platform requires was not uploaded"
       error code: 409, desc: "A newer version is published already"
+      # <tt>POST /build/publish</tt>.
+      #
+      # [name]     the software name
+      # [platform] one of WarpEngine::Platform.names
+      # [version]  the version string
+      #
+      # Validates the input (WarpEngine::PublishInputDto), publishes through
+      # WarpEngine::PublishService (creating or updating the software, its release
+      # and release assets) and gives an unowned software to the token's owner.
+      # Renders <tt>{ "published": true, "name", "platform", "version" }</tt>.
+      # Responds 401 without a valid credential, 400 for invalid input, 403 when
+      # the token does not own the software, 422 with +missing+ kinds when a
+      # required asset was not uploaded, and 409 when a newer version is published.
       def create
         unless update_authorized?(required_scope: WarpEngine::ApplicationToken::UPDATE_SCOPE)
           return render json: { error: "Unauthorized" }, status: :unauthorized

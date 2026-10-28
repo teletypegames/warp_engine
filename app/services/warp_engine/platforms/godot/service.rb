@@ -1,6 +1,9 @@
 module WarpEngine
   module Platforms
+    # The +godot+ platform.
     module Godot
+      # Publishes Godot uploads: a required web build, plus Windows x86/x64, Linux
+      # x64 and macOS universal zips.
       class Service
         include Updatable
         include Builds::BuildWeb

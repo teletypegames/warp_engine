@@ -1,4 +1,5 @@
 module WarpEngine
+  # Counts for the catalog's filter values.
   class Api::SoftwareFacetsController < ApiController
     resource_description do
       short "Catalog facets"
@@ -23,6 +24,12 @@ module WarpEngine
       property :platforms, Hash, desc: "platform => count"
       property :categories, Hash, desc: "category key => count"
     end
+    # <tt>GET /api/software/facets</tt>.
+    #
+    # Takes the filters of <tt>GET /api/software</tt> and renders
+    # WarpEngine::SoftwareService#facets: the total matching every filter and,
+    # per status, platform and category, how many softwares that value would
+    # show given the other filters.
     def show
       render json: WarpEngine::SoftwareService.new.facets(
         subject:  current_subject,

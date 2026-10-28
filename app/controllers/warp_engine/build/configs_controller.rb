@@ -1,5 +1,9 @@
 module WarpEngine
+  # Namespace of the CI-facing build endpoints under <tt>/build</tt>: artifact
+  # upload, release publishing and pipeline config generation.
   module Build
+    # Generates CI pipeline configs for marker repos (a config holding only a
+    # +platform:+ key and options) through the CI adapter's +pipeline_config+.
     class ConfigsController < ApiController
       resource_description do
         short "CI pipeline configs"
@@ -11,6 +15,14 @@ module WarpEngine
       param :options, Hash, required: false, desc: "Marker options the platform's pipeline reads (e.g. build, release)"
       returns code: 200, desc: "Pipeline YAML (text/yaml)"
       error code: 404, desc: "Unknown platform"
+      # <tt>GET /build/config</tt>.
+      #
+      # [platform] the platform whose pipeline to render
+      # [name]     the software name to put in it, +example+ by default
+      # [options]  marker options the platform's pipeline reads
+      #
+      # Renders the generated pipeline as <tt>text/yaml</tt>, or 404 for a
+      # platform the CI adapter does not serve.
       def show
         config = render_config(platform: params[:platform], name: params[:name].presence || "example",
                                options: params[:options].respond_to?(:to_unsafe_h) ? params[:options].to_unsafe_h : {})
@@ -31,6 +43,13 @@ module WarpEngine
       returns code: 204, desc: "Not a marker config — keep the repo's own configuration"
       error code: 403, desc: "Missing or invalid request signature"
       error code: 422, desc: "Marker requests an unknown platform"
+      # <tt>POST /build/config</tt>, the CI server's configuration extension.
+      #
+      # Responds 403 when the CI adapter rejects the request signature, and 204
+      # when the repo's config is not a marker, so the repo's own config runs.
+      # For a marker, renders the adapter's config response with the generated
+      # pipeline in place of the marker (and the repo's other config files as they
+      # are), or 422 when the marker names an unknown platform.
       def create
         unless ci.verify_config_request(request)
           return render json: { error: "Invalid signature" }, status: :forbidden

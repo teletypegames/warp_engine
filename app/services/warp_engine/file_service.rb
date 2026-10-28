@@ -1,9 +1,18 @@
 require "warp_engine/access_denied"
 
 module WarpEngine
+  # Serves the file container under <tt>/file/</tt>: a file through the access
+  # policy, a directory as a redirect to its <tt>index.html</tt>.
   class FileService
     include AccessPolicyGuard
 
+    # Answers the path of +input+ (an object with +path+, relative to the storage)
+    # for +subject+ (+nil+ when anonymous).
+    #
+    # Returns a WarpEngine::FileResultDto: a redirect to
+    # <tt>/file/<dir>/index.html</tt> for a directory that has one, the file (a
+    # local path or a storage redirect) for a file, not found otherwise. Raises
+    # WarpEngine::AccessDenied when the access policy refuses the file.
     def show(input, subject: nil)
       relative = input.path.to_s
 

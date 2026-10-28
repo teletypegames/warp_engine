@@ -17,7 +17,7 @@ Gem::Specification.new do |spec|
   # registry per org, and the engine lives in `engines`.
   spec.metadata["allowed_push_host"] = "https://git.teletypegames.org/api/packages/engines/rubygems"
   spec.metadata["source_code_uri"]   = "https://git.teletypegames.org/engines/warp_engine"
-  spec.metadata["documentation_uri"] = "https://wiki.teletypegames.org/infrastructure/warp-engine"
+  spec.metadata["documentation_uri"] = "https://wiki.teletypegames.org/rdoc/warp_engine/latest/"
 
   spec.files = Dir["{app,config,db,lib}/**/*", "README.md"]
 

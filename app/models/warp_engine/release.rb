@@ -1,4 +1,9 @@
 module WarpEngine
+  # One version of a software (table +releases+), unique per software. Has
+  # many kept +downloads+ and +release_assets+ (editable as nested
+  # attributes). A release of a download-only platform may not have an +html+
+  # asset. Soft-deletable; saving or deleting one refreshes the shelves of the
+  # software's platform.
   class Release < ApplicationRecord
     self.table_name = "releases"
 
@@ -16,14 +21,20 @@ module WarpEngine
 
     validate :download_only_platform_cannot_be_web_playable
 
+    # Returns the newest of +releases+ (by creation time, then id) whose version
+    # does not start with <tt>dev-</tt>, or the newest of all when every one
+    # does; +nil+ for an empty list.
     def self.latest_non_dev(releases)
       sorted = releases.sort_by { |r| [ r.created_at || Time.at(0), r.id ] }.reverse
       candidates = sorted.reject { |r| r.version.to_s.start_with?("dev-") }
       candidates.empty? ? sorted.first : candidates.first
     end
 
+    # Returns the software's platform, whose shelves to refresh.
     def shelf_platform = software&.platform
 
+    # Validation: adds an error when the software's platform expects no +html+
+    # kind and the release has an +html+ asset.
     def download_only_platform_cannot_be_web_playable
       platform = WarpEngine::Platform.find(software&.platform)
       return if platform.nil? || platform.expected_kinds.include?("html")

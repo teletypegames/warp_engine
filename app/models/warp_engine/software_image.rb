@@ -1,8 +1,14 @@
 module WarpEngine
+  # An image in a software's gallery: links the software to an image record
+  # of the host's image model (WarpEngine::Images.model_name), with a
+  # +position+ (scope +ordered+) and an +is_default+ flag; setting it clears
+  # the flag on the software's other images. An image may be given as an
+  # upload in #file_upload, which is stored on validation.
   class SoftwareImage < ApplicationRecord
     belongs_to :software
     belongs_to :image, optional: true, class_name: WarpEngine::Images.model_name
 
+    # An uploaded file to create the image record from on validation.
     attr_accessor :file_upload
 
     before_validation :create_image_from_upload, if: -> { file_upload.present? }

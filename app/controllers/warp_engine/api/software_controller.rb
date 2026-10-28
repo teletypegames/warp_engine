@@ -1,4 +1,5 @@
 module WarpEngine
+  # The software catalog.
   class Api::SoftwareController < ApiController
     resource_description do
       short "Software catalog"
@@ -76,6 +77,13 @@ module WarpEngine
         end
       end
     end
+    # <tt>GET /api/software</tt>.
+    #
+    # Renders the catalog envelope from WarpEngine::SoftwareService#index: the
+    # softwares visible to the caller with their releases, filtered by
+    # +owner_id+, +status+ (comma-separated keys), +platform+, +category+ and
+    # +q+, ordered by +sort+. Without +page+ the whole catalog comes back; with
+    # +page+ (and optional +per_page+) one page of it, with paging fields.
     def index
       render json: WarpEngine::SoftwareService.new.index(
         subject: current_subject, page: params[:page], per_page: params[:per_page], sort: params[:sort],

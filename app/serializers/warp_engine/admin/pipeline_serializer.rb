@@ -1,5 +1,8 @@
 module WarpEngine
   module Admin
+    # Admin API view of a WarpEngine::Pipeline: id, CI repository id, owner,
+    # name and full name, platform, active flag, software id, last run status
+    # and time, and timestamps.
     class PipelineSerializer < Blueprinter::Base
       identifier :id
       field(:repoId) { |pipeline| pipeline.remote_repo_id }

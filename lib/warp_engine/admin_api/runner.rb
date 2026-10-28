@@ -1,13 +1,27 @@
 module WarpEngine
   module AdminApi
+    # Runs one Operation for a Principal: checks access (.gate), coerces the params
+    # to their schema types, calls the handler and maps failures to Error.
     class Runner
+      # The strings read as +true+ for a boolean param.
       TRUE_VALUES  = %w[true 1 yes on].freeze
+      # The strings read as +false+ for a boolean param.
       FALSE_VALUES = %w[false 0 no off].freeze
 
+      # Runs +operation+ as +principal+ with +params+ and returns its Result.
+      #
+      # [base_url] the base URL of the request
+      # [via]      <tt>:http</tt> or <tt>:mcp</tt>
+      #
+      # Writes are published as a <tt>warp_engine.admin_api.write</tt>
+      # ActiveSupport notification. Raises Error: record not found and missing files
+      # become 404, invalid records 422, duplicates and non-empty directories 409,
+      # WarpEngine::CI::Error 502 and ArgumentError 400.
       def self.call(operation, principal:, params:, base_url: nil, via: :http)
         new(operation, principal: principal, params: params, base_url: base_url, via: via).call
       end
 
+      # Prepares a run; see .call.
       def initialize(operation, principal:, params:, base_url:, via:)
         @operation = operation
         @principal = principal
@@ -16,6 +30,7 @@ module WarpEngine
         @via       = via
       end
 
+      # Runs the operation; see .call.
       def call
         gate!
         context = Context.new(operation: @operation, principal: @principal, params: coerced_params,
@@ -41,6 +56,10 @@ module WarpEngine
         raise Error.bad_request(e.message)
       end
 
+      # Raises the Error that stops +principal+ from running +operation+: 404 when the
+      # Admin API or the resource is off, 401 without a principal, the resource's own
+      # answer while unavailable, 405 for a write when read-only, 403 without the
+      # needed scope. Returns +nil+ when allowed.
       def self.gate(operation, principal)
         config = AdminApi.config
         resource = operation.resource
@@ -55,6 +74,7 @@ module WarpEngine
         raise Error.forbidden("This needs the #{scope} scope") unless scope == :any || principal.scope?(scope)
       end
 
+      # Whether .gate lets +principal+ run +operation+.
       def self.permitted?(operation, principal)
         gate(operation, principal)
         true

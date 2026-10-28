@@ -1,6 +1,19 @@
 module WarpEngine
+  # Namespace of the controllers under <tt>/api</tt>: the public catalog API,
+  # client sign-in, CI pipelines and the Admin API.
   module Api
+    # Namespace of the Admin API controllers, mounted under
+    # WarpEngine::AdminApi.url_path.
     module Admin
+      # Base controller of the Admin API.
+      #
+      # Every response carries the Admin API version header
+      # (WarpEngine::AdminApi::HEADER). Responds 404 for everything while the Admin
+      # API is disabled. A raised WarpEngine::AdminApi::Error is rendered as its
+      # JSON body with its status and headers. Subclasses call the private
+      # +authenticate!+, which requires an admin bearer token
+      # (WarpEngine::AdminApi::Authenticator, 401 without one) and applies the
+      # rate limit (429 with <tt>Retry-After</tt>).
       class BaseController < WarpEngine::ApiController
         wrap_parameters false
 

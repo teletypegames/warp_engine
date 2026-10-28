@@ -3,9 +3,15 @@ require "warp_engine/ci/pipeline_config"
 module WarpEngine
   module CI
     module Gitlab
+      # The CI::PipelineConfig of GitLab: renders the templates under +platforms/+
+      # next to this file and adds the shared steps as GitLab stages and jobs; it
+      # tags with the +TAG_TOKEN+ CI/CD variable and releases into the project's
+      # generic package registry with the job token.
       class PipelineConfig < WarpEngine::CI::PipelineConfig
+        # Returns +:gitlab+, the key of GitLab templates in a platform registration.
         def self.adapter = :gitlab
 
+        # Returns the Pathname of the bundled GitLab templates.
         def self.templates_dir
           Pathname.new(__dir__).join("platforms")
         end

@@ -1,4 +1,13 @@
 module WarpEngine
+  # Controller concern that works out who is asking the catalog API.
+  #
+  # It provides the private helpers +current_access_token+ and +current_subject+.
+  # The access token is a WarpEngine::ApplicationToken with the +catalog+ scope
+  # sent as <tt>Authorization: Bearer ...</tt>, looked up only when client
+  # identity is configured (its +last_used_at+ is touched on success). The
+  # subject is that token's owner, or else whatever the host's
+  # +subject_resolver+ returns for the request; resolver errors are logged and
+  # yield +nil+, an anonymous caller.
   module SubjectAuthentication
     extend ActiveSupport::Concern
 

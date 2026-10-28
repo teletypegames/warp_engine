@@ -1,13 +1,31 @@
 module WarpEngine
+  # The catalog read API: the paged software list, its facet counts and the
+  # status and category vocabulary, all limited to what the access policy shows
+  # the subject.
   class SoftwareService
     include SoftwareResponseBuilder
 
+    # The orders #index accepts by name: +title+ (default), +updated+ and +newest+.
     SORTS = {
       "title"   => [ Arel.sql("LOWER(softwares.title) ASC"), Arel.sql("softwares.id ASC") ],
       "updated" => [ Arel.sql("softwares.updated_at DESC"), Arel.sql("softwares.id DESC") ],
       "newest"  => [ Arel.sql("softwares.created_at DESC"), Arel.sql("softwares.id DESC") ]
     }.freeze
 
+    # Returns a page of the catalog as a Hash: +api+ (WarpEngine::API_VERSION),
+    # +page+, +perPage+, +total+, +totalPages+, +nextPage+ (+nil+ on the last
+    # page) and +softwares+, the catalog entries.
+    #
+    # [owner_id]  only the softwares of this owner
+    # [subject]   the caller, or +nil+ when anonymous
+    # [page]      the page number (from 1); without it and +per_page+ every software is on one page
+    # [per_page]  the page size, clamped to <tt>WarpEngine.config.catalog_max_page_size</tt>;
+    #             defaults to <tt>catalog_page_size</tt> when +page+ is given
+    # [statuses]  only these statuses
+    # [platform]  only this platform
+    # [category]  only this category
+    # [query]     a search text
+    # [sort]      a key of SORTS
     def index(owner_id: nil, subject: nil, page: nil, per_page: nil, statuses: [], platform: nil, category: nil, query: nil, sort: nil)
       scope = filtered(visible_scope(subject), owner_id: owner_id, statuses: statuses, platform: platform, category: category, query: query)
       total = scope.count
@@ -34,6 +52,9 @@ module WarpEngine
       }
     end
 
+    # Returns the facet counts of the catalog as a Hash: +api+, the +total+
+    # matching every filter, and +statuses+, +platforms+ and +categories+, each
+    # counted with every filter but its own. Takes the filters of #index.
     def facets(owner_id: nil, subject: nil, statuses: [], platform: nil, category: nil, query: nil)
       base = filtered(visible_scope(subject), owner_id: owner_id, query: query)
       {
@@ -45,6 +66,10 @@ module WarpEngine
       }
     end
 
+    # Returns the vocabulary of the catalog as a Hash: +api+, the +statuses+
+    # (+key+, +label+, +position+, +defaultVisible+, +badge+) and the
+    # +categories+ (+key+, +label+, +position+ and the +count+ of softwares
+    # visible to +subject+).
     def vocabulary(subject: nil)
       counts = visible_scope(subject).group(:category).count
       {

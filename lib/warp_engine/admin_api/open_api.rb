@@ -1,8 +1,11 @@
 module WarpEngine
   module AdminApi
+    # Builds the OpenAPI 3.1 document of the Admin API from the Registry.
     module OpenApi
+      # Short name of Schema.
       S = Schema
 
+      # The error responses by status: component name and description.
       ERRORS = {
         400 => [ "BadRequest", "A parameter is missing or malformed" ],
         401 => [ "Unauthorized", "No token, or not an admin token" ],
@@ -17,6 +20,8 @@ module WarpEngine
 
       module_function
 
+      # The OpenAPI document as a hash, listing the operations served here (see
+      # #documented?), with +server_url+ as its only server.
       def document(server_url:)
         operations = Registry.operations.select { |operation| documented?(operation) }
         paths = {}
@@ -41,6 +46,7 @@ module WarpEngine
         }
       end
 
+      # Whether +operation+ is served here: its resource enabled and available, and not a write when read-only.
       def documented?(operation)
         config = AdminApi.config
         resource = operation.resource
@@ -50,6 +56,7 @@ module WarpEngine
         operation.read? || !config.read_only?
       end
 
+      # The OpenAPI operation object of +operation+.
       def operation_object(operation)
         {
           operationId:        operation.tool_name,
@@ -63,6 +70,7 @@ module WarpEngine
         }.compact
       end
 
+      # The OpenAPI path and query parameters of +operation+.
       def parameters(operation)
         path = operation.path_param_names.map do |name|
           { name: name, in: "path", required: true, schema: operation.path_param_schema(name) }
@@ -75,6 +83,7 @@ module WarpEngine
         path + query
       end
 
+      # The OpenAPI request body of +operation+, JSON or multipart, or +nil+ without a body.
       def request_body(operation)
         body = operation.body
         return nil if body.nil?
@@ -87,6 +96,7 @@ module WarpEngine
         }
       end
 
+      # The OpenAPI responses of +operation+: its success answer and the errors it can give.
       def responses(operation)
         success = if operation.response[:kind] == :none
           { description: "Done; no content" }
@@ -104,6 +114,7 @@ module WarpEngine
         )
       end
 
+      # The schema of the <tt>{ data:, meta: }</tt> answer for a +response+ shape (page, many or one).
       def envelope(response)
         item = S.ref(response[:item].name)
         case response[:kind]
@@ -113,6 +124,7 @@ module WarpEngine
         end
       end
 
+      # The OpenAPI components: the bearer security scheme, the schemas and the error responses.
       def components
         schemas = Definitions::Schemas.all.to_h { |named| [ named.name, named.schema ] }
         schemas["Error"] = S.object({ error: S.string, details: S.object({}, additional: S.array(S.string)) },

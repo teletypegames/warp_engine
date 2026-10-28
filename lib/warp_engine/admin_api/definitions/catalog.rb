@@ -1,14 +1,20 @@
 module WarpEngine
   module AdminApi
     module Definitions
+      # The catalog resources: softwares, releases, release assets, external links,
+      # software images and the host-defined additional resources (extras).
       module Catalog
+        # Short name of AdminApi::Schema.
         S = AdminApi::Schema
+        # Short name of Definitions::Schemas.
         X = Schemas
 
+        # What <tt>GET /softwares/:id</tt> can include, comma-separated in +include+.
         INCLUDES = %w[releases images externalLinks extras].freeze
 
         module_function
 
+        # Declares every catalog resource on +api+.
         def define(api)
           softwares(api)
           releases(api)
@@ -18,6 +24,7 @@ module WarpEngine
           extras(api)
         end
 
+        # Declares the +softwares+ resource on +api+: filtered list, get with includes, create, update, delete.
         def softwares(api)
           api.resource(:softwares, label: "Softwares") do |r|
             r.list "/softwares", summary: "List the softwares", item: X.software,
@@ -67,6 +74,7 @@ module WarpEngine
           end
         end
 
+        # Declares the +releases+ resource on +api+: a software's releases, add, get, update, delete.
         def releases(api)
           api.resource(:releases, label: "Releases") do |r|
             r.list "/softwares/:softwareId/releases", summary: "The releases of a software", item: X.release,
@@ -99,6 +107,8 @@ module WarpEngine
           end
         end
 
+        # Declares the +release_assets+ resource on +api+: a release's assets, add, get,
+        # update, delete. An +html+ asset is refused (422) on platforms that are not web playable.
         def release_assets(api)
           api.resource(:release_assets, label: "Release assets") do |r|
             r.action :get, "/releases/:releaseId/assets", name: :list, summary: "The assets of a release",
@@ -133,6 +143,7 @@ module WarpEngine
           end
         end
 
+        # Declares the +external_links+ resource on +api+: a software's links, add, get, update, delete.
         def external_links(api)
           api.resource(:external_links, label: "External links") do |r|
             r.action :get, "/softwares/:softwareId/external_links", name: :list,
@@ -166,6 +177,8 @@ module WarpEngine
           end
         end
 
+        # Declares the +software_images+ resource on +api+: a software's images, link a
+        # library image, upload a new image (multipart), get, update, unlink.
         def software_images(api)
           api.resource(:software_images, label: "Software images") do |r|
             r.action :get, "/softwares/:softwareId/images", name: :list, summary: "The images of a software, in order",
@@ -212,6 +225,9 @@ module WarpEngine
           end
         end
 
+        # Declares the +extras+ resource on +api+: read or replace (nested attributes)
+        # what a WarpEngine::AdditionalResource holds for a software. Available when the
+        # host defines any for the API.
         def extras(api)
           association = -> { S.enum(WarpEngine::AdditionalResource.api_for(:software).map(&:association)) }
 
@@ -237,6 +253,8 @@ module WarpEngine
           end
         end
 
+        # The serialized +software+ with the lists named in +include+ (see INCLUDES).
+        # Raises a 400 Error for an unknown include.
         def software_payload(software, include)
           data = Admin::SoftwareSerializer.render_as_hash(software)
           wanted = include.to_s.split(",").map(&:strip)
@@ -254,31 +272,38 @@ module WarpEngine
           data
         end
 
+        # The API-enabled WarpEngine::AdditionalResource of association +name+. Raises a 404 Error.
         def extra(name)
           WarpEngine::AdditionalResource.api_for(:software).find { |e| e.association.to_s == name.to_s } ||
             raise(Error.not_found)
         end
 
+        # The +Extra+ answer of +extra+ for +software+.
         def extra_payload(extra, software)
           { association: extra.association.to_s, multiple: extra.multiple ? true : false, value: extra.value_for(software) }
         end
 
+        # Saves a WarpEngine::SoftwareImage with +attributes+ for the software of
+        # +ctx+, placed last unless a position is given. Raises a 422 Error when invalid.
         def add_image(ctx, attributes)
           software = WarpEngine::Software.kept.find(ctx[:softwareId])
           attributes["position"] ||= software.software_images.maximum(:position).to_i + 1
           ctx.save!(WarpEngine::SoftwareImage.new(attributes.merge("software" => software)))
         end
 
+        # The kept WarpEngine::Release +id+ of a kept software. Raises ActiveRecord::RecordNotFound.
         def release(id)
           WarpEngine::Release.kept.joins(:software).merge(WarpEngine::Software.kept).find(id)
         end
 
+        # The kept WarpEngine::ReleaseAsset +id+ whose release is reachable. Raises ActiveRecord::RecordNotFound.
         def asset(id)
           asset = WarpEngine::ReleaseAsset.kept.find(id)
           release(asset.release_id)
           asset
         end
 
+        # Raises a 422 Error when +kind+ is +html+ and the platform of +release+ is download only.
         def check_web_playable!(release, kind)
           platform = WarpEngine::Platform.find(release.software&.platform)
           return if kind.to_s != "html" || platform.nil? || platform.expected_kinds.include?("html")
@@ -287,6 +312,7 @@ module WarpEngine
                           details: { kind: [ "#{platform.label} releases cannot be web playable (download only)" ] })
         end
 
+        # A LIKE pattern matching +value+ anywhere, with its wildcards escaped.
         def like(value)
           "%#{ActiveRecord::Base.sanitize_sql_like(value.to_s.strip)}%"
         end

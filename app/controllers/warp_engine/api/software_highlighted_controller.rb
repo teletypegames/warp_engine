@@ -1,4 +1,5 @@
 module WarpEngine
+  # The highlighted (featured) software.
   class Api::SoftwareHighlightedController < ApiController
     resource_description do
       short "Highlighted software"
@@ -33,6 +34,11 @@ module WarpEngine
       property :totalDownloads, Integer, desc: "Total download count across all releases"
     end
     error code: 404, desc: "No highlighted software found"
+    # <tt>GET /api/software/highlighted</tt>.
+    #
+    # Renders the highlighted software visible to the caller, with its releases,
+    # latest and web-playable release and total downloads (see
+    # WarpEngine::SoftwareDetailSerializer). Responds 404 when there is none.
     def show
       result = WarpEngine::SoftwareHighlightedService.new.index(subject: current_subject)
       if result

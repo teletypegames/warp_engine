@@ -1,4 +1,10 @@
 module WarpEngine
+  # A software with its releases, as <tt>GET /api/software/highlighted</tt>
+  # returns it: +software+ (SoftwareSerializer), +releases+, +latestRelease+
+  # and +webPlayableRelease+ (ReleaseSerializer), +totalDownloads+ and
+  # +access+. The releases, counts and access come from the render options
+  # +releases+, +latest+, +web_playable+, +download_counts+,
+  # +total_downloads+ and +access+ (WarpEngine::Access::OPEN when absent).
   class SoftwareDetailSerializer < Blueprinter::Base
     field(:software)           { |sw, _|    SoftwareSerializer.render_as_hash(sw) }
     field(:releases)           { |_, opts|  ReleaseSerializer.render_as_hash(opts[:releases], download_counts: opts[:download_counts]) }

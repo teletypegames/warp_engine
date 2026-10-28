@@ -1,4 +1,5 @@
 module WarpEngine
+  # The status and category vocabulary of the catalog.
   class Api::SoftwareVocabularyController < ApiController
     resource_description do
       short "Catalog vocabulary"
@@ -28,6 +29,11 @@ module WarpEngine
         property :count, Integer, desc: "Visible softwares carrying it"
       end
     end
+    # <tt>GET /api/software/vocabulary</tt>.
+    #
+    # Renders WarpEngine::SoftwareService#vocabulary: the statuses (key, label,
+    # position, default visibility, badge) and categories (key, label, position,
+    # count of visible softwares) in display order.
     def show
       render json: WarpEngine::SoftwareService.new.vocabulary(subject: current_subject)
     end

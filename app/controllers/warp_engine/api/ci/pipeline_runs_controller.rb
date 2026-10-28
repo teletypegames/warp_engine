@@ -1,6 +1,8 @@
 module WarpEngine
   module Api
     module Ci
+      # Starts runs of tracked CI pipelines. Needs the update credential in
+      # <tt>X-Update-Secret</tt> (see WarpEngine::UpdateAuthentication).
       class PipelineRunsController < BaseController
         include WarpEngine::UpdateAuthentication
 
@@ -15,6 +17,15 @@ module WarpEngine
         returns code: 200, desc: "JSON with triggered run data"
         error code: 401, desc: "Invalid secret"
         error code: 503, desc: "No CI provider configured"
+        # <tt>POST /api/ci/pipelines/:id/trigger</tt>.
+        #
+        # [id]     the WarpEngine::Pipeline id
+        # [branch] the branch to build, +main+ by default
+        #
+        # Triggers a run through WarpEngine::PipelineService and renders
+        # <tt>{ "triggered": true, "pipeline": ... }</tt> with the CI's run data.
+        # Responds 401 without a valid update credential and 404 for an unknown
+        # pipeline.
         def create
           unless update_authorized?(required_scope: WarpEngine::ApplicationToken::UPDATE_SCOPE)
             return render json: { error: "Unauthorized" }, status: :unauthorized

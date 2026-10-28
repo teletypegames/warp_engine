@@ -1,19 +1,28 @@
 module WarpEngine
   module AdminApi
     module Definitions
+      # The +application_tokens+ and +device_grants+ resources, both needing the
+      # Scopes::TOKENS scope. A caller can never grant more than it holds.
       module Tokens
+        # Short name of AdminApi::Schema.
         S = AdminApi::Schema
+        # Short name of Definitions::Schemas.
         X = Schemas
 
+        # The scope both resources need.
         TOKENS_SCOPE = AdminApi::Scopes::TOKENS
 
         module_function
 
+        # Declares the +application_tokens+ and +device_grants+ resources on +api+.
         def define(api)
           application_tokens(api)
           device_grants(api)
         end
 
+        # Declares the +application_tokens+ resource on +api+: list, get, issue (the
+        # plain token is in that answer only), update, revoke (a token cannot revoke
+        # itself) and rotate. All go through WarpEngine::ApplicationTokenService.
         def application_tokens(api)
           api.resource(:application_tokens, label: "Application tokens", scope: TOKENS_SCOPE) do |r|
             r.list "/application_tokens", summary: "The live application tokens", item: X.application_token,
@@ -79,6 +88,7 @@ module WarpEngine
           end
         end
 
+        # Declares the read-only +device_grants+ resource on +api+, available when identity is configured.
         def device_grants(api)
           api.resource(:device_grants, label: "Device sign-ins", scope: TOKENS_SCOPE,
                                        condition: -> { WarpEngine.identity_configured? }) do |r|
@@ -101,8 +111,11 @@ module WarpEngine
           end
         end
 
+        # The active WarpEngine::ApplicationToken +id+. Raises ActiveRecord::RecordNotFound.
         def token(id) = WarpEngine::ApplicationToken.active.find(id)
 
+        # The kept tokens matching the +state+ (active, expired) and +kind+ (publishing, clients,
+        # admin) params of +ctx+.
         def filtered(ctx)
           scope = WarpEngine::ApplicationToken.kept
           scope = case ctx[:state]
@@ -118,14 +131,19 @@ module WarpEngine
           end
         end
 
+        # An SQL condition: the +scopes+ JSON column contains +scope+.
         def contains(scope)
           ActiveRecord::Base.sanitize_sql_array([ "JSON_CONTAINS(COALESCE(scopes, '[]'), ?)", scope.to_json ])
         end
 
+        # An SQL condition: the token holds any admin scope.
         def admin_sql
           AdminApi::Scopes::ALL.map { |scope| contains(scope) }.join(" OR ")
         end
 
+        # Raises a 403 Error when +principal+ may not grant a token with +scopes+,
+        # +unrestricted+ and +expires_at+: admin scopes it lacks, unrestricted without
+        # being so, or an expiry later than its own.
         def authorize_grant!(principal, scopes:, unrestricted:, expires_at:)
           wider = (scopes & AdminApi::Scopes::ALL) - principal.scopes
           raise Error.forbidden("You cannot grant admin scopes you do not hold: #{wider.join(', ')}") if wider.any?
@@ -138,17 +156,21 @@ module WarpEngine
           raise Error.forbidden("The token cannot outlive yours (#{limit.utc.iso8601})")
         end
 
+        # The requested expiry of +ctx+, or the caller's own expiry when none is given.
         def granted_expiry(ctx)
           return time(ctx[:expiresAt]) if ctx.key?(:expiresAt)
 
           ctx.principal.expires_at
         end
 
+        # The owner class name for a token with +scopes+: the admin owner class for admin scopes, else the engine's.
         def owner_type_for(scopes)
           admin = scopes.intersect?(AdminApi::Scopes::ALL)
           admin ? AdminApi.config.owner_class_name : WarpEngine.config.application_token_owner_class
         end
 
+        # The owner id of the new token: the +ownerId+ param, or the caller's owner when
+        # it is of +owner_type+. Raises a 422 Error otherwise.
         def owner_id_for(ctx, owner_type)
           return ctx[:ownerId] if ctx.key?(:ownerId)
 
@@ -158,6 +180,7 @@ module WarpEngine
           raise Error.new(422, "Validation failed", details: { ownerId: [ "is required for a #{owner_type} token" ] })
         end
 
+        # Parses the ISO 8601 +value+, +nil+ when blank. Raises a 400 Error when malformed.
         def time(value)
           return nil if value.blank?
 
@@ -166,6 +189,7 @@ module WarpEngine
           raise Error.bad_request("expiresAt must be an ISO 8601 time")
         end
 
+        # The answer of an issued +token+: its serialization, the plain token and the CI +sync+ counts.
         def issued_payload(token, sync)
           Admin::ApplicationTokenSerializer.render_as_hash(token).merge(
             plainToken: token.plain_token,

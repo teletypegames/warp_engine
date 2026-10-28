@@ -1,14 +1,22 @@
 module WarpEngine
   module AdminApi
     module Definitions
+      # The +pipelines+ resource: the CI repositories (WarpEngine::Pipeline), syncing
+      # them, listing and triggering runs. Answers 503 while CI is not configured.
       module Pipelines
+        # Short name of AdminApi::Schema.
         S = AdminApi::Schema
+        # Short name of Definitions::Schemas.
         X = Schemas
 
+        # The answer while CI is not configured.
         UNAVAILABLE = { status: 503, message: "CI not configured" }.freeze
 
         module_function
 
+        # Declares the +pipelines+ resource on +api+: list, <tt>POST /pipelines/sync</tt>,
+        # get, update, <tt>GET /pipelines/:id/runs</tt> and <tt>POST /pipelines/:id/trigger</tt>
+        # (409 for an inactive pipeline).
         def define(api)
           api.resource(:pipelines, label: "Pipelines", condition: -> { WarpEngine.ci.configured? },
                                    unavailable: UNAVAILABLE) do |r|

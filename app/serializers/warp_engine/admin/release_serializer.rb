@@ -1,5 +1,7 @@
 module WarpEngine
   module Admin
+    # Admin API view of a WarpEngine::Release: id, software id, version, its
+    # assets sorted by kind (as ReleaseAssetSerializer) and timestamps.
     class ReleaseSerializer < Blueprinter::Base
       identifier :id
       field :software_id, name: :softwareId

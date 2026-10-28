@@ -1,4 +1,9 @@
 module WarpEngine
+  # The Rails engine. It isolates the WarpEngine namespace, appends its
+  # migrations to the host's, loads the ActiveAdmin resources of +app/admin+
+  # when ActiveAdmin is present, validates the shelves (and the MCP dependency
+  # when enabled) after boot, and refreshes the shelves of a platform on every
+  # <tt>warp_engine.publish</tt> notification.
   class Engine < ::Rails::Engine
     isolate_namespace WarpEngine
 

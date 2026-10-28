@@ -1,9 +1,19 @@
 module WarpEngine
+  # Mirrors the repositories of the CI adapter into WarpEngine::Pipeline records.
   class PipelineSyncService
+    # [ci] the CI adapter, by default WarpEngine.ci
     def initialize(ci: WarpEngine.ci)
       @ci = ci
     end
 
+    # Creates or updates (and restores) a WarpEngine::Pipeline for every CI
+    # repository, linking it to the kept software of the same name and its
+    # platform when the pipeline has none yet, and deactivates the kept pipelines
+    # whose repository is gone.
+    #
+    # Returns a Hash with the +created+, +updated+ and +deactivated+ pipelines;
+    # a pipeline that does not save is left out. Raises WarpEngine::CI::Error
+    # when the CI cannot be reached.
     def sync_all
       remote_repos = @ci.repos
       results = { created: [], updated: [], deactivated: [] }
@@ -35,11 +45,15 @@ module WarpEngine
       results
     end
 
+    # Activates the CI repository +repo_id+ and syncs its pipeline. Returns the
+    # saved WarpEngine::Pipeline.
     def activate(repo_id)
       @ci.activate_repo(repo_id)
       sync_single(repo_id)
     end
 
+    # Deactivates the CI repository +repo_id+ and marks its pipeline inactive.
+    # Raises ActiveRecord::RecordNotFound when no kept pipeline matches.
     def deactivate(repo_id)
       @ci.deactivate_repo(repo_id)
       record = Pipeline.kept.find_by!(woodpecker_repo_id: repo_id)

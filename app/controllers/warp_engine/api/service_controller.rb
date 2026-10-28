@@ -1,4 +1,5 @@
 module WarpEngine
+  # The public service descriptor a client reads before anything else.
   class Api::ServiceController < ApiController
     resource_description do
       short "Service descriptor"
@@ -53,6 +54,13 @@ module WarpEngine
         property :urls, Array, desc: "Where the folder is served"
       end
     end
+    # <tt>GET /api/service</tt>.
+    #
+    # Renders what this deployment offers: the engine name and version, the API
+    # shape version and catalog paging limits, whether the catalog is gated, the
+    # device sign-in endpoints (+auth+, +null+ without client identity), the
+    # Admin API addresses (+admin+, +null+ while it is off) and the shelf
+    # descriptors. Needs no credential.
     def show
       render json: {
         engine:  "warp_engine",

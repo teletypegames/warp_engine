@@ -1,5 +1,13 @@
 module WarpEngine
+  # Renders a WarpEngine::AssetCoverage report as the plain-text checklist
+  # that <tt>rake warp_engine:builds:check</tt> prints: a header, one block per
+  # software listing every expected asset kind with a MARKERS box, and a
+  # footer with the totals.
   class AssetCoverageChecklist
+    # Checkbox printed before an asset kind, by its state: +present+, +missing+
+    # (the CI builds it), +manual+ (missing, and the CI does not build it),
+    # +optional+ (missing, may be absent) and +unexpected+ (present but not
+    # expected on the platform).
     MARKERS = {
       present:    "[x]",
       missing:    "[ ]",
@@ -8,17 +16,22 @@ module WarpEngine
       unexpected: "[+]"
     }.freeze
 
+    # [coverage]     the WarpEngine::AssetCoverage to render
+    # [only_missing] when true, list only the softwares missing a CI-built kind
     def initialize(coverage, only_missing: false)
       @coverage = coverage
       @only_missing = only_missing
     end
 
+    # The rendered WarpEngine::AssetCoverage and the only-missing flag.
     attr_reader :coverage, :only_missing
 
+    # Returns the checklist as an Array of lines.
     def lines
       [ *header, *body, *footer ]
     end
 
+    # Returns the checklist as one newline-joined String.
     def to_s = lines.join("\n")
 
     private

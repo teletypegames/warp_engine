@@ -6,30 +6,44 @@ require "digest"
 module WarpEngine
   module CI
     module Woodpecker
+      # Verifies the HTTP signature Woodpecker puts on its configuration extension
+      # requests, in either RFC 9421 (<tt>Signature-Input</tt>) or the older Cavage
+      # draft form, against the configured public key (ed25519 PEM). Fetched public
+      # keys are cached per URL for the life of the process.
       class SignatureVerifier
+        # The pattern of one <tt>key="value"</tt> parameter of a Cavage +Signature+ header.
         CAVAGE_PARAM = /(\w+)="([^"]*)"/
 
         @key_cache = {}
         @key_mutex = Mutex.new
 
         class << self
+          # Returns the PEM body at +url+, fetched once per URL and then cached (thread-safe).
           def fetch_public_key(url)
             @key_mutex.synchronize do
               @key_cache[url] ||= Net::HTTP.get(URI.parse(url))
             end
           end
 
+          # Empties the public key cache.
           def reset_key_cache!
             @key_mutex.synchronize { @key_cache = {} }
           end
         end
 
+        # [request]        the incoming ActionDispatch::Request
+        # [public_key]     the PEM public key, preferred when given
+        # [public_key_url] the URL to fetch the PEM public key from otherwise
         def initialize(request, public_key: nil, public_key_url: nil)
           @request        = request
           @public_key     = public_key
           @public_key_url = public_key_url
         end
 
+        # Returns +true+ when the request's signature verifies against the public key.
+        # Returns +false+, logging the reason, when no key is configured or can be
+        # fetched, the key cannot be read, a signed component is missing, or the
+        # content digest or signature does not match.
         def valid?
           pem = public_key_pem
           if pem.blank?

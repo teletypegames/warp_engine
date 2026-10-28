@@ -2,6 +2,9 @@ require "digest"
 
 module WarpEngine
   module Build
+    # Receives build artifacts from CI into the file container. Needs a credential
+    # with the upload scope in <tt>X-Update-Secret</tt> (see
+    # WarpEngine::UpdateAuthentication).
     class UploadsController < ApiController
       include UpdateAuthentication
 
@@ -21,6 +24,18 @@ module WarpEngine
       error code: 400, desc: "Missing or invalid arguments"
       error code: 413, desc: "File larger than max_upload_size"
       error code: 422, desc: "SHA256 mismatch"
+      # <tt>POST /build/upload</tt> (multipart).
+      #
+      # [name]    the software name
+      # [version] the version string
+      # [file]    the artifact, its file name prefixed with <tt><name>-<version></tt>
+      # [sha256]  optional expected SHA-256 hex digest
+      #
+      # Stores the file through WarpEngine::FileManagerService and renders
+      # <tt>{ "file", "size", "sha256" }</tt>. Responds 401 without a valid
+      # credential, 400 for invalid input (WarpEngine::UploadInputDto), 403 when
+      # the token does not own the software, 413 above +max_upload_size+ and 422
+      # on a digest mismatch.
       def create
         unless update_authorized?(required_scope: WarpEngine::ApplicationToken::UPLOAD_SCOPE)
           return render json: { error: "Unauthorized" }, status: :unauthorized

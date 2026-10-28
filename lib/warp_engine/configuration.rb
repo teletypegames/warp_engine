@@ -1,5 +1,39 @@
 module WarpEngine
+  # The engine's settings, held once per process in WarpEngine.config and
+  # written by WarpEngine.configure (directly or through
+  # WarpEngine::Configuration::DSL). Every attribute has a working default.
   class Configuration
+    # The plain settings, each readable and writable:
+    #
+    # [site_url]                      base URL of the host site; the admin links a software to its public page
+    #                                 from here (default +nil+: no link)
+    # [file_container_path]           directory the build artifacts live under (default
+    #                                 <tt>ENV["FILE_CONTAINER_PATH"]</tt> or <tt>/softwares</tt>)
+    # [update_secret]                 shared secret for the <tt>/build/*</tt> endpoints (default
+    #                                 <tt>ENV["UPDATE_SECRET"]</tt>; +nil+ rejects every request)
+    # [application_token_source]      +:env+ (the shared secret) or +:database+ (WarpEngine::ApplicationToken
+    #                                 records) as the <tt>/build/*</tt> authentication (default +:env+)
+    # [application_token_owner_class] class name of the owner every database application token belongs to
+    # [max_upload_size]               upload size cap in bytes (default 500 MB)
+    # [enforce_software_ownership]    when +true+, a database token may only upload or publish softwares of its
+    #                                 own owner (default +false+)
+    # [ci_adapter]                    the CI adapter: +:woodpecker+ (default, from ENV), +:gitlab+, +:none+ or
+    #                                 an adapter object (see WarpEngine::CI.adapter)
+    # [image_class_name]              class name of the host's image model (default <tt>"Image"</tt>)
+    # [image_adapter]                 the image adapter; +nil+ uses WarpEngine::Images::HostModel
+    # [storage_adapter]               the storage adapter: +:local+ (default) or an adapter object
+    # [access_policy]                 the access policy: +:open+ (default) or a policy object
+    # [access_token_owner_class]      class name of the client sign-in subject; +nil+ (default) disables sign-in
+    # [subject_resolver]              callable taking the request and returning the session subject, or +nil+
+    # [identity_verification_url]     the page a user approves a device code on
+    # [device_code_ttl]               device code lifetime in seconds (default 600)
+    # [device_code_interval]          minimum polling interval for device codes in seconds (default 5)
+    # [ignored_user_agents]           user agent patterns (strings with <tt>*</tt> wildcards or regexps) the
+    #                                 download statistics leave out (default empty)
+    # [catalog_page_size]             catalog page size when the client names none (default 48)
+    # [catalog_max_page_size]         the largest catalog page a client may ask for (default 200)
+    # [additional_resources]          the WarpEngine::AdditionalResource list (default empty)
+    # [shelves]                       the shelf definitions as hashes (see WarpEngine::Shelves; default empty)
     attr_accessor :site_url,
                   :file_container_path,
                   :update_secret,
@@ -23,9 +57,14 @@ module WarpEngine
                   :additional_resources,
                   :shelves
 
+    # Replaces the WarpEngine::AdminApi::Configuration returned by #admin_api.
     attr_writer :admin_api
+
+    # The registered non-builtin platforms: a Hash of name to
+    # WarpEngine::Platform::Registration, filled by #register_platform.
     attr_reader :platforms
 
+    # Creates a configuration with every setting at its default.
     def initialize
       @site_url                      = nil
       @file_container_path           = ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
@@ -52,6 +91,16 @@ module WarpEngine
       @platforms                     = {}
     end
 
+    # Registers (or replaces) a platform the engine does not ship.
+    #
+    # [name]           the platform name; must match WarpEngine::Platform::FORMAT
+    # [service]        class (or class name) of the platform service
+    # [built_kinds]    the asset kinds the platform's CI pipeline builds
+    # [templates]      CI pipeline templates as a Hash of adapter name to template path
+    # [version_source] shell command printing the source version in CI, or +nil+ for the default
+    #
+    # Returns the stored WarpEngine::Platform::Registration. Raises ArgumentError
+    # when the name is malformed.
     def register_platform(name, service:, built_kinds: [], templates: {}, version_source: nil)
       name = name.to_s
       raise ArgumentError, "platform name #{name.inspect} must match #{Platform::FORMAT.inspect}" unless name.match?(Platform::FORMAT)
@@ -65,10 +114,15 @@ module WarpEngine
       )
     end
 
+    # Returns the WarpEngine::AdminApi::Configuration, creating it with its
+    # defaults on first use.
     def admin_api
       @admin_api ||= AdminApi::Configuration.new
     end
 
+    # Returns +true+ when the user agent string +ua+ matches one of
+    # #ignored_user_agents (wildcard strings match case-insensitively and in
+    # full); +false+ for a blank +ua+.
     def ignored_user_agent?(ua)
       return false if ua.blank?
 
@@ -79,6 +133,7 @@ module WarpEngine
       @_ignored_ua_patterns.any? { |re| re.match?(ua) }
     end
 
+    # Sets the ignored user agent patterns and drops the compiled pattern cache.
     def ignored_user_agents=(value)
       @ignored_user_agents = value
       @_ignored_ua_patterns = nil

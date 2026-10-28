@@ -1,4 +1,8 @@
 module WarpEngine
+  # Catalog view of a WarpEngine::Software: id, timestamps (see
+  # WarpEngine::TimestampFields), name, title, author, descriptions, license,
+  # platform, status, category, owner id, highlighted flag, external links,
+  # the platform's links, the default image URL and the image gallery.
   class SoftwareSerializer < Blueprinter::Base
     include TimestampFields
 

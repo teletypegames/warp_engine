@@ -1,5 +1,10 @@
 module WarpEngine
+  # Answers what assets each platform builds and which ones the releases of a
+  # software have or lack.
   class BuildsService
+    # Returns a Hash: +platforms+ maps each platform name to its +label+,
+    # expected +kinds+, +required+ and +optional+ kinds; +allKinds+ lists every
+    # WarpEngine::ReleaseAsset kind.
     def index
       platforms = WarpEngine::Platform.all.each_with_object({}) do |platform, hash|
         hash[platform.name] = { label: platform.label, kinds: platform.expected_kinds,
@@ -11,6 +16,11 @@ module WarpEngine
       { platforms: platforms, allKinds: all_kinds }
     end
 
+    # Returns the asset state of the kept software +name+: its +platform+, the
+    # +expected+ kinds, and +releases+ mapping each version (most recently
+    # updated first) to its +actual+ kinds and the +missing+ ones (optional kinds
+    # excluded). Raises ActiveRecord::RecordNotFound for an unknown software and
+    # ArgumentError for an unknown platform.
     def show(name)
       software = WarpEngine::Software.kept.find_by!(name: name)
       platform = WarpEngine::Platform.find!(software.platform)

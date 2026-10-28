@@ -1,4 +1,8 @@
 module WarpEngine
+  # Response of <tt>POST /api/auth/device</tt> for a WarpEngine::DeviceGrant:
+  # +deviceCode+, +userCode+ (formatted), +verificationUrl+ (from the
+  # +verification_url+ render option), the polling +interval+ in seconds and
+  # +expiresIn+, the seconds left.
   class DeviceGrantSerializer < Blueprinter::Base
     field(:deviceCode)      { |grant| grant.device_code }
     field(:userCode)        { |grant| grant.formatted_user_code }

@@ -1,5 +1,8 @@
 module WarpEngine
   module Admin
+    # Admin API view of a WarpEngine::SoftwareCategory: id, key, label,
+    # position, +needsReview+, the number of kept softwares carrying it and
+    # timestamps.
     class SoftwareCategorySerializer < Blueprinter::Base
       identifier :id
       fields :key, :label, :position

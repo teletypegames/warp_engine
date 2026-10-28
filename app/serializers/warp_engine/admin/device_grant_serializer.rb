@@ -1,5 +1,8 @@
 module WarpEngine
   module Admin
+    # Admin API view of a WarpEngine::DeviceGrant: id, formatted user code,
+    # client name, state, subject, issued token id, answer and expiry times and
+    # timestamps. Never the device code or the issued token.
     class DeviceGrantSerializer < Blueprinter::Base
       identifier :id
       field(:userCode) { |grant| grant.formatted_user_code }

@@ -1,12 +1,17 @@
 module WarpEngine
   module AdminApi
     module Definitions
+      # The +downloads+ resource: the download log and its statistics.
       module Statistics
+        # Short name of AdminApi::Schema.
         S = AdminApi::Schema
+        # Short name of Definitions::Schemas.
         X = Schemas
 
         module_function
 
+        # Declares the +downloads+ resource on +api+: the filtered log, one download,
+        # the summary, the top files and softwares and one software's statistics.
         def define(api)
           api.resource(:downloads, label: "Downloads") do |r|
             r.list "/downloads", summary: "The download log", item: X.download,
@@ -52,6 +57,8 @@ module WarpEngine
           end
         end
 
+        # The kept downloads matching the filters of +ctx+ (substring matches, software
+        # title, +from+/+to+ times). Raises a 400 Error for a malformed time.
         def filtered(ctx)
           scope = WarpEngine::Download.kept.includes(:release)
           { filePath: :file_path, ipAddress: :ip_address, userAgent: :user_agent, referer: :referer }.each do |param, column|
@@ -65,18 +72,22 @@ module WarpEngine
           scope
         end
 
+        # A new WarpEngine::DownloadStatsService.
         def service = WarpEngine::DownloadStatsService.new
 
+        # The +limit+ param of +ctx+, or +default+, clamped to 1..100.
         def limit(ctx, default)
           (ctx[:limit] || default).to_i.clamp(1, 100)
         end
 
+        # Parses the ISO 8601 +value+. Raises a 400 Error naming the param +name+ when malformed.
         def time(value, name)
           Time.iso8601(value.to_s)
         rescue ArgumentError
           raise Error.bad_request("#{name} must be an ISO 8601 time")
         end
 
+        # +value+ with every hash key, at any depth, in lower camel case.
         def camelize(value)
           case value
           when Hash  then value.to_h { |key, item| [ key.to_s.camelize(:lower), camelize(item) ] }
@@ -85,6 +96,7 @@ module WarpEngine
           end
         end
 
+        # A LIKE pattern matching +value+ anywhere, with its wildcards escaped.
         def like(value)
           "%#{ActiveRecord::Base.sanitize_sql_like(value.to_s.strip)}%"
         end

@@ -1,4 +1,14 @@
 module WarpEngine
+  # Controller concern that authorizes the CI-facing write endpoints.
+  #
+  # The credential travels in the <tt>X-Update-Secret</tt> header. With
+  # <tt>application_token_source: :database</tt> it must be an active
+  # WarpEngine::ApplicationToken carrying the required scope (which then becomes
+  # +current_application_token+); otherwise it is compared in constant time with
+  # the configured +update_secret+. When +enforce_software_ownership+ is on, the
+  # private helpers +software_ownership_authorized?+ and
+  # +claim_software_ownership+ restrict a restricted token to the softwares its
+  # owner owns, and give unowned softwares to that owner on first publish.
   module UpdateAuthentication
     extend ActiveSupport::Concern
 

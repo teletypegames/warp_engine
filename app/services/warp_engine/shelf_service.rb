@@ -3,15 +3,31 @@ require "fileutils"
 require "json"
 
 module WarpEngine
+  # Builds one shelf (a WarpEngine::Shelves shelf): a folder of the file
+  # container that holds the latest build of every listed title of a platform
+  # under a fixed name, with an <tt>INDEX.TXT</tt> listing them. A +flat+ shelf
+  # holds one file a title, a +folders+ shelf one folder a title and kind.
   class ShelfService
+    # The first line of the index: the format version and the field names.
     HEADER = "#SHELF 1 file|version|size|crc32|title|author|description".freeze
+    # The longest index line, in bytes; the description is cut to fit.
     LINE_LIMIT = 255
+    # The read size, in bytes, when copying a file and computing its CRC32.
     CHUNK = 64 * 1024
+    # The program description file written into each folder of a +folders+ shelf.
     INFO_FILE = "INFO.INI".freeze
+    # The file list (<tt>crc32 size path</tt> per file) written into each folder
+    # of a +folders+ shelf.
     MANIFEST_FILE = "FILES.LST".freeze
 
+    # One title and kind on the shelf: the shelf +file+ (or folder) name, the
+    # asset +kind+, +version+, +size+ and +crc32+ of the source, the +title+,
+    # +author+ and +description+ of the software, the +source+ path, the
+    # +software+ and, on a +folders+ shelf, the +folder+ spec.
     Entry = Struct.new(:file, :kind, :version, :size, :crc32, :title, :author, :description, :source, :software,
                        :folder, keyword_init: true) do
+      # The index line of the entry: <tt>file|version|size|crc32|title|author|description</tt>,
+      # cleaned with ShelfService.clean and cut to LINE_LIMIT bytes.
       def line
         fields = [ file, version, size, crc32, ShelfService.clean(title), ShelfService.clean(author) ]
         head = fields.join("|") + "|"
@@ -19,24 +35,42 @@ module WarpEngine
       end
     end
 
+    # A software left off the shelf, with the +reason+.
     Skip = Struct.new(:software, :reason, keyword_init: true) do
+      # Returns <tt>"name: reason"</tt>.
       def to_s = "#{software.name}: #{reason}"
     end
 
+    # The outcome of #sync!: the +shelf+, the +entries+ on it, the +skipped+
+    # softwares, the entries +written+, the file names +removed+, and whether the
+    # index text changed.
     Result = Struct.new(:shelf, :entries, :skipped, :written, :removed, :index_changed, keyword_init: true) do
+      # Whether the sync wrote a file, removed one or changed the index.
       def changed? = index_changed || written.any? || removed.any?
     end
 
+    # Returns +text+ as printable ASCII for the index: transliterated, with
+    # <tt>|</tt>, tabs and line breaks turned into spaces, other characters
+    # dropped and spaces squeezed.
     def self.clean(text)
       I18n.transliterate(text.to_s).gsub(/[|\r\n\t]/, " ").gsub(/[^\x20-\x7E]/, "").squeeze(" ").strip
     end
 
+    # The WarpEngine::Shelves shelf being built.
     attr_reader :shelf
 
+    # [shelf] the WarpEngine::Shelves shelf to build
     def initialize(shelf)
       @shelf = shelf
     end
 
+    # Decides what the shelf holds, without touching the disk: for every kept,
+    # ungated software of the platform with a listed status, the latest release
+    # that has each kind of the shelf. A name already taken (by an older
+    # software) skips the newer one.
+    #
+    # Returns <tt>[entries, skipped]</tt>: the Entry list sorted by title, and the
+    # Skip list.
     def plan
       entries = []
       skipped = []
@@ -59,6 +93,15 @@ module WarpEngine
       [ entries.sort_by { |entry| [ entry.title.to_s.downcase, entry.file ] }, skipped ]
     end
 
+    # Brings the shelf folder in line with #plan, under an exclusive file lock:
+    # copies (or unpacks) the entries whose version, size or source changed,
+    # replaces the index when its text changes, then removes the files (or, on a
+    # +folders+ shelf, the formerly listed folders) that left the shelf. Entries
+    # not rewritten keep the CRC32 of the previous index.
+    #
+    # [dry_run] when +true+, only computes the Result and writes nothing
+    #
+    # Returns a Result. Raises ArgumentError when a folder zip holds an unsafe path.
     def sync!(dry_run: false)
       entries, skipped = plan
       with_lock do
@@ -97,6 +140,8 @@ module WarpEngine
                 .order(:created_at, :id)
     end
 
+    # Returns <tt>[entries, reasons]</tt> for +software+: one Entry per shelf kind
+    # it can supply, and the reason for each kind it cannot.
     def consider(software)
       return [ [], [ "gated" ] ] if WarpEngine.access_policy.access_for(software: software, subject: nil).gated
 
@@ -156,6 +201,8 @@ module WarpEngine
       Pathname.new(path).absolute? ? path : File.join(WarpEngine.config.file_container_path, path)
     end
 
+    # Whether +entry+ must be written again, comparing it with its line in the
+    # previous index (+previous+) and the file on the shelf.
     def stale?(entry, previous)
       target = File.join(shelf.directory, entry.file)
       return true unless previous && previous[:crc32].present?
@@ -170,6 +217,8 @@ module WarpEngine
       shelf.folders? ? place_folder(entry) : place_file(entry)
     end
 
+    # Copies the source of +entry+ to the shelf through a temporary file and sets
+    # its CRC32.
     def place_file(entry)
       target = File.join(shelf.directory, entry.file)
       temporary = "#{target}.NEW"
@@ -188,6 +237,8 @@ module WarpEngine
       FileUtils.rm_f(temporary) if temporary && File.exist?(temporary)
     end
 
+    # Builds the folder of +entry+ next to the old one (unpacked files,
+    # INFO_FILE, MANIFEST_FILE), swaps it in and sets the CRC32 of the source zip.
     def place_folder(entry)
       target = File.join(shelf.directory, entry.file)
       staging = "#{target}.NEW"
@@ -208,6 +259,9 @@ module WarpEngine
       FileUtils.rm_rf(staging) if staging && File.exist?(staging)
     end
 
+    # Unpacks the files under the entry's folder in the source zip into
+    # +staging+, leaving out its +settings+ files and the generated files. Raises
+    # ArgumentError on an unsafe path.
     def unpack_folder(entry, staging)
       prefix = "#{entry.folder[:folder]}/"
       settings = Array(entry.folder[:settings]).map(&:to_s)
@@ -267,6 +321,7 @@ module WarpEngine
       File.file?(path) ? File.read(path) : nil
     end
 
+    # Parses the current index into a Hash of file name => +version+, +size+ and +crc32+.
     def read_index
       text = current_index_text
       return {} if text.nil?
@@ -293,6 +348,7 @@ module WarpEngine
       Dir.children(shelf.directory).select { |name| File.file?(File.join(shelf.directory, name)) } - [ Shelves::INDEX_FILE ]
     end
 
+    # Yields while holding an exclusive lock file for this shelf in the temporary directory.
     def with_lock
       FileUtils.mkdir_p(Dir.tmpdir)
       lock_path = File.join(Dir.tmpdir, "warp_engine-shelf-#{shelf.path.tr('/', '_')}.lock")

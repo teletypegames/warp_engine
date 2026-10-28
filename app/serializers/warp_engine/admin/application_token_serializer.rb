@@ -1,5 +1,8 @@
 module WarpEngine
   module Admin
+    # Admin API view of a WarpEngine::ApplicationToken: id, name, token prefix,
+    # owner, scopes, +unrestricted+, expiry, last use and timestamps. Never the
+    # token or its digest.
     class ApplicationTokenSerializer < Blueprinter::Base
       identifier :id
       field :name

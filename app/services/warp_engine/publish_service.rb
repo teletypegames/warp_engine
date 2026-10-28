@@ -1,5 +1,9 @@
 module WarpEngine
+  # Publishes a CI upload: hands it to the platform's service, which writes the
+  # catalog records, and announces the result.
   class PublishService
+    # The ActiveSupport::Notifications event instrumented after every publish,
+    # with +platform+, +name+, +version+, +software+ and +release+ in the payload.
     NOTIFICATION = "warp_engine.publish".freeze
 
     # A version older than the newest one published would become the latest
@@ -7,6 +11,14 @@ module WarpEngine
     # versions Gem::Version cannot read are not compared.
     class StaleVersionError < StandardError; end
 
+    # Publishes the upload described by +input+ (a WarpEngine::PublishInputDto
+    # with +platform+, +name+ and +version+) through the platform service's
+    # <tt>update</tt>, then instruments NOTIFICATION.
+    #
+    # Returns the WarpEngine::Release. Raises StaleVersionError when the version
+    # is older than the newest one published, ArgumentError for an unknown
+    # platform, and WarpEngine::Platforms::MissingAssetsError when a required
+    # asset was not uploaded.
     def publish(input)
       refuse_stale!(input)
       release = WarpEngine::Platform.find!(input.platform).service.update(input.name, input.version)

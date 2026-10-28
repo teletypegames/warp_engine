@@ -1,6 +1,9 @@
 module WarpEngine
   module Platforms
+    # The +ebitengine+ platform.
     module Ebitengine
+      # Publishes Ebitengine uploads: a required web build, plus Windows x86/x64,
+      # Linux x64/arm64 and macOS x64/arm64 zips.
       class Service
         include Updatable
         include Builds::BuildWeb

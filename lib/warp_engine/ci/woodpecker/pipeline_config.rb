@@ -3,13 +3,20 @@ require "warp_engine/ci/pipeline_config"
 module WarpEngine
   module CI
     module Woodpecker
+      # The CI::PipelineConfig of Woodpecker: renders the templates under
+      # +platforms/+ next to this file and adds the shared steps as Woodpecker
+      # +steps+, tagging and releasing through the Gitea/Forgejo API with the
+      # +gitea_token+ secret.
       class PipelineConfig < WarpEngine::CI::PipelineConfig
-        # Every event but release: moving a dev tag makes the forge send a release
-        # event too, which would build the tag a second time.
+        # The events a generated pipeline runs on when its template sets no +when+:
+        # every Woodpecker event but +release+, which moving a dev tag also sends
+        # and which would build the tag a second time.
         EVENTS = %w[push pull_request pull_request_closed pull_request_metadata tag deployment cron manual].freeze
 
+        # Returns +:woodpecker+, the key of Woodpecker templates in a platform registration.
         def self.adapter = :woodpecker
 
+        # Returns the Pathname of the bundled Woodpecker templates.
         def self.templates_dir
           Pathname.new(__dir__).join("platforms")
         end
