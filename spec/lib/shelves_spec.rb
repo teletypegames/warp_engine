@@ -65,6 +65,18 @@ RSpec.describe WarpEngine::Shelves do
       expect { described_class.validate! }.to raise_error(described_class::ConfigurationError, /no extension/)
     end
 
+    it "takes a known preview format on a flat shelf only" do
+      configure(c64.merge(preview: "c64"))
+      expect(described_class.validate!.first.preview_renderer).to eq(WarpEngine::ShelfPreview::C64)
+      expect(described_class.validate!.first.preview_name_for("ARIADNE.PRG")).to eq("ARIADNE.PVW")
+
+      configure(c64.merge(preview: "amiga"))
+      expect { described_class.validate! }.to raise_error(described_class::ConfigurationError, /unknown shelf preview/)
+
+      configure({ platform: "dos", kinds: %w[cartridge], layout: "folders", path: "shelves/APPS", preview: "c64" })
+      expect { described_class.validate! }.to raise_error(described_class::ConfigurationError, /no preview/)
+    end
+
     it "refuses two shelves in one folder" do
       configure(c64, c64.merge(platform: "plus4"))
 

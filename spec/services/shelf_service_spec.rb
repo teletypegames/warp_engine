@@ -40,7 +40,67 @@ RSpec.describe WarpEngine::ShelfService do
     expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "ARIADNE.PRG", "RABBIT.PRG")
     expect(File.binread(File.join(shelf_dir, "ARIADNE.PRG"))).to eq("newer")
     expect(index_lines.first).to eq(described_class::HEADER)
-    expect(index_lines[1]).to eq("ARIADNE.PRG|1.1.0|5|#{format('%08x', Zlib.crc32('newer'))}|Ariadne|dev|")
+    expect(index_lines[1]).to eq("ARIADNE.PRG|1.1.0|5|#{format('%08x', Zlib.crc32('newer'))}|Ariadne|dev|||")
+  end
+
+  it "lists the category of each title after the description" do
+    publish("warp64u", "1.0.0", category: "tool", desc: "The store.")
+
+    sync
+
+    expect(index_lines[1]).to end_with("|The store.|tool|")
+  end
+
+  context "with previews" do
+    let(:definition) { super().merge(preview: "c64") }
+
+    def picture(software, color: ChunkyPNG::Color.rgb(0x35, 0x28, 0x79))
+      path = File.join(container, "#{software.name}-#{color}.png")
+      image = ChunkyPNG::Image.new(384, 272, ChunkyPNG::Color::BLACK)
+      (35...235).each { |y| (32...352).each { |x| image[x, y] = color } }
+      image.save(path)
+      record = Image.create!(filename: File.basename(path), original_filename: "shot.png")
+      allow_any_instance_of(Image).to receive(:file_path) { |img| File.join(container, img.filename) }
+      WarpEngine::SoftwareImage.create!(software: software, image_id: record.id, is_default: true)
+    end
+
+    it "writes the preview of a title with an image beside it and names it in the line" do
+      picture(publish("ariadne", "1.0.0", shelf_name: "ARIADNE"))
+      publish("rabbit", "1.0.0")
+
+      sync
+
+      expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "ARIADNE.PRG", "ARIADNE.PVW", "RABBIT.PRG")
+      expect(index_lines[1]).to end_with("||ARIADNE.PVW")
+      expect(index_lines[2]).to end_with("|||")
+      expect(File.binread(File.join(shelf_dir, "ARIADNE.PVW")).bytesize).to eq(3 + 1000 + 8000)
+    end
+
+    it "keeps the preview across syncs and removes it with its title" do
+      software = publish("ariadne", "1.0.0", shelf_name: "ARIADNE")
+      picture(software)
+      sync
+      sync
+
+      expect(Dir.children(shelf_dir)).to include("ARIADNE.PVW")
+
+      software.update!(status: "archived")
+      WarpEngine::SoftwareStatus.find_by!(key: "archived").update!(default_visible: false)
+      sync
+
+      expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT")
+    end
+
+    it "lists the title without a preview when its image cannot be read" do
+      software = publish("ariadne", "1.0.0", shelf_name: "ARIADNE")
+      picture(software)
+      File.write(Dir.glob(File.join(container, "ariadne-*.png")).first, "not a png")
+
+      sync
+
+      expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "ARIADNE.PRG")
+      expect(index_lines[1]).to end_with("|||")
+    end
   end
 
   it "leaves out other platforms, hidden statuses, gated titles and titles without the asset" do

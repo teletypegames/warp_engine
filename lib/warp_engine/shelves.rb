@@ -6,7 +6,7 @@ module WarpEngine
   # versionless name, plus an INDEX_FILE listing them. They serve clients that
   # cannot read the JSON API (a C64 store over HTTP, a DOS installer over FTP).
   #
-  #   shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16
+  #   shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16, preview: "c64"
   #
   # The definitions live in WarpEngine.config.shelves; WarpEngine::ShelfService
   # writes the folders.
@@ -22,7 +22,7 @@ module WarpEngine
     # The URL schemes a shelf's +urls+ may use.
     URL_SCHEMES = %w[ftp http https].freeze
     # The keys a shelf definition accepts.
-    KEYS = %i[platform kind kinds layout path extension name_length statuses urls].freeze
+    KEYS = %i[platform kind kinds layout path extension name_length statuses urls preview].freeze
 
     # Raised when a shelf definition is invalid.
     class ConfigurationError < StandardError; end
@@ -37,7 +37,10 @@ module WarpEngine
     # [name_length] the longest file name (extension included) or folder name
     # [statuses]    the software statuses listed; empty means the default visible ones
     # [urls]        where the host serves the folder
-    Shelf = Struct.new(:platform, :kinds, :layout, :path, :extension, :name_length, :statuses, :urls, keyword_init: true) do
+    # [preview]     the WarpEngine::ShelfPreview format written beside each
+    #               title of a flat shelf, or +nil+ for none
+    Shelf = Struct.new(:platform, :kinds, :layout, :path, :extension, :name_length, :statuses, :urls, :preview,
+                       keyword_init: true) do
       # Returns the absolute path of the shelf folder.
       def directory
         File.join(WarpEngine.config.file_container_path, path)
@@ -57,6 +60,13 @@ module WarpEngine
         base = base[0, base_length].sub(/-+\z/, "")
         base.empty? ? nil : "#{base}#{extension}"
       end
+
+      # Returns the WarpEngine::ShelfPreview renderer class of the shelf, or +nil+.
+      def preview_renderer = preview && WarpEngine::ShelfPreview.for(preview)
+
+      # Returns the name of the preview beside the shelf file +file+: the file
+      # name with the extension of the renderer (<tt>ARIADNE.PVW</tt>).
+      def preview_name_for(file) = "#{file.delete_suffix(extension)}#{preview_renderer::EXTENSION}"
 
       # Returns +true+ when +name+ is a String of NAME_PATTERN characters no
       # longer than +name_length+.
@@ -150,7 +160,8 @@ module WarpEngine
           extension:   attributes[:extension].to_s.upcase,
           name_length: Integer(attributes.fetch(:name_length, layout == "folders" ? 8 : 16)),
           statuses:    Array(attributes[:statuses]).map(&:to_s),
-          urls:        Array(attributes[:urls]).map(&:to_s)
+          urls:        Array(attributes[:urls]).map(&:to_s),
+          preview:     attributes[:preview]&.to_s.presence
         )
         check!(shelf)
         shelf
@@ -170,6 +181,11 @@ module WarpEngine
           raise ConfigurationError, "shelf extension must look like .PRG: #{shelf.extension.inspect}" unless shelf.extension.match?(EXTENSION_PATTERN)
         end
         raise ConfigurationError, "shelf name_length leaves no room for a name" unless shelf.base_length.positive?
+
+        if shelf.preview
+          raise ConfigurationError, "unknown shelf preview: #{shelf.preview.inspect}" unless shelf.preview_renderer
+          raise ConfigurationError, "a folders shelf takes no preview" if shelf.folders?
+        end
 
         path = Pathname.new(shelf.path)
         if shelf.path.empty? || path.absolute? || path.each_filename.include?("..")

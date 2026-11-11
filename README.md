@@ -853,7 +853,7 @@ store that fetches the index and the files over plain HTTP, a DOS installer that
 folders over FTP — and it is off unless the host asks for one:
 
 ```ruby
-shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16,
+shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16, preview: "c64",
             urls: [ "ftp://ftp.example.org/C64", "http://archive.example.org/C64" ]
 shelf :dos, kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
             urls: [ "ftp://ftp.example.org/APPS" ]
@@ -869,6 +869,7 @@ shelf :dos, kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS"
 | `name_length` | the longest file name, extension included (default 16); for `folders`, the longest folder name (default 8, as DOS has it) |
 | `statuses` | optional; without it, the statuses whose `default_visible` is set |
 | `urls` | optional: where the host serves the folder (`ftp`, `http`, `https`) |
+| `preview` | optional, `flat` only: a picture of each title beside its file (`c64`, below) |
 
 The configuration is checked at boot: an unknown platform, kind or layout, a path outside
 the container, two shelves in one folder, a URL without one of those schemes, or a storage
@@ -898,12 +899,39 @@ shelves/C64/
 format and the fields:
 
 ```
-#SHELF 1 file|version|size|crc32|title|author|description
-ARIADNE.PRG|1.1.0|10561|3c0f5d2a|Thread of Ariadne|Teletype Games|Co-op labyrinth for two.
+#SHELF 2 file|version|size|crc32|title|author|description|category|preview
+ARIADNE.PRG|1.1.0|10561|3c0f5d2a|Thread of Ariadne|Teletype Games|Co-op labyrinth for two.||ARIADNE.PVW
+WARP64U.PRG|1.0.0|31816|5e1d0c3b|WARP64U|Teletype Games|The store on the C64.|tool|WARP64U.PVW
 ```
 
-`crc32` is zlib's, in hexadecimal. Text is transliterated to ASCII, `|` and line breaks
-become spaces, and a line is at most 255 bytes — the description is what gets cut.
+`crc32` is zlib's, in hexadecimal. `category` is the software's category key (empty for
+none), `preview` the name of its picture on the shelf (empty for none). Text is
+transliterated to ASCII, `|` and line breaks become spaces, and a line is at most 255
+bytes — the description is what gets cut. Version 1 of the format (1.2–1.9) ended after
+the description; the two fields came after it so that a version 1 reader still reads a
+version 2 line right.
+
+**Previews.** A flat shelf with `preview: "c64"` also holds `NAME.PVW` beside `NAME.PRG`
+for every title with an image in its gallery (the default one, else the first): a C64
+bitmap a client can put on the screen as it comes (`WarpEngine::ShelfPreview::C64`),
+9003 bytes in hires, 10003 in multicolor:
+
+| Bytes | |
+|---|---|
+| 1 | mode: 0 hires, 1 multicolor |
+| 1 | background color (multicolor) |
+| 1 | border color |
+| 1000 | screen matrix |
+| 1000 | color RAM, multicolor only |
+| 8000 | bitmap, 8 bytes a cell, cells row by row |
+
+The image is read as a 384x272 VICE frame when its border band is of one color, as a
+320x200 screen when its shape is near that, and is fitted into the screen otherwise. Every
+pixel takes the nearest of the 16 colors, and the picture is drawn both ways — two colors
+in each 8x8 cell, or a shared background and three colors in each 4x8 cell — and the one
+closer to the image is kept. A preview is rendered again when it is missing, its title
+gets a new release, or its image file is newer; an image that cannot be read leaves the
+title without one (and is logged).
 
 **A `folders` shelf** holds a folder for each title and kind, the layout DOSINST reads:
 the asset is a zip with the folder at its top, and the platform's service names the folder

@@ -6,10 +6,14 @@ module WarpEngine
   # Builds one shelf (a WarpEngine::Shelves shelf): a folder of the file
   # container that holds the latest build of every listed title of a platform
   # under a fixed name, with an <tt>INDEX.TXT</tt> listing them. A +flat+ shelf
-  # holds one file a title, a +folders+ shelf one folder a title and kind.
+  # holds one file a title, a +folders+ shelf one folder a title and kind. A
+  # flat shelf with a +preview+ also holds a picture of each title that has an
+  # image, made by its WarpEngine::ShelfPreview renderer.
   class ShelfService
     # The first line of the index: the format version and the field names.
-    HEADER = "#SHELF 1 file|version|size|crc32|title|author|description".freeze
+    # Version 2 added the last two fields, so a version 1 reader that stops
+    # after the description still reads the rest of the line right.
+    HEADER = "#SHELF 2 file|version|size|crc32|title|author|description|category|preview".freeze
     # The longest index line, in bytes; the description is cut to fit.
     LINE_LIMIT = 255
     # The read size, in bytes, when copying a file and computing its CRC32.
@@ -22,16 +26,21 @@ module WarpEngine
 
     # One title and kind on the shelf: the shelf +file+ (or folder) name, the
     # asset +kind+, +version+, +size+ and +crc32+ of the source, the +title+,
-    # +author+ and +description+ of the software, the +source+ path, the
-    # +software+ and, on a +folders+ shelf, the +folder+ spec.
+    # +author+, +description+ and +category+ of the software, the +source+
+    # path, the +software+, on a +folders+ shelf the +folder+ spec, and the
+    # +preview+ file name with the +preview_source+ image it is made from
+    # (both +nil+ without a preview).
     Entry = Struct.new(:file, :kind, :version, :size, :crc32, :title, :author, :description, :source, :software,
-                       :folder, keyword_init: true) do
-      # The index line of the entry: <tt>file|version|size|crc32|title|author|description</tt>,
-      # cleaned with ShelfService.clean and cut to LINE_LIMIT bytes.
+                       :folder, :category, :preview, :preview_source, keyword_init: true) do
+      # The index line of the entry:
+      # <tt>file|version|size|crc32|title|author|description|category|preview</tt>,
+      # cleaned with ShelfService.clean; the description is cut so that the
+      # line fits in LINE_LIMIT bytes.
       def line
         fields = [ file, version, size, crc32, ShelfService.clean(title), ShelfService.clean(author) ]
         head = fields.join("|") + "|"
-        head + ShelfService.clean(description)[0, [ LINE_LIMIT - head.bytesize, 0 ].max]
+        tail = "|#{ShelfService.clean(category)}|#{preview}"
+        head + ShelfService.clean(description)[0, [ LINE_LIMIT - head.bytesize - tail.bytesize, 0 ].max] + tail
       end
     end
 
@@ -95,9 +104,11 @@ module WarpEngine
 
     # Brings the shelf folder in line with #plan, under an exclusive file lock:
     # copies (or unpacks) the entries whose version, size or source changed,
-    # replaces the index when its text changes, then removes the files (or, on a
-    # +folders+ shelf, the formerly listed folders) that left the shelf. Entries
-    # not rewritten keep the CRC32 of the previous index.
+    # renders the previews that are missing or older than their entry or image
+    # (an image that cannot be rendered leaves the entry without a preview and
+    # is logged), replaces the index when its text changes, then removes the
+    # files (or, on a +folders+ shelf, the formerly listed folders) that left
+    # the shelf. Entries not rewritten keep the CRC32 of the previous index.
     #
     # [dry_run] when +true+, only computes the Result and writes nothing
     #
@@ -108,11 +119,12 @@ module WarpEngine
         previous = read_index
         written = entries.select { |entry| stale?(entry, previous[entry.file]) }
         (entries - written).each { |entry| entry.crc32 = previous.dig(entry.file, :crc32) }
-        removed = removable(previous) - entries.map(&:file)
+        removed = removable(previous) - entries.map(&:file) - entries.filter_map(&:preview)
 
         unless dry_run
           FileUtils.mkdir_p(shelf.directory)
           written.each { |entry| place(entry) }
+          entries.each { |entry| place_preview(entry, written.include?(entry)) if entry.preview }
         end
 
         index = render(entries)
@@ -136,7 +148,7 @@ module WarpEngine
 
       WarpEngine.access_policy.visible_software_scope(subject: nil)
                 .where(platform: shelf.platform, status: statuses)
-                .includes(releases: :release_assets)
+                .includes({ releases: :release_assets }, { software_images: :image })
                 .order(:created_at, :id)
     end
 
@@ -170,9 +182,38 @@ module WarpEngine
         return [ "no usable shelf name" ] if file.nil?
       end
 
-      [ nil, Entry.new(file: file, kind: kind, version: release.version, size: File.size(source), title: software.title,
-                       author: software.author, description: software.desc, source: source, software: software,
-                       folder: folder) ]
+      entry = Entry.new(file: file, kind: kind, version: release.version, size: File.size(source), title: software.title,
+                        author: software.author, description: software.desc, category: software.category, source: source,
+                        software: software, folder: folder)
+      add_preview(entry)
+      [ nil, entry ]
+    end
+
+    def add_preview(entry)
+      return unless shelf.preview && !shelf.folders?
+
+      image = (entry.software.software_images.detect(&:is_default?) || entry.software.software_images.first)&.image
+      path = image.respond_to?(:file_path) ? image.file_path.to_s : ""
+      return unless File.file?(path)
+
+      entry.preview = shelf.preview_name_for(entry.file)
+      entry.preview_source = path
+    end
+
+    # Writes the preview of +entry+ through a temporary file when it is
+    # missing, its title was +rewritten+, or its image is newer; drops the
+    # preview from the entry when the image cannot be rendered.
+    def place_preview(entry, rewritten)
+      target = File.join(shelf.directory, entry.preview)
+      return if !rewritten && File.file?(target) && File.mtime(entry.preview_source) <= File.mtime(target)
+
+      temporary = "#{target}.NEW"
+      File.binwrite(temporary, shelf.preview_renderer.new(entry.preview_source).render)
+      File.rename(temporary, target)
+    rescue StandardError => e
+      Rails.logger.error("[WarpEngine::ShelfService] preview of #{entry.file}: #{e.class}: #{e.message}")
+      FileUtils.rm_f(temporary) if temporary
+      entry.preview = nil unless File.file?(target)
     end
 
     def latest_with_asset(software, kind)
