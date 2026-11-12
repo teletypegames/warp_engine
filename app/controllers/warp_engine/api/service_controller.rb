@@ -24,6 +24,11 @@ module WarpEngine
       `shelves` lists the shelves the host keeps: the latest build of every listed title of
       a platform, in a folder a machine without HTTPS can read, and where that folder is
       served (`urls`, as the host configured them; empty when it named none).
+
+      `outlets` lists every format the catalog leaves the engine in: this API (`wecp`), each
+      shelf (`shelf`) and the served outlets such as `assembly64`, each with its `key`,
+      `type` and `platforms` and what its type adds (a shelf the fields of `shelves`, an
+      Assembly64 outlet its `hosts`, `path` and `repo`).
     DESC
     returns code: 200, desc: "The descriptor" do
       property :engine, String, desc: "Always 'warp_engine'"
@@ -53,14 +58,20 @@ module WarpEngine
         property :index, String, desc: "The index file in its folder"
         property :urls, Array, desc: "Where the folder is served"
       end
+      property :outlets, Array, desc: "The outlets of this deployment, the catalog API first" do
+        property :key, String, desc: "The outlet key"
+        property :type, String, desc: "wecp, shelf, assembly64 or a type the host registered"
+        property :platforms, Array, desc: "The platforms it carries; empty for all"
+      end
     end
     # <tt>GET /api/service</tt>.
     #
     # Renders what this deployment offers: the engine name and version, the API
     # shape version and catalog paging limits, whether the catalog is gated, the
     # device sign-in endpoints (+auth+, +null+ without client identity), the
-    # Admin API addresses (+admin+, +null+ while it is off) and the shelf
-    # descriptors. Needs no credential.
+    # Admin API addresses (+admin+, +null+ while it is off), the shelf
+    # descriptors and the outlet descriptors (WarpEngine::Outlets.descriptors).
+    # Needs no credential.
     def show
       render json: {
         engine:  "warp_engine",
@@ -75,7 +86,8 @@ module WarpEngine
         catalog: { gated: !WarpEngine::AccessPolicy.open? },
         auth:    auth_descriptor,
         admin:   admin_descriptor,
-        shelves: WarpEngine::Shelves.descriptors
+        shelves: WarpEngine::Shelves.descriptors,
+        outlets: WarpEngine::Outlets.descriptors
       }
     end
 

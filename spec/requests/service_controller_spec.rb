@@ -34,6 +34,20 @@ RSpec.describe "GET /api/service", type: :request do
     )
   end
 
+  it "lists the outlets, the catalog API first" do
+    allow(WarpEngine.config).to receive_messages(
+      shelves: [ { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG" } ],
+      outlets: [ { key: "assembly64", type: "assembly64", hosts: [ "a64.example" ] } ]
+    )
+
+    get "/api/service"
+
+    outlets = JSON.parse(response.body)["outlets"]
+    expect(outlets.map { |outlet| outlet.values_at("key", "type") })
+      .to eq([ %w[wecp wecp], %w[shelves/C64 shelf], %w[assembly64 assembly64] ])
+    expect(outlets.last).to include("hosts" => [ "a64.example" ], "path" => "/leet/search", "platforms" => [ "c64" ])
+  end
+
   it "reports an open catalog as ungated and offering no sign-in" do
     get "/api/service"
 

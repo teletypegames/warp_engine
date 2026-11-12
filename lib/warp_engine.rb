@@ -13,6 +13,7 @@ require "warp_engine/images"
 require "warp_engine/ci"
 require "warp_engine/additional_resource"
 require "warp_engine/shelves"
+require "warp_engine/outlets"
 require "warp_engine/admin_api"
 
 # WarpEngine is the mountable Rails engine behind a game catalog: it ingests CI

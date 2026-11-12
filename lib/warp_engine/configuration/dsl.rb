@@ -72,6 +72,27 @@ module WarpEngine
         @config.shelves = Array(@config.shelves).reject { |other| other.to_h.symbolize_keys[:path] == definition[:path] } + [ definition ]
       end
 
+      # Defines an outlet under +key+ of the type +type+ (see WarpEngine::Outlets),
+      # its options as keywords. An outlet with the same key is replaced. A
+      # +shelf+ outlet is the #shelf of its +platform+ option.
+      #
+      #   outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
+      def outlet(key, type:, **options)
+        if type.to_s == "shelf"
+          platform = options.delete(:platform) { raise ArgumentError, "a shelf outlet needs a platform" }
+          return shelf(platform, **options)
+        end
+
+        definition = { key: key.to_s, type: type.to_s, **options }
+        @config.outlets = Array(@config.outlets).reject { |other| other.to_h.symbolize_keys[:key].to_s == key.to_s } + [ definition ]
+      end
+
+      # Registers the outlet type +name+ with the class named +class_name+, a
+      # WarpEngine::Outlets::Base subclass.
+      def register_outlet_type(name, class_name)
+        @config.outlet_types = @config.outlet_types.merge(name.to_s => class_name.to_s)
+      end
+
       # Registers a platform; see WarpEngine::Configuration#register_platform.
       def register_platform(name, **options) = @config.register_platform(name, **options)
 

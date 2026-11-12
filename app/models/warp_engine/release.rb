@@ -2,13 +2,13 @@ module WarpEngine
   # One version of a software (table +releases+), unique per software. Has
   # many kept +downloads+ and +release_assets+ (editable as nested
   # attributes). A release of a download-only platform may not have an +html+
-  # asset. Soft-deletable; saving or deleting one refreshes the shelves of the
+  # asset. Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
   # software's platform.
   class Release < ApplicationRecord
     self.table_name = "releases"
 
     include SoftDeletable
-    include ShelfRefreshing
+    include OutletRefreshing
 
     belongs_to :software
     has_many :downloads, -> { kept }
@@ -30,8 +30,8 @@ module WarpEngine
       candidates.empty? ? sorted.first : candidates.first
     end
 
-    # Returns the software's platform, whose shelves to refresh.
-    def shelf_platform = software&.platform
+    # Returns the software's platform, whose outlets to refresh.
+    def outlet_platform = software&.platform
 
     # Validation: adds an error when the software's platform expects no +html+
     # kind and the release has an +html+ asset.

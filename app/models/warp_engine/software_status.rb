@@ -7,7 +7,7 @@ module WarpEngine
   class SoftwareStatus < ApplicationRecord
     self.table_name = "software_statuses"
 
-    include ShelfRefreshing
+    include OutletRefreshing
 
     # Allowed characters of a status key: lower-case letters, digits,
     # underscore and hyphen.

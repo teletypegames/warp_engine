@@ -1,7 +1,7 @@
 module WarpEngine
   # One file of a release: its +kind+ (one of KINDS, unique within the
   # release) and the absolute +path+ of the file in the file container.
-  # Soft-deletable; saving or deleting one refreshes the shelves of the
+  # Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
   # software's platform.
   class ReleaseAsset < ApplicationRecord
     # Every asset kind: the cartridge, source, HTML build and docs, and the
@@ -11,7 +11,7 @@ module WarpEngine
                mac_x64 mac_arm64 mac_universal].freeze
 
     include SoftDeletable
-    include ShelfRefreshing
+    include OutletRefreshing
 
     belongs_to :release
 
@@ -20,8 +20,8 @@ module WarpEngine
     validates :path, presence: true
     validates :kind, uniqueness: { scope: :release_id }
 
-    # Returns the platform of the release's software, whose shelves to refresh.
-    def shelf_platform = release&.software&.platform
+    # Returns the platform of the release's software, whose outlets to refresh.
+    def outlet_platform = release&.software&.platform
 
     # Finds the asset of the file at +relative+, a path relative to the file
     # container: by its exact absolute path, else by the first path ending in

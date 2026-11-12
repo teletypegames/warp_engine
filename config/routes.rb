@@ -28,6 +28,8 @@ WarpEngine::Engine.routes.draw do
 
   get "file/*path", to: "files#show", format: false
 
+  WarpEngine::Outlets.draw_routes(self)
+
   scope WarpEngine::AdminApi.url_path, module: "api/admin", as: "api_admin", format: false do
     get  "openapi.json", to: "documents#openapi", defaults: { format: "json" }, as: :openapi
     get  "openapi.yaml", to: "documents#openapi", defaults: { format: "yaml" }, as: :openapi_yaml

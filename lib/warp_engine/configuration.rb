@@ -34,6 +34,10 @@ module WarpEngine
     # [catalog_max_page_size]         the largest catalog page a client may ask for (default 200)
     # [additional_resources]          the WarpEngine::AdditionalResource list (default empty)
     # [shelves]                       the shelf definitions as hashes (see WarpEngine::Shelves; default empty)
+    # [outlets]                       the other outlet definitions as hashes with +key+ and +type+ (see
+    #                                 WarpEngine::Outlets; default empty)
+    # [outlet_types]                  the outlet types the host registered: a Hash of type name to class name
+    #                                 (default empty)
     attr_accessor :site_url,
                   :file_container_path,
                   :update_secret,
@@ -55,7 +59,9 @@ module WarpEngine
                   :catalog_page_size,
                   :catalog_max_page_size,
                   :additional_resources,
-                  :shelves
+                  :shelves,
+                  :outlets,
+                  :outlet_types
 
     # Replaces the WarpEngine::AdminApi::Configuration returned by #admin_api.
     attr_writer :admin_api
@@ -88,6 +94,8 @@ module WarpEngine
       @catalog_max_page_size         = 200
       @additional_resources          = []
       @shelves                       = []
+      @outlets                       = []
+      @outlet_types                  = {}
       @platforms                     = {}
     end
 

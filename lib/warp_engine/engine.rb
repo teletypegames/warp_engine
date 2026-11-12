@@ -1,9 +1,10 @@
 module WarpEngine
   # The Rails engine. It isolates the WarpEngine namespace, appends its
   # migrations to the host's, loads the ActiveAdmin resources of +app/admin+
-  # when ActiveAdmin is present, validates the shelves (and the MCP dependency
-  # when enabled) after boot, and refreshes the shelves of a platform on every
-  # <tt>warp_engine.publish</tt> notification.
+  # when ActiveAdmin is present, validates the outlets, shelves among them
+  # (and the MCP dependency when enabled) after boot, and refreshes the
+  # materialized outlets of a platform on every <tt>warp_engine.publish</tt>
+  # notification.
   class Engine < ::Rails::Engine
     isolate_namespace WarpEngine
 
@@ -21,12 +22,12 @@ module WarpEngine
 
     config.after_initialize do
       WarpEngine::AdminApi::Mcp.ensure_available! if WarpEngine.config.admin_api.mcp?
-      WarpEngine::Shelves.validate!
+      WarpEngine::Outlets.validate!
     end
 
-    initializer "warp_engine.shelves" do
+    initializer "warp_engine.outlets" do
       ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
-        WarpEngine::Shelves.refresh(platform: payload[:platform])
+        WarpEngine::Outlets.refresh(platform: payload[:platform])
       end
     end
 

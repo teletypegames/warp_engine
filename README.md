@@ -39,10 +39,16 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 - **Pluggable storage**: artifacts are served through a storage adapter
   (`:local` by default); a host can serve them from an object store without
   patching the engine.
+- **Outlets (1.11)**: the formats the catalog leaves the engine in, side by side —
+  the JSON API, shelves and an Assembly64 server — over one shared decision of what
+  is on offer (`WarpEngine::Catalog::Offer`), with room for types of the host's own.
+  See *Outlets*.
 - **Shelves (optional, 1.2)**: a platform's latest public builds as a flat,
   versionless folder with a plain-text `INDEX.TXT`, kept up to date by the engine
   itself — for clients too small to speak JSON over HTTPS (a C64 reading it over
   FTP). Off unless configured.
+- **Assembly64 (optional, 1.11)**: the catalog as an Assembly64 search server, so a
+  C64 Ultimate finds and runs its titles from the menu. Off unless configured.
 - **Publish events**: every published release emits
   `ActiveSupport::Notifications` (`warp_engine.publish`), so hosts can react
   to new builds without model callbacks.
@@ -844,6 +850,112 @@ signing adapter turns them into redirects without any further change.
 the admin file manager — still writes to the local disk. A remote adapter
 needs its own upload path today.
 
+## Outlets
+
+An outlet is a format the catalog leaves the engine in. Three layers make up the way
+out, and every outlet sits on the same two below it:
+
+```
+outlets      wecp (/api, always on)   shelf (folders, materialized)   assembly64 (/leet/search, served)
+offer        WarpEngine::Catalog::Offer — which titles, which release, which file
+models/seams Software, Release, ReleaseAsset · Storage, AccessPolicy, Images, DownloadService
+```
+
+- **`wecp`**, the WarpEngine Catalog Protocol: the JSON API under `/api` and the files
+  under `/file`. Always on, never configured, and the only outlet that knows a caller:
+  sign-in, entitlements and gated titles live here.
+- **`shelf`**: a folder with an `INDEX.TXT` (below). *Materialized*: rewritten whenever
+  the catalog changes.
+- **`assembly64`**: the Assembly64 search API (below). *Served*: answers requests.
+
+Every outlet but `wecp` offers what an anonymous caller may have without a gate: the
+kept titles of its platforms with a listed status, each with the latest release that
+has the asset (`WarpEngine::Catalog::Offer`). So a shelf and an Assembly64 server list
+the same titles, and a change to that rule changes both.
+
+```ruby
+shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG"   # same as outlet ..., type: :shelf
+outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org],
+                    repo: "acme", repo_name: "Acme Games"
+```
+
+`GET /api/service` lists every outlet under `outlets` (`key`, `type`, `platforms` and
+what the type adds). The configuration is checked at boot like the shelves: an unknown
+type, platform or kind, or two outlets with one key, stops the application.
+
+```sh
+bin/rails warp_engine:outlets:check   # every outlet and what it offers (STRICT=1 fails on anything left out)
+bin/rails warp_engine:outlets:sync    # rewrite every materialized outlet (DRY_RUN=1 only says what would change)
+```
+
+**A type of your own** subclasses `WarpEngine::Outlets::Base`, names itself with
+`type_name`, includes `WarpEngine::Outlets::Materialized` (and defines `sync!`) or
+`WarpEngine::Outlets::Served` (and defines `self.draw_routes(mapper)`), and is
+registered by name:
+
+```ruby
+register_outlet_type :feed, "Acme::FeedOutlet"
+outlet :feed, type: :feed, platforms: %w[tic80]
+```
+
+A materialized outlet is synced after every change that can alter its offer (publish,
+software, release, asset or status saved or soft-deleted), for the outlets carrying the
+platform; one that fails is logged and does not fail the save.
+
+## Assembly64
+
+An `assembly64` outlet answers the Assembly64 search API under `/leet/search`, as
+`hackerswithstyle.se` does, so the Assembly64 browser of an Ultimate (C64 Ultimate,
+Ultimate 64, 1541 Ultimate) lists the catalog's titles and runs them from the menu.
+
+```ruby
+outlet :assembly64, type: :assembly64,
+       platforms: %w[c64], kinds: %w[cartridge],
+       hosts: %w[a64.example.org],
+       repo: "acme", repo_name: "Acme Games",
+       categories: { utility: "tools" }
+```
+
+| Option | |
+|---|---|
+| `platforms` | the platforms on offer (default `["c64"]`) |
+| `kinds` | the asset kinds on offer (default `["cartridge"]`); the file's extension is its `type` |
+| `statuses` | optional; without it, the statuses whose `default_visible` is set |
+| `hosts` | the host names it answers (`host` for one); empty for any |
+| `repo`, `repo_name` | the entry of the `repo` preset (default the outlet key, `WarpEngine`) |
+| `categories` | catalog category → Assembly64 category; unnamed ones are tried as is, then with an `s`, then `default_category` |
+| `default_category` | default `games` |
+| `client_ids` | the `Client-Id` values accepted; empty (default) for any |
+| `max_results` | the most results a search returns (default 100) |
+| `name_length` | the longest file name, extension included (default 16) |
+
+| Endpoint | Answers |
+|---|---|
+| `GET /leet/search/aql/presets` | the search form: `repo`, `category`, `type`, `date` (from what is on offer), `latest`, `sort`, `order` |
+| `GET /leet/search/aql?query=` | a search, at most `max_results` results and under 16 000 bytes of JSON (the stock firmware drops a larger one) |
+| `GET /leet/search/aql/START/COUNT?query=` | a page of a search |
+| `GET /leet/search/entries/ID/CATEGORY` | `contentEntry`: the title's files (`path`, `id`, `size`, `date`) |
+| `GET /leet/search/bin/ID/CATEGORY/FILE` | the file, `application/octet-stream`, through the download service (access check, download log) |
+
+A result is `id` (the software id, a string), `name` (title), `group` (author), `year`,
+`category` (the Assembly64 id of the category) `updated` and `type`. The query is
+Assembly64's AQL, `(name:"ra") & (category:games) & (date:2026)`: `name`, `group`,
+`repo`, `category`/`subcat`, `type`, `date`/`year` and `latest` narrow it, `sort`
+(`name`, `group`, `year`) and `order` order it, and a condition on anything else
+(`handle`, `event`, `rating`) matches nothing. A file is named as on a shelf: the
+`shelf_name` or `name`, in capitals, plus the extension (`ARIADNE.PRG`).
+
+**Reaching it.** The stock firmware asks `hackerswithstyle.se` (or Commodore's
+CommoServe) and nothing else, over plain HTTP on port 80. A machine with a configurable
+server list — the Spiffy patch's `/flash/config/server.json` — needs one entry:
+
+```json
+{ "assembly64": [ { "name": "Assembly64" }, { "name": "Acme Games", "host": "a64.example.org" } ] }
+```
+
+so serve the outlet's host over plain HTTP on port 80, without a redirect to HTTPS, and
+mount the engine at `/` (the paths are fixed by the clients).
+
 ## Shelves
 
 A shelf is a folder the engine keeps in step with the catalog: for one platform, the
@@ -1269,6 +1381,15 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 1.11
+
+- **Shelves are outlets.** Nothing to change: `shelf` and `WarpEngine::Shelves` work as
+  before, and the shelf files are the same byte for byte. `GET /api/service` adds
+  `outlets` beside `shelves`.
+- **`ShelfRefreshing` is `OutletRefreshing`**, and the private hook it calls is
+  `outlet_platform` (was `shelf_platform`). Only a host that included the concern in a
+  model of its own needs to follow.
 
 ## Upgrading to 1.9
 

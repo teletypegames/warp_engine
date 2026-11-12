@@ -10,7 +10,7 @@ RSpec.describe WarpEngine::ShelfService do
 
   before do
     allow(WarpEngine.config).to receive_messages(file_container_path: container, shelves: [ definition ])
-    allow(WarpEngine::Shelves).to receive(:refresh)
+    allow(WarpEngine::Outlets).to receive(:refresh)
     WarpEngine::SoftwareStatus.seed_defaults!
   end
 
@@ -222,7 +222,7 @@ RSpec.describe WarpEngine::ShelfService do
   end
 
   describe "refreshing on change" do
-    before { allow(WarpEngine::Shelves).to receive(:refresh).and_call_original }
+    before { allow(WarpEngine::Outlets).to receive(:refresh).and_call_original }
 
     it "fills the shelf when a release is published" do
       software = create(:software, name: "ariadne", title: "Ariadne", platform: "c64", status: "released")
@@ -286,7 +286,7 @@ RSpec.describe WarpEngine::ShelfService, "on a folders shelf" do
 
   before do
     allow(WarpEngine.config).to receive_messages(file_container_path: container, shelves: [ definition ])
-    allow(WarpEngine::Shelves).to receive(:refresh)
+    allow(WarpEngine::Outlets).to receive(:refresh)
     WarpEngine::SoftwareStatus.seed_defaults!
   end
 

@@ -11,12 +11,12 @@ module WarpEngine
   # releases are editable as nested attributes. Filter scopes:
   # +with_statuses+, +with_platform+, +with_category+, +with_owner+ (each a
   # no-op for a blank value) and +search+ (title or name contains the text).
-  # Soft-deletable; changes refresh the shelves of its platform.
+  # Soft-deletable; changes refresh the outlets (shelves) of its platform.
   class Software < ApplicationRecord
     self.table_name = "softwares"
 
     include SoftDeletable
-    include ShelfRefreshing
+    include OutletRefreshing
 
     belongs_to :owner, polymorphic: true, optional: true
 
@@ -62,7 +62,7 @@ module WarpEngine
 
     private
 
-    def shelf_platform
+    def outlet_platform
       previous = saved_changes.fetch("platform", [])[0]
       previous.present? && previous != platform ? nil : platform
     end

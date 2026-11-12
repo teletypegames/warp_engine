@@ -44,11 +44,9 @@ module WarpEngine
       end
     end
 
-    # A software left off the shelf, with the +reason+.
-    Skip = Struct.new(:software, :reason, keyword_init: true) do
-      # Returns <tt>"name: reason"</tt>.
-      def to_s = "#{software.name}: #{reason}"
-    end
+    # A software left off the shelf, with the +reason+ (the
+    # WarpEngine::Catalog::Offer skip).
+    Skip = WarpEngine::Catalog::Offer::Skip
 
     # The outcome of #sync!: the +shelf+, the +entries+ on it, the +skipped+
     # softwares, the entries +written+, the file names +removed+, and whether the
@@ -73,9 +71,14 @@ module WarpEngine
       @shelf = shelf
     end
 
-    # Decides what the shelf holds, without touching the disk: for every kept,
-    # ungated software of the platform with a listed status, the latest release
-    # that has each kind of the shelf. A name already taken (by an older
+    # Returns the WarpEngine::Catalog::Offer of the shelf: its platform, kinds
+    # and listed statuses.
+    def offer
+      @offer ||= WarpEngine::Catalog::Offer.new(platforms: [ shelf.platform ], kinds: shelf.kinds, statuses: shelf.statuses)
+    end
+
+    # Decides what the shelf holds, without touching the disk: what #offer
+    # offers, each item named for the shelf. A name already taken (by an older
     # software) skips the newer one.
     #
     # Returns <tt>[entries, skipped]</tt>: the Entry list sorted by title, and the
@@ -85,7 +88,7 @@ module WarpEngine
       skipped = []
       taken = {}
 
-      candidates.each do |software|
+      offer.candidates.each do |software|
         found, reasons = consider(software)
         skipped << Skip.new(software: software, reason: reasons.join("; ")) if found.empty?
 
@@ -142,49 +145,35 @@ module WarpEngine
 
     private
 
-    def candidates
-      statuses = shelf.listed_statuses
-      return WarpEngine::Software.none if statuses.empty?
-
-      WarpEngine.access_policy.visible_software_scope(subject: nil)
-                .where(platform: shelf.platform, status: statuses)
-                .includes({ releases: :release_assets }, { software_images: :image })
-                .order(:created_at, :id)
-    end
-
-    # Returns <tt>[entries, reasons]</tt> for +software+: one Entry per shelf kind
-    # it can supply, and the reason for each kind it cannot.
+    # Returns <tt>[entries, reasons]</tt> for +software+: one Entry per item
+    # #offer has of it, and the reason for each kind it cannot supply.
     def consider(software)
-      return [ [], [ "gated" ] ] if WarpEngine.access_policy.access_for(software: software, subject: nil).gated
-
       entries = []
       reasons = []
-      shelf.kinds.each do |kind|
-        reason, entry = consider_kind(software, kind)
+      offer.consider(software).each do |reason, item|
+        reason, entry = entry_for(item) if item
         reason ? reasons << reason : entries << entry
       end
       [ entries, reasons ]
     end
 
-    def consider_kind(software, kind)
-      release, source = latest_with_asset(software, kind)
-      return [ "no #{kind} asset in any release" ] if release.nil?
-
+    def entry_for(item)
       folder = nil
       if shelf.folders?
-        folder = folder_for(software, release, source, kind)
-        return [ "no #{kind} folder in the metadata of #{release.version}" ] if folder.nil?
+        folder = folder_for(item)
+        return [ "no #{item.kind} folder in the metadata of #{item.release.version}" ] if folder.nil?
         return [ "#{folder[:folder].inspect} is not a usable folder name" ] unless shelf.folder_name_valid?(folder[:folder])
 
         file = folder[:folder]
       else
-        file = shelf.file_name_for(software)
+        file = shelf.file_name_for(item.software)
         return [ "no usable shelf name" ] if file.nil?
       end
 
-      entry = Entry.new(file: file, kind: kind, version: release.version, size: File.size(source), title: software.title,
-                        author: software.author, description: software.desc, category: software.category, source: source,
-                        software: software, folder: folder)
+      software = item.software
+      entry = Entry.new(file: file, kind: item.kind, version: item.release.version, size: item.size, title: software.title,
+                        author: software.author, description: software.desc, category: software.category,
+                        source: item.source, software: software, folder: folder)
       add_preview(entry)
       [ nil, entry ]
     end
@@ -216,30 +205,12 @@ module WarpEngine
       entry.preview = nil unless File.file?(target)
     end
 
-    def latest_with_asset(software, kind)
-      sources = {}
-      software.releases.each do |release|
-        asset = release.release_assets.find { |candidate| candidate.kind == kind }
-        path = asset && absolute(asset.path)
-        sources[release] = path if path && File.file?(path)
-      end
-      release = WarpEngine::Release.latest_non_dev(sources.keys)
-      release ? [ release, sources[release] ] : nil
-    end
+    def folder_for(item)
+      metadata = item.metadata
+      return nil if metadata.nil?
 
-    def folder_for(software, release, source, kind)
-      metadata_path = File.join(File.dirname(source), "#{software.name}-#{release.version}.metadata.json")
-      return nil unless File.file?(metadata_path)
-
-      metadata = JSON.parse(File.read(metadata_path))
-      spec = WarpEngine::Platform.find(shelf.platform)&.service_class&.shelf_folder(metadata, kind)
+      spec = WarpEngine::Platform.find(shelf.platform)&.service_class&.shelf_folder(metadata, item.kind)
       spec&.to_h&.symbolize_keys
-    rescue JSON::ParserError
-      nil
-    end
-
-    def absolute(path)
-      Pathname.new(path).absolute? ? path : File.join(WarpEngine.config.file_container_path, path)
     end
 
     # Whether +entry+ must be written again, comparing it with its line in the
