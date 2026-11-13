@@ -30,6 +30,10 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
 
   it "uploads the program folder and the Win32 folder under WarpEngine names, with the dos block kept for the shelf" do
     yaml = render(config_class, {})
+    expect(yaml).to include("'. + {version: $version}'", "PLATFORM='dos'")
+    expect(yaml).not_to include("del(.dos)")
+    skip "the upload's prepare lines need jq" unless system("command -v jq >/dev/null 2>&1")
+
     metadata = %({"name": "dosinst", "dos": {"folder": "DOSINST", "win32_folder": "DOSINSTW"}})
     files = { "metadata.json" => metadata, "dist/DOSINST-v0.6.0.zip" => "dos", "dist/DOSINSTW-v0.6.0.zip" => "win32" }
 
@@ -38,8 +42,6 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
 
     expect(status).to be_success
     expect(uploaded_files(calls)).to contain_exactly("dosinst-0.6.0.zip", "dosinst-0.6.0-win-x86.zip", "dosinst-0.6.0.metadata.json")
-    expect(yaml).to include("'. + {version: $version}'", "PLATFORM='dos'")
-    expect(yaml).not_to include("del(.dos)")
   end
 end
 
