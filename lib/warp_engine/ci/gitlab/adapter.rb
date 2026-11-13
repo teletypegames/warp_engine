@@ -35,6 +35,13 @@ module WarpEngine
         # Returns the display name, <tt>"GitLab"</tt>.
         def name = "GitLab"
 
+        # Returns what the admin may see of the configuration, as
+        # <tt>[label, value]</tt> pairs; the token and the secret only as set or not.
+        def settings
+          [ [ "Server", @url || "not set (GITLAB_URL)" ], [ "API token", @api_token ? "set" : "not set (GITLAB_API_TOKEN)" ],
+            [ "Webhook secret", @webhook_secret ? "set" : "not set: every config request is refused" ] ]
+        end
+
         # Returns +true+ when both the server URL and the API token are set.
         def configured? = @url.present? && @api_token.present?
 

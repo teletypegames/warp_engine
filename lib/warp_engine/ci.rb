@@ -91,6 +91,8 @@ module WarpEngine
       def built_kinds(_platform) = nil
       # Returns +nil+.
       def update_server = nil
+      # Returns no settings: there is no CI server.
+      def settings = []
 
       # Raises CI::NotConfigured.
       def repos                              = raise(NotConfigured, MESSAGE)

@@ -45,6 +45,17 @@ module WarpEngine
         # Returns the display name, <tt>"Woodpecker"</tt>.
         def name = "Woodpecker"
 
+        # Returns what the admin may see of the configuration, as
+        # <tt>[label, value]</tt> pairs; the token and the key only as set or not.
+        def settings
+          signature = if @public_key then "public key in the configuration"
+          elsif @public_key_url then "public key fetched from #{@public_key_url}"
+          else "not set: every config request is refused"
+          end
+          [ [ "Server", @url || "not set (WOODPECKER_URL)" ], [ "Repo owner", @repo_owner || "not set" ],
+            [ "API token", @api_token ? "set" : "not set (WOODPECKER_API_TOKEN)" ], [ "Config signature", signature ] ]
+        end
+
         # Returns +true+ when both the server URL and the API token are set.
         def configured? = @url.present? && @api_token.present?
 

@@ -1356,6 +1356,14 @@ host:
   `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"` to your
   `api_controllers_matcher`.
 
+**SysInfo (1.13).** The *WarpEngine → ℹ️ SysInfo* page describes the configuration
+as it runs, in words: the engine (version, site URL, file container and whether it
+is writable, upload limit), publishing credentials, the storage, image and access
+adapters, client sign-in, the CI server and the platforms it builds, every platform
+with its kinds, the outlets and shelves (or why their configuration is invalid), the
+Admin API and the additional resources. It is computed on every request
+(`WarpEngine::SysInfo`), and secrets show only as *set* or *not set*.
+
 ## Admin API
 
 What the ActiveAdmin resources do — the catalog with its releases, assets, links
