@@ -9,7 +9,7 @@ module WarpEngine
   # same methods can be set as the adapter.
   module CI
     # Base class of every error raised by a CI adapter or client.
-    class Error < StandardError; end
+    class Error < WarpEngine::Error; end
 
     # Raised when the CI server cannot be reached (refused connection, timeout, DNS failure).
     class ConnectionError < Error; end

@@ -13,10 +13,13 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   `PlatformLink`, `SoftwareImage`, `Download` models with soft-delete
   semantics and download statistics.
 - **Platform registry**: `WarpEngine::Platform` is the one place a platform is
-  named. `Platform.names` lists them, `Platform.find!("godot")` answers with a
-  value object that knows its `label`, its `expected_kinds` and its updater
-  `service`. Reference it instead of writing a platform list of your own —
-  `PlatformLink::SUPPORTED_PLATFORMS` is kept as an alias of `Platform::NAMES`.
+  named, and each platform is declared once (`lib/warp_engine/platform/builtin.rb`):
+  the asset kinds it accepts and requires, which of them its pipeline builds, where
+  its metadata comes from and its CI template. `Platform.names` lists them,
+  `Platform.find!("godot")` answers with a value object that knows its `label`,
+  `expected_kinds`, `built_kinds` and publishes an upload (`#publish`). Reference it
+  instead of writing a platform list of your own — `PlatformLink::SUPPORTED_PLATFORMS`
+  is kept as an alias of `Platform::NAMES`.
 - **Asset checklist**: `rake warp_engine:builds:check` prints, per software and
   release, which release assets exist and which the platform's pipeline could
   still deliver. See *Which assets are missing*.
@@ -603,9 +606,28 @@ git, jq, curl, zip, lua5.4; `luarocks install` luacheck and ldoc for tic80); wit
 it they run in that image and install nothing, so it must already have those, with
 Lua 5.4 as `lua`. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
-per-repo in Settings → Extensions). Templates live with the adapter, in
-`lib/warp_engine/ci/woodpecker/platforms/<platform>/pipeline.yaml.erb` — the
-YAML dialect belongs to the provider, so a second adapter brings its own.
+per-repo in Settings → Extensions).
+
+Since 1.12 a platform has **one template for every CI**, in
+`lib/warp_engine/ci/platforms/<template>.yaml.erb` (`commodore` serves both `c64` and
+`plus4`). It holds only the platform's own steps, in a CI-neutral form, and the
+adapter's renderer (`CI::Woodpecker::Renderer`, `CI::Gitlab::Renderer`) writes them —
+and the shared steps around them — in its YAML dialect:
+
+```yaml
+steps:
+  - name: build
+    image: <%= builder %>
+    pull: true                       # Woodpecker pulls the image on every run
+    artifacts: [ "*.prg" ]           # what a GitLab job hands to the later stages
+    environment: { KEY: value }
+    commands:
+      - make <%= name %>.prg
+upload:                              # optional
+  packages: [ jq ]                   # what the upload needs from apk without a tools image
+  prepare: |                         # shell lines run before the upload
+    cp dist/game.zip <%= name %>-$VERSION.zip
+```
 
 Keys of the marker besides `platform` and `name` are **options** the platform's
 template may read (letters, digits, `_ . -` only; anything else is dropped). The
@@ -615,7 +637,10 @@ workflow of its own — a server deploy, say — next to the generated one.
 
 #### Steps every pipeline shares
 
-The engine adds these steps to every template it renders, so no template carries them:
+The engine adds these steps to every template it renders, so no template carries them.
+Their shell scripts are plain `sh` files, linted by shellcheck: `lib/warp_engine/ci/scripts/`
+(`version`, `upload`, `publish`, `tag`, `release_files`) and each adapter's `scripts/`
+(`forge.sh` — the forge's tag API — and `release.sh`).
 
 - **`version`**, first. The version comes from the source — `metadata.json`'s
   `version`, or the `-- version:` line of the Lua header on tic80 (a registered
@@ -626,6 +651,11 @@ The engine adds these steps to every template it renders, so no template carries
   `dev-<version>-<branch>`, and on a `dev-<branch>` tag likewise; with no version at
   all the build is `dev-<commit>`, which is never the latest. It writes `.version`,
   which every later step reads.
+- **`upload`** and **`publish`**, after the platform's steps, generated from the
+  platform's kinds: the upload sends `<name>-<version>` plus the suffix of every kind
+  the pipeline always builds (a required kind, or one declared `always: true`) and of
+  `metadata.json` — failing when one is missing — and every other kind the platform
+  accepts when the build made it; `publish` then calls `/build/publish`.
 - **`tag`**, after a push (see below), unless the marker says `release: push`.
 - **`release`**, last, only with `forge_release: true` in the platform's entry, and
   only on a version tag (a `dev-` tag makes none): the forge release of the tag, named `<title> <tag>`, with
@@ -635,8 +665,8 @@ The engine adds these steps to every template it renders, so no template carries
   Forgejo release made with the `gitea_token` secret; on GitLab a GitLab release whose
   files are in the project's generic package registry, made with the job token.
 
-Every template names its steps the same way: the one that sends the files to
-`/build/upload` is `upload`, the one that calls `/build/publish` is `publish`.
+The upload and publish steps are named `upload` and `publish`, and a template names a
+packaging step `package`: with releases from tags these run on tags only.
 
 #### When a pipeline publishes: tags
 
@@ -748,39 +778,42 @@ DOS releases are download only.
 
 ### Platforms of your own
 
-The built-in platforms are the gem's; a host adds its own in the initializer — a
-service class, the kinds its CI builds and a pipeline template per CI adapter:
+The built-in platforms are the gem's; a host adds its own in the initializer, with the
+same DSL the built-in ones are declared with (`WarpEngine::Platform::Builder`):
 
 ```ruby
-register_platform "amiga",
-                  service:        "AmigaPlatform",
-                  built_kinds:    %w[cartridge],
-                  templates:      { woodpecker: Rails.root.join("ci/amiga.woodpecker.yaml.erb") },
-                  version_source: "cat VERSION"
-```
-
-```ruby
-class AmigaPlatform
-  include WarpEngine::Platforms::Updatable
-  include WarpEngine::Platforms::Builds::BuildCartridge
-
-  platform "amiga"
+register_platform "amiga" do
   label "Amiga"
-  required_kinds "cartridge"
-
-  def cartridge_ext = ".adf"
+  kind :cartridge, ext: ".adf", required: true   # a publish fails without it
+  kind :html                                      # built when the pipeline can
+  kind :mac_arm64, built: false                   # accepted, uploaded by hand
+  metadata :json                                  # or :lua, or a callable taking the upload
+  release_rule :tag                               # optional: releases follow tags only
+  version_source "cat VERSION"                    # default: metadata.json's version
+  ci template: Rails.root.join("ci/amiga.yaml.erb"), machine: "a500"
 end
 ```
 
-From then on `amiga` is a platform like the others: a software may be on it, the
-publish runs its service, the admin lists it, the config extension renders its
-template (the same ERB variables as the built-in ones: `name`, `builder`, `exporter`,
-`tools`, `options`, …) with the shared `version` and `release` steps around it
-(`version_source:` is the shell command that prints its version; `metadata.json`'s by
-default), and a shelf may serve it. A service may also say `release_rule "tag"`, and
-answer `self.shelf_folder(metadata, kind)` for a `folders` shelf (see *Shelves*). The CI adapter still needs an entry
-for it under `platforms:`, as every platform does. A host may also register a
-built-in name to replace that platform's service or template.
+The kinds are the `WarpEngine::AssetKinds` (`cartridge`, `source`, `html`, `docs`,
+`win_x64`, …): each knows its upload name (`<name>-<version>-win-x64.zip`) and whether
+the engine unpacks it (`html`, `docs`), so a platform only says which ones it has.
+`ci template:` is a CI-neutral template (see *Pipeline configs*; the keyword arguments
+after it are extra template variables), and `shelf_folder` takes a callable
+`(metadata, kind)` for a `folders` shelf (see *Shelves*).
+
+From then on `amiga` is a platform like the others: a software may be on it, a publish
+runs the engine's publish steps (`WarpEngine::Publish`: collect the assets, read the
+metadata, record the catalog), the admin lists it, every CI adapter renders its
+template with the shared steps around it, and a shelf may serve it. The CI adapter
+still needs an entry for it under `platforms:`, as every platform does. A host may
+also register a built-in name to replace that platform.
+
+The pre-1.12 form — `register_platform "amiga", service: "AmigaPlatform",
+built_kinds: [...], templates: { woodpecker: ... }` with a service class including
+`WarpEngine::Platforms::Updatable` and the `Builds::Build*` modules — still works and
+is deprecated: the service's declarations become a definition, its `update` publishes
+through `WarpEngine::Publish`, and its adapter-specific template is still rendered
+with the shared steps around it.
 
 ### CI management (the Woodpecker adapter)
 
@@ -1381,6 +1414,30 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 1.12
+
+Nothing a host has to change; the internals moved apart.
+
+- **Platforms are definitions.** The built-in platform service classes
+  (`WarpEngine::Platforms::<Name>::Service`) and the `Builds::*` concerns are gone;
+  `Platform#publish` replaces `platform.service.update`, and `Platform#service_class` is
+  no more. A host platform registers with a block (see *Platforms of your own*); the
+  `service:` form still works, deprecated.
+- **One CI-neutral template per platform**, `lib/warp_engine/ci/platforms/`, instead of
+  one per platform and adapter; `CI::PipelineConfig::BUILT_KINDS` and `VERSION_SOURCES`
+  are gone (`Platform#built_kinds`, `Platform#version_source`). The rendered pipelines
+  have the same steps, images, events and artifacts; the upload step now sends every kind
+  the platform accepts when it is there, and copies `metadata.json` when the build did not.
+- **One error hierarchy.** Everything the engine raises on purpose is a
+  `WarpEngine::Error`; `Shelves::ConfigurationError`, `Outlets::ConfigurationError` and
+  `AdminApi::ConfigurationError` are all `WarpEngine::ConfigurationError`.
+- **Shelves live under the shelf outlet**: `WarpEngine::Outlets::Shelf::Definitions`
+  (`WarpEngine::Shelves` is its alias), with `IndexFile` and the `Layouts` beside it;
+  `ShelfService` only plans and orchestrates. The unused `Shelves.refresh` is gone —
+  `Outlets.refresh` does it.
+- **Unpacking refuses a zip entry outside its directory** (`../`), which the upload's
+  web build or docs zip could otherwise write anywhere in the file container.
 
 ## Upgrading to 1.11
 

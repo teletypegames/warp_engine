@@ -216,12 +216,8 @@ RSpec.describe "Build configs endpoint", type: :request do
   end
 
   describe "shipped templates" do
-    it "renders every template to valid YAML with non-empty steps" do
-      templates = Dir[WarpEngine::CI::Woodpecker::PipelineConfig.templates_dir.join("*/pipeline.yaml.erb")]
-      expect(templates).not_to be_empty
-
-      templates.each do |path|
-        platform = File.basename(File.dirname(path))
+    it "renders every platform to valid YAML with non-empty steps" do
+      WarpEngine::Platform::NAMES.each do |platform|
         config = WarpEngine::CI::Woodpecker::PipelineConfig.new(
           platforms: { platform => { builder: "registry.example/builder:1",
                                      exporter: "registry.example/exporter:1" } }

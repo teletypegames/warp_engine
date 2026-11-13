@@ -1,6 +1,13 @@
+require "warp_engine/files"
+require "warp_engine/outlets/base"
+require "warp_engine/outlets/shelf/definition"
+require "warp_engine/outlets/shelf/index_file"
+require "warp_engine/outlets/shelf/definitions"
+require "warp_engine/outlets/shelf/layouts"
+
 module WarpEngine
   module Outlets
-    # A shelf as an outlet: a WarpEngine::Shelves shelf, written by
+    # A shelf as an outlet: a Shelf::Definition (Shelf::Definitions), written by
     # WarpEngine::ShelfService. The key is the shelf's path. Shelves are
     # configured with +shelf+ (or <tt>outlet ..., type: :shelf</tt>) and kept in
     # <tt>WarpEngine.config.shelves</tt>.
@@ -10,10 +17,10 @@ module WarpEngine
       # Returns +shelf+.
       def self.type_name = "shelf"
 
-      # The WarpEngine::Shelves::Shelf.
+      # The Shelf::Definition.
       attr_reader :shelf
 
-      # [shelf] a WarpEngine::Shelves::Shelf
+      # [shelf] a Shelf::Definition
       def initialize(shelf)
         super(shelf.path, shelf.to_h)
         @shelf = shelf
@@ -28,10 +35,10 @@ module WarpEngine
       # Returns the Base#descriptor with the shelf's +kinds+, +layout+, +index+
       # file and +urls+.
       def descriptor
-        super.merge(kinds: shelf.kinds, layout: shelf.layout, index: WarpEngine::Shelves::INDEX_FILE, urls: shelf.urls)
+        super.merge(kinds: shelf.kinds, layout: shelf.layout, index: IndexFile::NAME, urls: shelf.urls)
       end
 
-      # Returns the WarpEngine::Shelves::Shelf#describe text.
+      # Returns the Shelf::Definition#describe text.
       def describe = shelf.describe
 
       # Rebuilds the shelf through WarpEngine::ShelfService#sync!. Returns its

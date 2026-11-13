@@ -1,0 +1,164 @@
+# The version comes from the source (inc/meta/meta.header.lua "-- version:"
+# comment) — WarpEngine parses tic80 metadata from the Lua header too, hence
+# no metadata.json.
+steps:
+  - name: lint
+    image: <%= tools || "alpine" %>
+    commands:
+<%- unless tools -%>
+      - apk add --no-cache lua5.4 lua5.4-dev luarocks gcc musl-dev
+      - ln -sf /usr/bin/lua5.4 /usr/bin/lua
+      - ln -sf /usr/bin/luarocks-5.4 /usr/bin/luarocks
+      - luarocks install luacheck
+<%- end -%>
+      - |
+        echo "==> Merging..."
+        rm -f /tmp/_lint_combined.lua /tmp/_lint_map.txt
+        touch /tmp/_lint_combined.lua
+        line=1
+        while IFS= read -r f || [ -n "$f" ]; do
+          f=$(printf '%s' "$f" | tr -d '\r')
+          [ -z "$f" ] && continue
+          before=$(wc -l < /tmp/_lint_combined.lua)
+          cat "inc/$f" >> /tmp/_lint_combined.lua
+          printf '\n' >> /tmp/_lint_combined.lua
+          after=$(wc -l < /tmp/_lint_combined.lua)
+          linecount=$((after - before))
+          echo "$line $linecount inc/$f" >> /tmp/_lint_map.txt
+          line=$((line + linecount))
+        done < <%= name %>.inc
+        echo "==> luacheck..."
+        LINT_OUTPUT=$(luacheck --no-max-line-length /tmp/_lint_combined.lua 2>&1 | awk -v map=/tmp/_lint_map.txt '
+        BEGIN {
+            NR_map = 0;
+            while ((getline line < map) > 0) {
+                n = split(line, a, " ");
+                start[NR_map] = a[1]+0;
+                count[NR_map] = a[2]+0;
+                fname[NR_map] = a[3];
+                NR_map++;
+            }
+        }
+        /^[^:]+:[0-9]+:[0-9]+:/ {
+            colon1 = index($0, ":");
+            rest1  = substr($0, colon1+1);
+            colon2 = index(rest1, ":");
+            absline = substr(rest1, 1, colon2-1) + 0;
+            rest2  = substr(rest1, colon2+1);
+            colon3 = index(rest2, ":");
+            col    = substr(rest2, 1, colon3-1);
+            rest   = substr(rest2, colon3);
+            found  = 0;
+            for (i = 0; i < NR_map; i++) {
+                end_line = start[i] + count[i] -1;
+                if (absline >= start[i] && absline <= end_line) {
+                    relline = absline - start[i] + 1;
+                    print fname[i] ":" relline ":" col ":" rest;
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) print $0;
+            next;
+        }
+        { print }
+        ')
+        echo "$LINT_OUTPUT"
+        NUM_ISSUES=$(echo "$LINT_OUTPUT" | grep -cE "^[^:]+:[0-9]+:[0-9]+:" || true)
+        if [ "$NUM_ISSUES" -gt 0 ]; then
+          echo "Total: $NUM_ISSUES issue(s) found, commit aborted."
+          exit 1
+        else
+          echo "Checking /tmp/_lint_combined.lua                  OK"
+          echo "Total: 0 warnings / 0 errors in 1 file"
+        fi
+        rm -f /tmp/_lint_combined.lua /tmp/_lint_map.txt
+
+  - name: minify
+    artifacts: [ "<%= name %>.lua", "<%= name %>.original.lua" ]
+    image: <%= tools || "alpine" %>
+    commands:
+<%- unless tools -%>
+      - apk add --no-cache lua5.4 curl
+      - ln -sf /usr/bin/lua5.4 /usr/bin/lua
+<%- end -%>
+      - |
+        rm -f <%= name %>.lua
+        sed 's/\r$//' <%= name %>.inc | while read f; do
+          cat "inc/$f" >> <%= name %>.lua
+          echo "" >> <%= name %>.lua
+        done
+        test -f minify.lua || { echo "==> Downloading minify.lua"; curl -fsSL https://raw.githubusercontent.com/ztimar31/lua-minify-tic80/refs/heads/master/minify.lua -o minify.lua; }
+        echo "==> Minifying <%= name %>.lua"
+        cp <%= name %>.lua <%= name %>.original.lua
+        lua minify.lua minify <%= name %>.original.lua > <%= name %>.lua
+
+  - name: docs
+    artifacts: [ "*-docs.zip" ]
+    image: <%= tools || "alpine" %>
+    commands:
+<%- unless tools -%>
+      - apk add --no-cache lua5.4 lua5.4-dev luarocks gcc musl-dev zip
+      - ln -sf /usr/bin/lua5.4 /usr/bin/lua
+      - ln -sf /usr/bin/luarocks-5.4 /usr/bin/luarocks
+      - luarocks install ldoc
+<%- end -%>
+      - |
+        VERSION=$(cat .version)
+        echo "==> Generating docs from <%= name %>.original.lua"
+        ldoc <%= name %>.original.lua -d docs
+        echo "==> Zipping docs for version $VERSION"
+        (cd docs && zip -r ../<%= name %>-$VERSION-docs.zip .)
+        cp <%= name %>-$VERSION-docs.zip <%= name %>-docs.zip
+        echo "==> Docs zip created"
+
+  - name: export
+    artifacts: [ "<%= name %>.lua", "*.tic", "*.html.zip" ]
+    image: <%= builder %>
+    environment:
+      XDG_RUNTIME_DIR: /tmp
+    commands:
+      - |
+        VERSION=$(cat .version)
+        echo "==> Exporting HTML for version $VERSION"
+        tic80 --cli --skip --fs=. \
+          --cmd="load <%= name %>.lua & save <%= name %>-$VERSION & export html <%= name %>-$VERSION.html & exit"
+        if [ -f "<%= name %>-$VERSION.tic" ]; then
+          cp <%= name %>-$VERSION.tic <%= name %>.tic
+        fi
+        if [ -f "<%= name %>-$VERSION.html.zip" ]; then
+          cp <%= name %>-$VERSION.html.zip <%= name %>.html.zip
+        fi
+        echo "==> Generated files:"
+        ls -lh <%= name %>-$VERSION.* <%= name %>.tic <%= name %>.html.zip 2>/dev/null || true
+
+  - name: binaries
+    artifacts: [ "*.zip" ]
+    image: <%= builder %>
+    environment:
+      XDG_RUNTIME_DIR: /tmp
+    commands:
+      - |
+        VERSION=$(cat .version)
+        echo "==> Exporting native players for version $VERSION"
+        tic80 --cli --skip --fs=. \
+          --cmd="load <%= name %>.lua & export win <%= name %>-win & export linux <%= name %>-linux & export mac <%= name %>-mac & exit"
+        # unix zip preserves the executable bit
+        pack_binary() {
+          SLUG="$1"; SRC_FILE="$2"; DST_FILE="$3"
+          PKG_DIR="<%= name %>-$VERSION-$SLUG"
+          rm -rf "$PKG_DIR" "$PKG_DIR.zip"
+          mkdir -p "$PKG_DIR"
+          mv "$SRC_FILE" "$PKG_DIR/$DST_FILE"
+          chmod +x "$PKG_DIR/$DST_FILE"
+          zip -r "$PKG_DIR.zip" "$PKG_DIR" >/dev/null
+          rm -rf "$PKG_DIR"
+          echo "==> $PKG_DIR.zip kesz"
+        }
+        pack_binary win-x64 <%= name %>-win.exe <%= name %>.exe
+        pack_binary linux-x64 <%= name %>-linux <%= name %>
+        pack_binary mac-x64 <%= name %>-mac <%= name %>
+
+upload:
+  prepare: |
+    cp <%= name %>.lua <%= name %>-$VERSION.lua

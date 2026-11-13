@@ -6,9 +6,9 @@ RSpec.describe "POST /build/publish", type: :request do
   end
 
   def stub_updater
-    updater = instance_double(WarpEngine::Platforms::Tic80::Service)
-    allow(WarpEngine::Platforms::Tic80::Service).to receive(:new).and_return(updater)
-    allow(updater).to receive(:update)
+    updater = instance_double(WarpEngine::Platform, publish: nil)
+    allow(WarpEngine::Platform).to receive(:find!).and_call_original
+    allow(WarpEngine::Platform).to receive(:find!).with("tic80").and_return(updater)
     updater
   end
 
@@ -31,7 +31,7 @@ RSpec.describe "POST /build/publish", type: :request do
 
   it "answers 422 with the missing kinds when the platform's required build was not uploaded" do
     updater = stub_updater
-    allow(updater).to receive(:update).and_raise(WarpEngine::Platforms::MissingAssetsError.new("game-1.0", [ "cartridge" ]))
+    allow(updater).to receive(:publish).and_raise(WarpEngine::Platforms::MissingAssetsError.new("game-1.0", [ "cartridge" ]))
 
     publish
 
@@ -49,7 +49,7 @@ RSpec.describe "POST /build/publish", type: :request do
 
     it "answers 409 and leaves the catalog alone" do
       updater = stub_updater
-      expect(updater).not_to receive(:update)
+      expect(updater).not_to receive(:publish)
 
       publish(params: { version: "1.9.0" })
 
@@ -61,7 +61,7 @@ RSpec.describe "POST /build/publish", type: :request do
       updater = stub_updater
 
       [ "1.10.0", "1.11.0", "dev-1.0.0-feature-x" ].each do |version|
-        expect(updater).to receive(:update).with("game", version)
+        expect(updater).to receive(:publish).with("game", version)
 
         publish(params: { version: version })
 
@@ -72,7 +72,7 @@ RSpec.describe "POST /build/publish", type: :request do
 
   it "runs the updater and returns the published release" do
     updater = stub_updater
-    expect(updater).to receive(:update).with("game", "1.0")
+    expect(updater).to receive(:publish).with("game", "1.0")
 
     publish
 

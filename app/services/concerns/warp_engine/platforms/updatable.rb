@@ -1,151 +1,123 @@
 module WarpEngine
-  # Platform support: one service class per platform
-  # (<tt>WarpEngine::Platforms::<Name>::Service</tt>) that turns a CI upload into
-  # catalog records, plus the concerns they are built from.
   module Platforms
-    # The base concern of every platform service. Including it gives the class
-    # the declarations below (+label+, +required_kinds+, ...) and the #update
-    # entry point; the Builds concerns register the asset kinds the platform
-    # produces and the steps that prepare them.
+    # The pre-1.12 way to write a platform: a service class that includes this
+    # concern and one Builds module per asset kind, registered with
+    # <tt>register_platform "name", service: "..."</tt>. Deprecated: a platform
+    # is now a WarpEngine::Platform::Definition, declared with the
+    # WarpEngine::Platform::Builder DSL. The concern keeps old services working:
+    # their declarations become a Definition (Updatable::ClassMethods#definition)
+    # and #update publishes through WarpEngine::Publish::Publisher.
     #
-    #   class Service
-    #     include Updatable
-    #     include Builds::BuildWeb
-    #     include Builds::BuildWinX64
+    #   class AmigaService
+    #     include WarpEngine::Platforms::Updatable
+    #     include WarpEngine::Platforms::Builds::BuildCartridge
     #
-    #     label "Phaser"
-    #     required_kinds "html"
+    #     label "Amiga"
+    #     required_kinds "cartridge"
+    #     def cartridge_ext = ".adf"
     #   end
     module Updatable
       extend ActiveSupport::Concern
-      include ArchiveExtraction
-      include MetadataParsing
-      include SoftwarePersistence
 
-      # Class-level declarations of a platform service.
+      # Class-level declarations of a legacy platform service.
       class_methods do
         # The platform name. With +value+ sets it; without, defaults to the
-        # downcased name of the enclosing module (+c64+ for
-        # <tt>WarpEngine::Platforms::C64::Service</tt>).
+        # downcased name of the enclosing module.
         def platform(value = nil)
           @platform = value if value
           @platform ||= name.deconstantize.demodulize.downcase
         end
 
-        # The human readable platform name. With +value+ sets it; without, defaults
-        # to the titleized #platform.
+        # The human readable platform name. With +value+ sets it; without, the
+        # titleized #platform.
         def label(value = nil)
           @label = value if value
           @label ||= platform.titleize
         end
 
-        # The asset kinds (WarpEngine::ReleaseAsset kinds) the platform produces, in
-        # the order the Builds concerns registered them.
-        def expected_kinds
-          @expected_kinds ||= []
-        end
+        # The asset kinds the platform publishes, in the order the Builds modules
+        # registered them.
+        def expected_kinds = (@expected_kinds ||= [])
 
-        # Adds +kind+ to #expected_kinds unless it is there already. Called by the
-        # Builds concerns when included.
+        # Adds +kind+ to #expected_kinds unless it is there already.
         def register_expected_kind(kind)
           expected_kinds << kind unless expected_kinds.include?(kind)
         end
 
-        # The asset kinds an upload must contain. With +kinds+ adds them (as strings)
-        # to the list. Updatable#update raises MissingAssetsError when one is missing.
+        # The kinds an upload must contain. With +kinds+ adds them.
         def required_kinds(*kinds)
           @required_kinds ||= []
           @required_kinds |= kinds.flatten.map(&:to_s)
         end
 
-        # The asset kinds that may be missing from a release without counting as
-        # missing in the build checks. With +kinds+ adds them (as strings) to the list.
+        # The kinds a release may lack without counting as missing. With +kinds+
+        # adds them.
         def optional_kinds(*kinds)
           @optional_kinds ||= []
           @optional_kinds |= kinds.flatten.map(&:to_s)
         end
 
-        # The CI release rule of the platform (for example <tt>"tag"</tt>), or +nil+ for
-        # the default. With +value+ sets it.
+        # The CI release rule (<tt>"tag"</tt>), or +nil+. With +value+ sets it.
         def release_rule(value = nil)
           @release_rule = value.to_s if value
           @release_rule
         end
 
-        # The folder spec of a +folders+ shelf for asset +kind+, read from the
-        # release's uploaded +metadata+. Returns +nil+ here: a platform that serves a
-        # folders shelf overrides it (see WarpEngine::Platforms::Dos::Service.shelf_folder).
+        # The folder spec of a +folders+ shelf; +nil+ unless overridden.
         def shelf_folder(_metadata, _kind) = nil
 
-        # The instance method names #update calls with the <tt>name-version</tt> before
-        # it collects the assets (for example unpacking an uploaded zip).
-        def prepare_steps
-          @prepare_steps ||= []
-        end
+        # The instance method names #update calls with <tt>name-version</tt>
+        # before it publishes.
+        def prepare_steps = (@prepare_steps ||= [])
 
         # Adds +method_name+ to #prepare_steps unless it is there already.
         def register_prepare_step(method_name)
           prepare_steps << method_name unless prepare_steps.include?(method_name)
         end
+
+        # Returns the WarpEngine::Platform::Definition of the declarations: the
+        # extension of a kind without a suffix comes from the
+        # <tt><kind>_ext</tt> instance method.
+        def definition
+          instance = new
+          specs = expected_kinds.map do |kind|
+            ext = instance.public_send(:"#{kind}_ext") if instance.respond_to?(:"#{kind}_ext")
+            required = required_kinds.include?(kind)
+            WarpEngine::Platform::KindSpec.new(kind: WarpEngine::AssetKinds.fetch(kind), ext: ext, required: required,
+                                               optional: optional_kinds.include?(kind), built: true, always: required)
+          end
+          WarpEngine::Platform::Definition.new(
+            name: platform, label: label, kind_specs: specs, metadata: :json, release_rule: release_rule,
+            shelf_folder: method(:shelf_folder), ci_template: nil, ci_variables: {}, version_source: nil
+          )
+        end
       end
 
-      # Publishes the upload <tt>name-version</tt> found in the file container: runs
-      # the prepare steps (unpacking zips), collects the asset of every expected
-      # kind, reads the metadata, then in one transaction creates or updates the
-      # WarpEngine::Software (with its "Source Code" and "Repository" external links
-      # from +site+ and +repo+), creates the WarpEngine::Release if new, writes its
-      # WarpEngine::ReleaseAsset records and soft-deletes assets of kinds the
-      # platform no longer expects.
-      #
-      # [name]    the software name
-      # [version] the version string
-      #
-      # Returns the WarpEngine::Release. Raises MissingAssetsError when a required
-      # kind is missing, and ActiveRecord::RecordInvalid when a record does not save.
+      # Runs the #prepare_steps, then publishes the upload <tt>name-version</tt>
+      # through WarpEngine::Publish::Publisher, reading the metadata with
+      # #parse_metadata. Returns the WarpEngine::Release; raises
+      # MissingAssetsError when a required kind is missing.
       def update(name, version)
         versioned = "#{name}-#{version}"
-        prepare_files(versioned)
-
-        asset_paths = collect_asset_paths(versioned)
-        missing = self.class.required_kinds - asset_paths.keys
-        raise MissingAssetsError.new(versioned, missing) if missing.any?
-
-        metadata = parse_metadata(versioned)
-        site_url = metadata.delete(:site)
-        repo_url = metadata.delete(:repo)
-
-        ActiveRecord::Base.transaction do
-          software = update_or_create_software(metadata.merge(platform: self.class.platform))
-          upsert_external_link(software.id, "Source Code", site_url) if site_url.present?
-          upsert_external_link(software.id, "Repository", repo_url) if repo_url.present?
-
-          release = create_release_if_not_exists(software_id: software.id, version: version)
-          sync_release_assets(release, asset_paths)
-          discard_unexpected_assets(release, self.class.expected_kinds)
-          release
-        end
+        self.class.prepare_steps.each { |step| send(step, versioned) }
+        WarpEngine::Publish::Publisher.new(self.class.definition, metadata: ->(upload) { parse_metadata(upload.versioned) })
+                                      .publish(name, version)
       end
 
       private
 
-      # Runs every registered prepare step on +versioned+.
-      def prepare_files(versioned)
-        self.class.prepare_steps.each { |step| send(step, versioned) }
-      end
+      def parse_metadata(versioned) = parse_json_metadata(full_path("#{versioned}.metadata.json"))
 
-      # Reads the metadata of +versioned+ from <tt><name-version>.metadata.json</tt>.
-      # Platforms override it to read another source.
-      def parse_metadata(versioned)
-        parse_json_metadata(full_path("#{versioned}.metadata.json"))
-      end
+      def parse_json_metadata(path) = WarpEngine::Publish::MetadataReader.json(path)
 
-      # Returns the <tt>kind => path</tt> Hash of the expected kinds present for
-      # +versioned+, asking each <tt><kind>_asset_path</tt> method.
-      def collect_asset_paths(versioned)
-        self.class.expected_kinds.each_with_object({}) do |kind, hash|
-          result = send(:"#{kind}_asset_path", versioned)
-          hash.merge!(result) if result
-        end
+      def parse_lua_metadata(path) = WarpEngine::Publish::MetadataReader.lua(path)
+
+      def full_path(filename) = File.join(WarpEngine.config.file_container_path, filename)
+
+      def dir_exists?(dirname) = File.directory?(full_path(dirname))
+
+      def extract_zip_to_dir(zip_file, dir_name)
+        WarpEngine::Publish::Unpacker.new.replace_dir(full_path(zip_file), full_path(dir_name))
       end
     end
   end

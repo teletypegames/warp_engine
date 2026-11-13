@@ -1,6 +1,15 @@
 require "rails_helper"
 require "open3"
 
+# A platform service in the pre-1.12 form, for the legacy template path.
+class LegacyAmigaService
+  include WarpEngine::Platforms::Updatable
+  include WarpEngine::Platforms::Builds::BuildWeb
+
+  platform "amiga"
+  required_kinds "html"
+end
+
 RSpec.describe "Steps every generated pipeline shares" do
   adapters = {
     WarpEngine::CI::Woodpecker::PipelineConfig => ->(document) { document["steps"].map { |step| step["name"] } },
@@ -30,7 +39,7 @@ RSpec.describe "Steps every generated pipeline shares" do
 
   adapters.each do |config_class, step_names|
     describe config_class do
-      WarpEngine::CI::PipelineConfig::BUILT_KINDS.each_key do |platform|
+      WarpEngine::Platform::NAMES.each do |platform|
         it "starts the #{platform} pipeline with the shared version step and names its upload step upload" do
           names = step_names.call(YAML.safe_load(render(config_class, platform)))
 
@@ -104,7 +113,7 @@ RSpec.describe "Steps every generated pipeline shares" do
         end
 
         it "takes a registered platform's own source" do
-          WarpEngine.config.register_platform("amiga", service: "WarpEngine::Platforms::Phaser::Service", version_source: "cat VERSION")
+          WarpEngine.config.register_platform("amiga", version_source: "cat VERSION") { kind :html, required: true }
           config = config_class.new(platforms: { "amiga" => { builder: "b" } })
 
           expect(config.version_source("amiga")).to eq("cat VERSION")
@@ -204,7 +213,7 @@ RSpec.describe "Steps every generated pipeline shares" do
     Dir.mktmpdir do |dir|
       template = File.join(dir, "amiga.yaml.erb")
       File.write(template, "when:\n  - event: tag\nsteps:\n  - name: build\n    image: b\n    commands: [ make ]\n")
-      WarpEngine.config.register_platform("amiga", service: "WarpEngine::Platforms::Phaser::Service", templates: { woodpecker: template })
+      WarpEngine.config.register_platform("amiga", service: "LegacyAmigaService", templates: { woodpecker: template })
 
       expect(YAML.safe_load(config.render(platform: "amiga", name: "x", update_server: "u"))["when"]).to eq([ { "event" => "tag" } ])
     end
@@ -221,7 +230,7 @@ RSpec.describe "Steps every generated pipeline shares" do
   it "attaches a build's own list when it writes .release-assets, and the uploaded files otherwise" do
     yaml = render(WarpEngine::CI::Woodpecker::PipelineConfig, "godot", spec: { forge_release: true })
 
-    expect(yaml).to include(".release-assets", 'game-$VERSION.*', "RELEASE_NOTES.md", "gitea_token", "CI_FORGE_URL")
+    expect(yaml).to include(".release-assets", "NAME='game'", '"$NAME-$VERSION.*"', "RELEASE_NOTES.md", "gitea_token", "CI_FORGE_URL")
   end
 
   it "makes a GitLab release with the job token" do

@@ -4,11 +4,8 @@ module WarpEngine
   # Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
   # software's platform.
   class ReleaseAsset < ApplicationRecord
-    # Every asset kind: the cartridge, source, HTML build and docs, and the
-    # native builds per operating system and architecture.
-    KINDS = %w[cartridge source html docs
-               win_x86 win_x64 linux_x86 linux_x64 linux_arm64
-               mac_x64 mac_arm64 mac_universal].freeze
+    # Every asset kind, in catalog order (WarpEngine::AssetKinds.names).
+    KINDS = WarpEngine::AssetKinds.names.freeze
 
     include SoftDeletable
     include OutletRefreshing

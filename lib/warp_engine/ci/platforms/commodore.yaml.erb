@@ -1,0 +1,27 @@
+steps:
+  - name: build
+    artifacts: [ "*.prg", "*.metadata.json" ]
+    image: <%= builder %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+<%- if options["build"] == "make" -%>
+        make <%= name %>.prg
+<%- else -%>
+        acme -f cbm -o <%= name %>.prg main.asm
+<%- end -%>
+        echo "==> Creating versioned files for $VERSION"
+        cp <%= name %>.prg <%= name %>-$VERSION.prg
+        cp metadata.json <%= name %>-$VERSION.metadata.json
+        ls -lh <%= name %>-$VERSION.*
+
+  - name: package
+    artifacts: [ "*.zip" ]
+    image: <%= exporter %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+        echo "==> Packaging the browser and native players for $VERSION"
+        commodore-pack <%= machine %> <%= name %> $VERSION

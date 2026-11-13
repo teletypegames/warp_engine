@@ -99,21 +99,34 @@ module WarpEngine
       @platforms                     = {}
     end
 
-    # Registers (or replaces) a platform the engine does not ship.
+    # Registers (or replaces) a platform the engine does not ship. With a block,
+    # the block is the WarpEngine::Platform::Builder DSL, the same the builtin
+    # platforms are declared with:
+    #
+    #   config.register_platform "amiga" do
+    #     label "Amiga"
+    #     kind :cartridge, ext: ".adf", required: true
+    #     ci template: Rails.root.join("ci/amiga.yaml.erb")
+    #   end
+    #
+    # Without a block (deprecated, the pre-1.12 form) +service+ names a class
+    # built from WarpEngine::Platforms::Updatable.
     #
     # [name]           the platform name; must match WarpEngine::Platform::FORMAT
-    # [service]        class (or class name) of the platform service
-    # [built_kinds]    the asset kinds the platform's CI pipeline builds
-    # [templates]      CI pipeline templates as a Hash of adapter name to template path
+    # [service]        legacy: class (or class name) of the platform service
+    # [built_kinds]    legacy: the asset kinds the platform's CI pipeline builds
+    # [templates]      legacy: CI pipeline templates as a Hash of adapter name to template path
     # [version_source] shell command printing the source version in CI, or +nil+ for the default
     #
-    # Returns the stored WarpEngine::Platform::Registration. Raises ArgumentError
-    # when the name is malformed.
-    def register_platform(name, service:, built_kinds: [], templates: {}, version_source: nil)
+    # Returns the stored WarpEngine::Platform::Definition (or legacy
+    # WarpEngine::Platform::Registration). Raises ArgumentError when the name is
+    # malformed, or when neither a block nor a +service+ is given.
+    def register_platform(name, service: nil, built_kinds: [], templates: {}, version_source: nil, &block)
       name = name.to_s
       raise ArgumentError, "platform name #{name.inspect} must match #{Platform::FORMAT.inspect}" unless name.match?(Platform::FORMAT)
+      raise ArgumentError, "register_platform #{name.inspect} needs a block (or a legacy service:)" unless block || service
 
-      @platforms[name] = Platform::Registration.new(
+      @platforms[name] = block ? platform_definition(name, version_source, &block) : Platform::Registration.new(
         name:           name,
         service:        service.to_s,
         built_kinds:    Array(built_kinds).map(&:to_s),
@@ -145,6 +158,15 @@ module WarpEngine
     def ignored_user_agents=(value)
       @ignored_user_agents = value
       @_ignored_ua_patterns = nil
+    end
+
+    private
+
+    def platform_definition(name, version_source, &block)
+      builder = Platform::Builder.new(name)
+      builder.version_source(version_source) if version_source
+      builder.instance_eval(&block)
+      builder.build
     end
   end
 end

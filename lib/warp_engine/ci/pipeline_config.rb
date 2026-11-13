@@ -1,61 +1,53 @@
 require "erb"
 require "pathname"
 require "yaml"
+require "warp_engine/ci/step"
 
 module WarpEngine
   module CI
     # Renders the per-platform pipeline a CI adapter serves for a marker config
-    # (<tt>platform: godot</tt>): the platform's ERB template, then the steps
-    # every pipeline shares added around it (+version+ first, +tag+ after a push
-    # build when releases follow tags, the forge +release+ when the platform asks
-    # for it) and the events the pipeline runs on.
+    # (<tt>platform: godot</tt>). A pipeline is a list of CI::Step objects:
     #
-    # This is the provider-neutral base; CI::Woodpecker::PipelineConfig and
-    # CI::Gitlab::PipelineConfig supply the template directory and the
-    # provider's YAML dialect for the shared steps.
+    # 1. +version+, which writes <tt>.version</tt> (<tt>scripts/version.sh</tt>);
+    # 2. the platform's own steps, from its CI-neutral template
+    #    (<tt>lib/warp_engine/ci/platforms/<template>.yaml.erb</tt>, or the
+    #    host's, see WarpEngine::Platform::Builder#ci);
+    # 3. +upload+ and +publish+, generated from the platform's kinds
+    #    (<tt>scripts/upload.sh</tt>, <tt>scripts/publish.sh</tt>): the kinds
+    #    the pipeline always builds (and the metadata) must be there, every
+    #    other kind the platform accepts is uploaded when the build made it;
+    # 4. +tag+ after a push build when releases follow tags, and the forge
+    #    +release+ when the host asks for it.
+    #
+    # The adapter's renderer then writes the steps in its YAML dialect. This is
+    # the provider-neutral base; CI::Woodpecker::PipelineConfig and
+    # CI::Gitlab::PipelineConfig supply the renderer, the branch variables, the
+    # forge scripts and secrets.
+    #
+    # A CI-neutral template renders to a mapping with +steps+ (each +name+,
+    # +image+, +commands+, optionally +environment+, +artifacts+ and +pull+) and
+    # an optional +upload+ (+prepare+: shell lines run before the upload,
+    # +packages+: what the upload needs from apk without a tools image).
     class PipelineConfig
       # The pattern a platform name must match before its template is looked up.
       PLATFORM_FORMAT = /\A[a-z0-9_-]+\z/
       # The pattern both the key and the value of a marker option must match to reach the template.
       OPTION_FORMAT = /\A[A-Za-z0-9_.-]{1,64}\z/
-
-      # The release file kinds the bundled template of each built-in platform produces, by platform name.
-      BUILT_KINDS = {
-        "tic80"      => %w[cartridge source html docs win_x64 linux_x64 mac_x64],
-        "ebitengine" => %w[html win_x86 win_x64 linux_x64 linux_arm64],
-        "godot"      => %w[html win_x86 win_x64 linux_x64 mac_universal],
-        "love"       => %w[html win_x64 linux_x64 mac_universal],
-        "bevy"       => %w[html win_x64 linux_x64 linux_arm64],
-        "c64"        => %w[cartridge html win_x64 linux_x64 mac_arm64],
-        "plus4"      => %w[cartridge html win_x64 linux_x64 mac_arm64],
-        "phaser"     => %w[html],
-        "dos"        => %w[cartridge win_x86]
-      }.freeze
-
+      # The directory of the builtin CI-neutral platform templates.
+      TEMPLATES_DIR = Pathname.new(__dir__).join("platforms")
       # The step (job) names that release a build and run on tags only when releases follow tags.
       RELEASE_STEPS = %w[package upload publish release].freeze
       # The accepted values of the +release+ marker option.
       RELEASE_RULES = %w[push tag].freeze
-
       # The shell command that prints the +version+ of the repository's metadata.json.
       METADATA_VERSION = <<~'SH'.chomp.freeze
         sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' metadata.json 2>/dev/null | head -n 1
       SH
-      # Shell commands that print the source version of a platform whose version is not in
-      # metadata.json, by platform name.
-      VERSION_SOURCES = {
-        "tic80" => <<~'SH'.chomp.freeze
-          sed -n 's/^-- version: //p' inc/meta/meta.header.lua 2>/dev/null | head -n 1 | tr -d '[:space:]'
-        SH
-      }.freeze
 
-      # Returns the adapter key (+:woodpecker+, +:gitlab+) a platform registration's
-      # +templates+ Hash is looked up by. Raises NotImplementedError in the base class.
+      # Returns the adapter key (+:woodpecker+, +:gitlab+) a legacy platform
+      # registration's +templates+ Hash is looked up by. Raises
+      # NotImplementedError in the base class.
       def self.adapter = raise(NotImplementedError)
-
-      # Returns the Pathname holding the bundled <tt><platform>/pipeline.yaml.erb</tt>
-      # templates. Raises NotImplementedError in the base class.
-      def self.templates_dir = raise(NotImplementedError)
 
       # Creates the renderer.
       #
@@ -77,48 +69,36 @@ module WarpEngine
       # [options]       the marker's other keys; invalid ones are dropped (#clean_options)
       #
       # Returns the pipeline YAML String, or +nil+ when the platform name is
-      # malformed, not configured, or has no template. A template that does not
-      # render to a YAML mapping is returned as rendered, without the shared steps.
+      # malformed, not configured, or has no template. A legacy template that
+      # does not render to a YAML mapping is returned as rendered, without the
+      # shared steps.
       def render(platform:, name:, update_server:, options: {})
-        platform = platform.to_s
-        return nil unless platform.match?(PLATFORM_FORMAT)
+        platform_name = platform.to_s
+        return nil unless platform_name.match?(PLATFORM_FORMAT)
 
-        spec = @platforms[platform]
-        return nil if spec.nil?
-
-        path = template_path(platform)
-        return nil unless path&.exist?
+        spec = @platforms[platform_name]
+        found = WarpEngine::Platform.find(platform_name)
+        return nil if spec.nil? || found.nil?
 
         options = clean_options(options)
-        config = ERB.new(path.read, trim_mode: "-").result_with_hash(
-          name:             name.to_s,
-          update_server:    update_server.to_s,
-          builder:          spec[:builder],
-          exporter:         spec[:exporter],
-          tools:            spec[:tools],
-          web_shell:        spec[:web_shell],
-          bundle_id_prefix: spec[:bundle_id_prefix] || "org.warpengine",
-          options:          options
-        )
+        body = found.legacy? ? legacy_steps(found, spec, name, update_server, options) : platform_steps(found, spec, name, update_server, options)
+        return body unless body.is_a?(Array)
 
-        document = YAML.safe_load(config)
-        return config unless document.is_a?(Hash)
-
-        add_version_step(document, image: spec[:tools], script: version_script(platform))
-        if release_rule(platform, options) == "tag"
-          tag_only(document)
-          add_tag_step(document, image: spec[:tools], script: tag_script)
+        steps, extras = body
+        steps = [ version_step(platform_name, spec) ] + steps
+        if release_rule(platform_name, options) == "tag"
+          steps = steps.map { |step| RELEASE_STEPS.include?(step.name) ? step.with(on: :tag) : step }
+          steps << tag_step(spec)
         end
-        add_release_step(document, image: spec[:tools], script: release_script(name.to_s)) if spec[:forge_release]
-        limit_events(document)
-        YAML.dump(document)
+        steps << release_step(name.to_s, spec) if spec[:forge_release]
+        YAML.dump(renderer.render(steps, extras))
       end
 
-      # Returns which builds release +platform+: <tt>"tag"</tt> when the platform's
-      # service demands it, otherwise the +release+ option when it is one of
-      # RELEASE_RULES, and <tt>"tag"</tt> by default.
+      # Returns which builds release +platform+: <tt>"tag"</tt> when the platform
+      # demands it (WarpEngine::Platform#release_rule), otherwise the +release+
+      # option when it is one of RELEASE_RULES, and <tt>"tag"</tt> by default.
       def release_rule(platform, options)
-        return "tag" if WarpEngine::Platform.find(platform)&.service_class&.release_rule == "tag"
+        return "tag" if WarpEngine::Platform.find(platform)&.release_rule == "tag"
 
         chosen = options.to_h.transform_keys(&:to_s)["release"]
         RELEASE_RULES.include?(chosen) ? chosen : "tag"
@@ -136,145 +116,135 @@ module WarpEngine
         end
       end
 
-      # Returns the Array of release file kinds the pipeline of +platform+ builds:
-      # the platform registration's +built_kinds+, else BUILT_KINDS. Returns +nil+
-      # when the platform is not configured for this adapter.
+      # Returns the release file kinds the pipeline of +platform+ builds
+      # (WarpEngine::Platform#built_kinds), or +nil+ when the platform is not
+      # configured for this adapter.
       def built_kinds(platform)
         platform = platform.to_s
         return nil unless @platforms.key?(platform)
 
-        WarpEngine::Platform.registration(platform)&.built_kinds.presence || BUILT_KINDS[platform]
+        WarpEngine::Platform.find(platform)&.built_kinds
       end
 
-      # Returns the shell command that prints the source version of +platform+: the
-      # registration's +version_source+, else VERSION_SOURCES, else METADATA_VERSION.
+      # Returns the shell command that prints the source version of +platform+:
+      # WarpEngine::Platform#version_source, else METADATA_VERSION.
       def version_source(platform)
-        WarpEngine::Platform.registration(platform)&.version_source.presence ||
-          VERSION_SOURCES.fetch(platform.to_s, METADATA_VERSION)
+        WarpEngine::Platform.find(platform)&.version_source.presence || METADATA_VERSION
       end
 
-      # Returns the shell script of the +version+ step. It checks that a version tag
-      # matches the source version (failing the build otherwise), falls back to
-      # <tt>dev-<sha></tt> without any version, marks builds off the default branch
-      # or from a <tt>dev-</tt> tag as <tt>dev-<version>-<branch></tt>, and writes the
-      # result to +.version+.
+      # Returns the shell script of the +version+ step (<tt>scripts/version.sh</tt>
+      # after the source version and the adapter's branch variables). It checks
+      # that a version tag matches the source version (failing the build
+      # otherwise), falls back to <tt>dev-<sha></tt> without any version, marks
+      # builds off the default branch or from a <tt>dev-</tt> tag as
+      # <tt>dev-<version>-<branch></tt>, and writes the result to +.version+.
       def version_script(platform)
-        <<~SH
-          SOURCE_VERSION=$(#{version_source(platform)})
-          TAG="${CI_COMMIT_TAG:-}"
-          TAG_VERSION=""
-          DEV_TAG=""
-          BRANCH=$(printf '%s' "#{branch_expression}" | tr '/' '-')
-          case "$TAG" in
-            v[0-9]*|[0-9]*) TAG_VERSION=$(printf '%s' "$TAG" | sed 's/^v//') ;;
-            dev-*) DEV_TAG=yes; BRANCH=$(printf '%s' "$TAG" | sed 's/^dev-//') ;;
-          esac
-          if [ -n "$TAG_VERSION" ] && [ -n "$SOURCE_VERSION" ] && [ "$TAG_VERSION" != "$SOURCE_VERSION" ]; then
-            echo "ERROR: the tag $TAG does not match the version $SOURCE_VERSION of the source!"
-            exit 1
-          fi
-          VERSION="$SOURCE_VERSION"
-          if [ -z "$VERSION" ]; then VERSION="$TAG_VERSION"; fi
-          if [ -z "$VERSION" ]; then
-            SHA="${CI_COMMIT_SHA:-unknown}"
-            VERSION="dev-$(printf '%.7s' "$SHA")"
-            echo "No version in the source and no version tag: this build is $VERSION"
-          fi
-          DEFAULT_BRANCH=$(printf '%s' "#{default_branch_expression}" | tr '/' '-')
-          ON_DEFAULT=""
-          if [ -n "$DEFAULT_BRANCH" ]; then
-            if [ "$BRANCH" = "$DEFAULT_BRANCH" ]; then ON_DEFAULT=yes; fi
-          else
-            case "$BRANCH" in main|master) ON_DEFAULT=yes ;; esac
-          fi
-          if [ -n "$DEV_TAG" ] || { [ -z "$TAG" ] && [ -n "$BRANCH" ] && [ -z "$ON_DEFAULT" ]; }; then
-            case "$VERSION" in dev-*) ;; *) VERSION="dev-$VERSION-$BRANCH" ;; esac
-          fi
-          echo "VERSION is: $VERSION"
-          echo "$VERSION" > .version
-        SH
+        "SOURCE_VERSION=$(#{version_source(platform)})\n" + branch_prelude + Scripts.read("version")
       end
 
-      # Returns the shell script of the +tag+ step, run after a push build: a new
+      # Returns the shell script of the +tag+ step, run after a push build
+      # (<tt>scripts/tag.sh</tt> with the adapter's forge functions): a new
       # version gets its <tt>v<version></tt> tag on the forge, whose pipeline
       # releases it; a version already tagged releases nothing. A dev build moves
       # the branch's <tt>dev-<branch></tt> tag onto its commit, so the dev release
       # follows the branch.
       def tag_script
-        <<~SH
-          set -eu
-          VERSION=$(cat .version)
-          BRANCH=$(printf '%s' "#{branch_expression}" | tr '/' '-')
-          case "$VERSION" in
-            dev-*) TAG="dev-$BRANCH"; MOVE=yes ;;
-            *) TAG="v$VERSION"; MOVE="" ;;
-          esac
-          if [ "$TAG" = "dev-" ]; then echo "No branch to name the dev tag after: nothing to tag"; exit 0; fi
-          #{forge_tag_setup.strip}
-          CURRENT=$(#{forge_tag_lookup} 2>/dev/null || true)
-          if [ -n "$CURRENT" ]; then
-            if [ -z "$MOVE" ]; then echo "==> $TAG is tagged already: this build releases nothing"; exit 0; fi
-            if [ "$CURRENT" = "$CI_COMMIT_SHA" ]; then echo "==> $TAG is on this commit already"; exit 0; fi
-            echo "==> Moving $TAG to $CI_COMMIT_SHA"
-            #{forge_tag_delete} >/dev/null
-          else
-            echo "==> Tagging $CI_COMMIT_SHA as $TAG"
-          fi
-          #{forge_tag_create} >/dev/null
-        SH
+        branch_prelude + Scripts.read("forge", dir: scripts_dir) + Scripts.read("tag")
       end
 
-      # Returns the shell snippet that sets +FILES+ (the files listed in
-      # +.release-assets+, else the <tt><name>-$VERSION.*</tt> and
-      # <tt><name>-$VERSION-*</tt> files without metadata), +TITLE+ (from
-      # metadata.json, else +name+) and +NOTES+ (RELEASE_NOTES.md) for a release
-      # script. The snippet exits with an error when there is nothing to attach.
-      def release_files_script(name)
-        <<~SH
-          if [ -f .release-assets ]; then
-            FILES=$(cat .release-assets)
-          else
-            FILES=$(find . -maxdepth 1 -type f \\( -name "#{name}-$VERSION.*" -o -name "#{name}-$VERSION-*" \\) ! -name '*.metadata.json' | sed 's|^\\./||' | sort)
-          fi
-          [ -n "$FILES" ] || { echo "ERROR: nothing to attach to the release"; exit 1; }
-          TITLE=$(jq -r '.title // .name // empty' metadata.json 2>/dev/null || true)
-          if [ -z "$TITLE" ]; then TITLE="#{name}"; fi
-          NOTES=""
-          if [ -f RELEASE_NOTES.md ]; then NOTES=$(cat RELEASE_NOTES.md); fi
-        SH
+      # Returns the shell script of the forge +release+ step of the software
+      # +name+: <tt>scripts/release_files.sh</tt> (which files, title and notes)
+      # and the adapter's <tt>scripts/release.sh</tt>.
+      def release_script(name)
+        Scripts.assign(NAME: name) + Scripts.read("release_files") + Scripts.read("release", dir: scripts_dir)
       end
 
       private
+
+      def renderer = raise(NotImplementedError)
+
+      def scripts_dir = raise(NotImplementedError)
 
       def branch_expression = raise(NotImplementedError)
 
       def default_branch_expression = raise(NotImplementedError)
 
-      def add_tag_step(document, image:, script:) = raise(NotImplementedError)
+      def forge_secrets = {}
 
-      def limit_events(_document) = nil
+      def branch_prelude
+        %(BRANCH_SOURCE="#{branch_expression}"\nDEFAULT_BRANCH_SOURCE="#{default_branch_expression}"\n)
+      end
 
-      def forge_tag_setup = raise(NotImplementedError)
+      def locals(platform, spec, name, update_server, options)
+        { name:             name.to_s,
+          update_server:    update_server.to_s,
+          builder:          spec[:builder],
+          exporter:         spec[:exporter],
+          tools:            spec[:tools],
+          web_shell:        spec[:web_shell],
+          bundle_id_prefix: spec[:bundle_id_prefix] || "org.warpengine",
+          options:          options }.merge(platform.definition.ci_variables.to_h.symbolize_keys)
+      end
 
-      def forge_tag_lookup = raise(NotImplementedError)
+      def evaluate(path, locals)
+        ERB.new(path.read, trim_mode: "-").result_with_hash(locals)
+      end
 
-      def forge_tag_delete = raise(NotImplementedError)
+      def platform_steps(platform, spec, name, update_server, options)
+        template = platform.definition.ci_template.to_s
+        path = Pathname.new(template).absolute? ? Pathname.new(template) : TEMPLATES_DIR.join("#{template}.yaml.erb")
+        return nil unless path.file?
 
-      def forge_tag_create = raise(NotImplementedError)
+        document = YAML.safe_load(evaluate(path, locals(platform, spec, name, update_server, options)))
+        steps = Array(document["steps"]).map { |step| Step.from_template(step) }
+        upload = document["upload"].to_h
+        [ steps + [ upload_step(platform, spec, name.to_s, update_server.to_s, upload),
+                    publish_step(platform, spec, name.to_s, update_server.to_s) ], {} ]
+      end
 
-      def add_version_step(document, image:, script:) = raise(NotImplementedError)
+      def legacy_steps(platform, spec, name, update_server, options)
+        path = platform.legacy_template(self.class.adapter)
+        return nil unless path&.exist?
 
-      def add_release_step(document, image:, script:) = raise(NotImplementedError)
+        config = evaluate(path, locals(platform, spec, name, update_server, options))
+        document = YAML.safe_load(config)
+        document.is_a?(Hash) ? renderer.parse(document) : config
+      end
 
-      def release_script(name) = raise(NotImplementedError)
+      def helper_commands(spec, packages, script)
+        (spec[:tools] ? [] : [ "apk add --no-cache #{packages.join(' ')}" ]) + [ script ]
+      end
 
-      def tag_only(document) = raise(NotImplementedError)
+      def version_step(platform, spec)
+        Step.new(name: "version", image: spec[:tools] || "alpine", commands: [ version_script(platform) ], artifacts: [ ".version" ])
+      end
 
-      def template_path(platform)
-        registered = WarpEngine::Platform.registration(platform)&.templates&.dig(self.class.adapter)
-        return registered if registered
+      def upload_step(platform, spec, name, update_server, upload)
+        specs = platform.kind_specs
+        metadata = platform.definition.metadata.to_s == "json"
+        always = specs.select { |spec| spec.built && spec.always }.map(&:upload_suffix) + (metadata ? [ ".metadata.json" ] : [])
+        maybe = specs.reject { |spec| spec.built && spec.always }.map(&:upload_suffix)
+        inputs = Scripts.assign(NAME: name, ALWAYS: always.join(" "), MAYBE: maybe.join(" "), METADATA: metadata ? "yes" : "")
+        script = inputs + "VERSION=$(cat .version)\n" + upload["prepare"].to_s + Scripts.read("upload")
+        Step.new(name: "upload", image: spec[:tools] || "alpine", environment: { "UPDATE_SERVER" => update_server },
+                 secrets: { "UPDATE_SECRET" => "application_token" },
+                 commands: helper_commands(spec, [ "curl" ] + Array(upload["packages"]), script))
+      end
 
-        self.class.templates_dir.join(platform, "pipeline.yaml.erb")
+      def publish_step(platform, spec, name, update_server)
+        script = Scripts.assign(NAME: name, PLATFORM: platform.name) + Scripts.read("publish")
+        Step.new(name: "publish", image: spec[:tools] || "alpine", environment: { "UPDATE_SERVER" => update_server },
+                 secrets: { "UPDATE_SECRET" => "application_token" }, commands: helper_commands(spec, %w[curl], script))
+      end
+
+      def tag_step(spec)
+        Step.new(name: "tag", image: spec[:tools] || "alpine", secrets: forge_secrets, on: :branch,
+                 commands: helper_commands(spec, %w[curl], tag_script))
+      end
+
+      def release_step(name, spec)
+        Step.new(name: "release", image: spec[:tools] || "alpine", secrets: forge_secrets, on: :tag,
+                 commands: helper_commands(spec, %w[curl jq], release_script(name)))
       end
     end
   end

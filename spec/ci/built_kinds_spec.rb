@@ -1,7 +1,7 @@
 require "rails_helper"
 
 shared_examples "pipeline config built kinds" do |config_class|
-  built_kinds = config_class::BUILT_KINDS
+  built_kinds = WarpEngine::Platform::NAMES.to_h { |name| [ name, WarpEngine::Platform.find(name).built_kinds ] }
 
   def self.fragment_for(kind)
     case kind
@@ -16,8 +16,10 @@ shared_examples "pipeline config built kinds" do |config_class|
     config_class.new(platforms: { platform => { builder: "builder:latest", exporter: "exporter:latest" } })
   end
 
-  it "knows every platform in the registry" do
-    expect(built_kinds.keys).to match_array(WarpEngine::Platform.names)
+  it "takes every platform's built kinds from its definition" do
+    WarpEngine::Platform::NAMES.each do |platform|
+      expect(config_for(platform).built_kinds(platform)).to eq(WarpEngine::Platform.find(platform).definition.built_kinds)
+    end
   end
 
   WarpEngine::Platform::NAMES.each do |platform|

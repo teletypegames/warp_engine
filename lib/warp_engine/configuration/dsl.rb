@@ -61,7 +61,7 @@ module WarpEngine
         @config.ignored_user_agents = (Array(@config.ignored_user_agents) + patterns.flatten).uniq
       end
 
-      # Defines a shelf for +platform+ (see WarpEngine::Shelves for the options).
+      # Defines a shelf for +platform+ (see WarpEngine::Outlets::Shelf::Definitions for the options).
       # A shelf with the same +path+ is replaced. Raises ArgumentError on an
       # unknown option key.
       def shelf(platform, **options)
@@ -94,7 +94,7 @@ module WarpEngine
       end
 
       # Registers a platform; see WarpEngine::Configuration#register_platform.
-      def register_platform(name, **options) = @config.register_platform(name, **options)
+      def register_platform(name, **options, &) = @config.register_platform(name, **options, &)
 
       # Evaluates +block+ with a WarpEngine::Configuration::AdminApiDSL on the
       # admin API settings.

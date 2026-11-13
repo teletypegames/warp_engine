@@ -5,9 +5,9 @@ module WarpEngine
   # needs the identity integration (<tt>WarpEngine.identity_configured?</tt>).
   class DeviceGrantService
     # Raised when the identity integration is not configured.
-    class NotConfigured < StandardError; end
+    class NotConfigured < WarpEngine::Error; end
     # Raised when no grant (or no pending grant) matches the code given.
-    class UnknownCode < StandardError; end
+    class UnknownCode < WarpEngine::Error; end
 
     # Creates a pending WarpEngine::DeviceGrant for the client +client_name+
     # (truncated to 128 characters, blank allowed). Returns the grant. Raises

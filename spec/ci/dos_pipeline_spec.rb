@@ -1,4 +1,5 @@
 require "rails_helper"
+require_relative "../support/pipeline_helpers"
 
 shared_examples "dos pipeline" do |config_class, jobs_of|
   def render(config_class, spec, options: {})
@@ -29,9 +30,15 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
 
   it "uploads the program folder and the Win32 folder under WarpEngine names, with the dos block kept for the shelf" do
     yaml = render(config_class, {})
+    metadata = %({"name": "dosinst", "dos": {"folder": "DOSINST", "win32_folder": "DOSINSTW"}})
+    files = { "metadata.json" => metadata, "dist/DOSINST-v0.6.0.zip" => "dos", "dist/DOSINSTW-v0.6.0.zip" => "win32" }
 
-    expect(yaml).to include("dosinst-$VERSION.zip", "dosinst-$VERSION-win-x86.zip", "dosinst-$VERSION.metadata.json",
-                            "'. + {version: $version}'", "platform=dos&version=$VERSION")
+    calls, status = run_with_fake_curl(step_script(yaml, "upload"), files: files, version: "0.6.0",
+                                                                    env: { "CI_COMMIT_TAG" => "v0.6.0" })
+
+    expect(status).to be_success
+    expect(uploaded_files(calls)).to contain_exactly("dosinst-0.6.0.zip", "dosinst-0.6.0-win-x86.zip", "dosinst-0.6.0.metadata.json")
+    expect(yaml).to include("'. + {version: $version}'", "PLATFORM='dos'")
     expect(yaml).not_to include("del(.dos)")
   end
 end

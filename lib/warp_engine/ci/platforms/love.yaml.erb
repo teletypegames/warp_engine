@@ -1,0 +1,123 @@
+steps:
+  - name: export
+    artifacts: [ "*.zip" ]
+    image: <%= builder %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+        mkdir -p dist
+        echo "==> Building .love package"
+        zip -r dist/<%= name %>.love . \
+          --exclude "*.git*" \
+          --exclude "bin/*" \
+          --exclude "dist/*" \
+          --exclude "Makefile" \
+          --exclude ".version" \
+          --exclude "metadata.json" \
+          --exclude "*.zip"
+        mkdir -p dist/web
+        # The love-builder CI image pre-fetches love.js here; local builds
+        # fall back to GitHub.
+        if [ -f /opt/lovejs.zip ]; then
+          echo "==> Using cached love.js (/opt/lovejs.zip)"
+          cp /opt/lovejs.zip dist/lovejs.zip
+        else
+          echo "==> Downloading love.js (2dengine)"
+          curl -sSL https://github.com/2dengine/love.js/archive/refs/heads/master.zip -o dist/lovejs.zip
+        fi
+        unzip -o dist/lovejs.zip -d dist/lovejs-src
+        rm -f dist/lovejs.zip
+        echo "==> Assembling web bundle"
+        cp -r dist/lovejs-src/*/. dist/web/
+        rm -rf dist/lovejs-src
+        cp dist/<%= name %>.love dist/web/<%= name %>.love
+        echo "==> Patching player.js"
+        sed -i.bak "s|uri = 'nogame\.love'|uri = '<%= name %>.love'|g" dist/web/player.js && rm dist/web/player.js.bak
+        echo "==> Patching index.html"
+        sed -i.bak 's|<base href="/play/">|<base href="/file/<%= name %>-'"$VERSION"'/">|g' dist/web/index.html && rm dist/web/index.html.bak
+        echo "==> Web build ready in dist/web"
+        echo "==> Packaging web build for $VERSION"
+        (cd dist/web && zip -r ../../<%= name %>-$VERSION.html.zip .)
+        echo "==> Cleaning temporary files"
+        rm -f dist/<%= name %>.love
+        rm -rf dist/web
+
+  - name: binaries
+    artifacts: [ "*.zip" ]
+    image: <%= builder %>
+    pull: true
+    commands:
+      - |
+        VERSION=$(cat .version)
+        # The export step deleted the .love, rebuild it here (in make the
+        # binary-* targets' love prerequisite did the same).
+        mkdir -p dist
+        zip -r dist/<%= name %>.love . \
+          --exclude "*.git*" \
+          --exclude "bin/*" \
+          --exclude "dist/*" \
+          --exclude "Makefile" \
+          --exclude ".version" \
+          --exclude "metadata.json" \
+          --exclude "*.zip"
+        # The love-builder CI image pre-fetches the dist files to
+        # /opt/love-dist; local builds fall back to GitHub.
+        fetch_love() {
+          if [ -f "/opt/love-dist/$1" ]; then
+            echo "==> Using cached $1"
+            cp "/opt/love-dist/$1" "dist/$1"
+          elif [ ! -f "dist/$1" ]; then
+            echo "==> Downloading $1"
+            curl -sSL "https://github.com/love2d/love/releases/download/11.5/$1" -o "dist/$1"
+          fi
+        }
+        echo "==> Fusing windows binary"
+        fetch_love love-11.5-win64.zip
+        PKG_DIR="<%= name %>-$VERSION-win-x64"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip" dist/win64
+        unzip -q dist/love-11.5-win64.zip -d dist/win64
+        SRC=$(dirname $(find dist/win64 -name love.exe | head -n 1))
+        mkdir -p "$PKG_DIR"
+        cat "$SRC/love.exe" dist/<%= name %>.love > "$PKG_DIR/<%= name %>.exe"
+        cp "$SRC"/*.dll "$PKG_DIR/"
+        cp "$SRC/license.txt" "$PKG_DIR/" 2>/dev/null || true
+        zip -qr "$PKG_DIR.zip" "$PKG_DIR"
+        rm -rf "$PKG_DIR" dist/win64
+        echo "==> $PKG_DIR.zip kesz"
+        echo "==> Fusing macOS app bundle"
+        fetch_love love-11.5-macos.zip
+        PKG_DIR="<%= name %>-$VERSION-mac-universal"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip" dist/macos
+        unzip -q dist/love-11.5-macos.zip -d dist/macos
+        mkdir -p "$PKG_DIR"
+        mv dist/macos/love.app "$PKG_DIR/<%= name %>.app"
+        cp dist/<%= name %>.love "$PKG_DIR/<%= name %>.app/Contents/Resources/"
+        PLIST="$PKG_DIR/<%= name %>.app/Contents/Info.plist"
+        sed -i.bak "s|<string>LÖVE</string>|<string><%= name %></string>|g" "$PLIST" && rm "$PLIST.bak"
+        sed -i.bak "s|org\.love2d\.love|<%= bundle_id_prefix %>.<%= name %>|g" "$PLIST" && rm "$PLIST.bak"
+        zip -qry "$PKG_DIR.zip" "$PKG_DIR"
+        rm -rf "$PKG_DIR" dist/macos
+        echo "==> $PKG_DIR.zip kesz"
+        # The AppImage runtime is glibc-dynamic and cannot run on alpine
+        # (musl), so we do not run the runtime: the offset is computed from
+        # readelf (shoff + shentsize*shnum) and the squashfs is extracted
+        # with unsquashfs -o.
+        echo "==> Fusing linux AppImage"
+        fetch_love love-11.5-x86_64.AppImage
+        PKG_DIR="<%= name %>-$VERSION-linux-x64"
+        APPIMAGE="dist/love-11.5-x86_64.AppImage"
+        rm -rf "$PKG_DIR" "$PKG_DIR.zip" squashfs-root dist/game.squashfs dist/runtime
+        OFFSET=$(readelf -h "$APPIMAGE" | awk '/Start of section headers/{o=$5} /Size of section headers/{s=$5} /Number of section headers/{n=$5} END{print o+s*n}')
+        unsquashfs -q -o $OFFSET -d squashfs-root "$APPIMAGE" >/dev/null
+        cat squashfs-root/bin/love dist/<%= name %>.love > squashfs-root/bin/love.fused
+        mv squashfs-root/bin/love.fused squashfs-root/bin/love
+        chmod +x squashfs-root/bin/love
+        mksquashfs squashfs-root dist/game.squashfs -root-owned -noappend -quiet -comp gzip
+        head -c $OFFSET "$APPIMAGE" > dist/runtime
+        mkdir -p "$PKG_DIR"
+        cat dist/runtime dist/game.squashfs > "$PKG_DIR/<%= name %>.AppImage"
+        chmod +x "$PKG_DIR/<%= name %>.AppImage"
+        zip -qr "$PKG_DIR.zip" "$PKG_DIR"
+        rm -rf "$PKG_DIR" squashfs-root dist/game.squashfs dist/runtime
+        echo "==> $PKG_DIR.zip kesz"

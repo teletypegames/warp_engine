@@ -1,7 +1,7 @@
 module WarpEngine
   module Outlets
-    # Raised when an outlet definition is invalid.
-    class ConfigurationError < StandardError; end
+    # Kept for hosts that rescue it by this name: it is WarpEngine::ConfigurationError.
+    ConfigurationError = WarpEngine::ConfigurationError
 
     # A format the catalog leaves the engine in. Every outlet type subclasses
     # Base and names itself with +type_name+; what it can do comes from the

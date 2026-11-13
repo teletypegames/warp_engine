@@ -2,7 +2,7 @@ module WarpEngine
   module AdminApi
     # An Admin API failure with the HTTP status it answers with. The controller and
     # Mcp render it as <tt>{ error:, details: }</tt> (see #body) with #headers set.
-    class Error < StandardError
+    class Error < WarpEngine::Error
       # The HTTP status code, the optional details hash (field name to messages) and
       # the extra response headers.
       attr_reader :status, :details, :headers
@@ -44,7 +44,8 @@ module WarpEngine
       end
     end
 
-    # Raised when the Admin API is configured in a way it cannot run, e.g. MCP without the +mcp+ gem.
-    class ConfigurationError < StandardError; end
+    # Raised when the Admin API is configured in a way it cannot run, e.g. MCP without
+    # the +mcp+ gem. The same class as WarpEngine::ConfigurationError.
+    ConfigurationError = WarpEngine::ConfigurationError
   end
 end

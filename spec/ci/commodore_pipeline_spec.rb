@@ -1,4 +1,5 @@
 require "rails_helper"
+require_relative "../support/pipeline_helpers"
 
 RSpec.describe "Commodore pipelines" do
   [ WarpEngine::CI::Woodpecker::PipelineConfig, WarpEngine::CI::Gitlab::PipelineConfig ].product(%w[c64 plus4]).each do |config_class, platform|
@@ -25,10 +26,29 @@ RSpec.describe "Commodore pipelines" do
       end
 
       it "uploads the program and its metadata always, and the players only when they were built" do
-        yaml = render(config_class)
+        script = step_script(render(config_class), "upload")
+        program = { "warp64u-1.0.prg" => "prg", "metadata.json" => "{}" }
 
-        expect(yaml).to include('FILES="warp64u-$VERSION.prg warp64u-$VERSION.metadata.json"',
-                                'if [ -f "$f" ]; then FILES="$FILES $f"; fi')
+        calls, status = run_with_fake_curl(script, files: program, env: { "UPDATE_SERVER" => "https://games.example" })
+        expect(status).to be_success
+        expect(uploaded_files(calls)).to contain_exactly("warp64u-1.0.prg", "warp64u-1.0.metadata.json")
+        expect(calls.first).to include("https://games.example/build/upload?name=warp64u&version=1.0")
+
+        calls, = run_with_fake_curl(script, files: program.merge("warp64u-1.0.html.zip" => "z", "warp64u-1.0-win-x64.zip" => "z"))
+        expect(uploaded_files(calls)).to contain_exactly("warp64u-1.0.prg", "warp64u-1.0.metadata.json",
+                                                         "warp64u-1.0.html.zip", "warp64u-1.0-win-x64.zip")
+      end
+
+      it "fails the upload without the program, the kind the platform requires" do
+        _, status = run_with_fake_curl(step_script(render(config_class), "upload"), files: { "metadata.json" => "{}" })
+
+        expect(status).not_to be_success
+      end
+
+      it "publishes the build under its own platform" do
+        calls, = run_with_fake_curl(step_script(render(config_class), "publish"), env: { "UPDATE_SERVER" => "https://u.example" })
+
+        expect(calls.last).to end_with("https://u.example/build/publish?name=warp64u&platform=#{platform}&version=1.0")
       end
     end
   end

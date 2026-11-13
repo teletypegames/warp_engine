@@ -91,7 +91,7 @@ module WarpEngine
           Rails.logger.error("[WarpEngine::Outlets] refresh #{outlet.key}: #{e.class}: #{e.message}")
           nil
         end
-      rescue ConfigurationError, WarpEngine::Shelves::ConfigurationError => e
+      rescue WarpEngine::ConfigurationError => e
         Rails.logger.error("[WarpEngine::Outlets] refresh #{platform || 'all'}: #{e.message}")
         []
       end
@@ -101,7 +101,7 @@ module WarpEngine
       # API's when the configuration is invalid.
       def descriptors
         all.map(&:descriptor)
-      rescue ConfigurationError, WarpEngine::Shelves::ConfigurationError
+      rescue WarpEngine::ConfigurationError
         [ Wecp.new.descriptor ]
       end
 

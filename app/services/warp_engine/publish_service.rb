@@ -9,11 +9,11 @@ module WarpEngine
     # A version older than the newest one published would become the latest
     # release and bring back its metadata, so it is refused. Dev versions and
     # versions Gem::Version cannot read are not compared.
-    class StaleVersionError < StandardError; end
+    class StaleVersionError < WarpEngine::Error; end
 
     # Publishes the upload described by +input+ (a WarpEngine::PublishInputDto
-    # with +platform+, +name+ and +version+) through the platform service's
-    # <tt>update</tt>, then instruments NOTIFICATION.
+    # with +platform+, +name+ and +version+) through WarpEngine::Platform#publish,
+    # then instruments NOTIFICATION.
     #
     # Returns the WarpEngine::Release. Raises StaleVersionError when the version
     # is older than the newest one published, ArgumentError for an unknown
@@ -21,7 +21,7 @@ module WarpEngine
     # asset was not uploaded.
     def publish(input)
       refuse_stale!(input)
-      release = WarpEngine::Platform.find!(input.platform).service.update(input.name, input.version)
+      release = WarpEngine::Platform.find!(input.platform).publish(input.name, input.version)
 
       ActiveSupport::Notifications.instrument(
         NOTIFICATION,

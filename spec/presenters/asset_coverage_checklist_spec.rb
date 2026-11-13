@@ -8,7 +8,7 @@ RSpec.describe WarpEngine::AssetCoverageChecklist do
     WarpEngine::ReleaseAsset.create!(release: release, kind: "html", path: "/s/rabbitroller-1.1.1")
 
     ci = instance_double(WarpEngine::CI::Woodpecker::Adapter)
-    allow(ci).to receive(:built_kinds) { |platform| WarpEngine::CI::Woodpecker::PipelineConfig::BUILT_KINDS[platform] }
+    allow(ci).to receive(:built_kinds) { |platform| WarpEngine::Platform.find(platform).built_kinds }
     allow(WarpEngine).to receive(:ci).and_return(ci)
   end
 

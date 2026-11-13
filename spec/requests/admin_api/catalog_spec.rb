@@ -158,7 +158,7 @@ RSpec.describe "Admin API catalog", type: :request do
     end
 
     it "refuses an html asset for a download-only platform" do
-      allow(WarpEngine::Platforms::C64::Service).to receive(:expected_kinds).and_return(%w[cartridge])
+      allow_any_instance_of(WarpEngine::Platform).to receive(:expected_kinds).and_return(%w[cartridge])
       release = create(:release, software: create(:software, platform: "c64"))
 
       api_post "/releases/#{release.id}/assets", { kind: "html", path: "/softwares/g/html" }
