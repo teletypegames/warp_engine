@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
   spec.metadata["source_code_uri"]   = "https://git.teletypegames.org/engines/warp_engine"
   spec.metadata["documentation_uri"] = "https://wiki.teletypegames.org/rdoc/warp_engine/latest/"
 
-  spec.files = Dir["{app,config,db,lib}/**/*", "README.md"]
+  spec.files = Dir["{app,config,db,lib}/**/*", "README.md", "LICENSE"]
 
   spec.add_dependency "rails", ">= 8.0"
   spec.add_dependency "blueprinter"

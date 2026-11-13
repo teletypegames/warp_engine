@@ -1548,3 +1548,7 @@ published:
   tree actually holds.
 - **RuboCop is green** (`.rubocop.yml`, rubocop-rails-omakase), and the suite
   passes — in that order, before the gem is built.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). Copyright (c) 2026 Teletype Games.
