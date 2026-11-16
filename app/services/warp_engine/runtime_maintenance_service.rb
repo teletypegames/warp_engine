@@ -28,8 +28,10 @@ module WarpEngine
 
     # Binds every release that plays from an +html+ folder but not in a
     # runtime to its platform's default binding, in the installed version of
-    # that runtime whose files (base files and the binding's components) are
-    # all in the folder bit for bit. A release whose folder matches no
+    # that runtime the folder holds: the binding's component files are in it
+    # bit for bit, so is at least one base file, and every file of the folder
+    # named like a runtime file is that file bit for bit (a base file a later
+    # version of the recipe added may be missing). A release whose folder matches no
     # installed version, or whose page would not resolve, is left alone and
     # reported. With +unplayed+ the releases that never played on the web (no
     # +html+ asset, e.g. the DOS programs) are bound too, to the runtime's
@@ -126,27 +128,33 @@ module WarpEngine
       folder = release.release_assets.find { |asset| asset.kind == "html" }.path.to_s
       return nil unless File.directory?(folder)
 
-      present = Dir.glob(File.join(folder, "**", "*")).select { |path| File.file?(path) }.to_set { |path| Digest::SHA256.file(path).hexdigest }
+      present = Dir.glob(File.join(folder, "**", "*")).select { |path| File.file?(path) }
+                   .group_by { |path| File.basename(path) }
+                   .transform_values { |paths| paths.to_set { |path| Digest::SHA256.file(path).hexdigest } }
       versions = WarpEngine::RuntimeVersion.kept.where(name: binding.runtime).includes(:runtime_components).order(created_at: :desc)
       versions.find do |version|
-        next false unless WarpEngine::Publish::WebBinder.components_installed?(version, binding)
-
-        needed_files(version, binding).all? { |file| present.include?(version.file_digests[file]) }
+        WarpEngine::Publish::WebBinder.components_installed?(version, binding) && held?(present, version, binding)
       end
     end
 
-    def needed_files(version, binding)
+    def held?(present, version, binding)
+      digests = version.file_digests
+      base, components = split_files(version, binding)
+      same = ->(file) { present[File.basename(file)]&.include?(digests[file]) }
+      named_alike = (base + components).select { |file| present.key?(File.basename(file)) }
+
+      components.all?(&same) && base.any?(&same) && named_alike.all?(&same)
+    end
+
+    def split_files(version, binding)
       definition = binding.runtime_object.definition
       digests = version.file_digests
-      files = definition.base_files(version.version) & digests.keys
-      files = digests.keys if definition.upload?
-      definition.params.each_value do |param|
+      components = definition.params.each_value.flat_map do |param|
         key = binding.params[param.name]
-        next if param.component.nil? || key.blank?
-
-        files |= definition.components.fetch(param.component).files(key, digests)
+        param.component.nil? || key.blank? ? [] : definition.components.fetch(param.component).files(key, digests)
       end
-      files
+      base = definition.upload? ? digests.keys : definition.base_files(version.version) & digests.keys
+      [ base - components, components ]
     end
 
     def playable?(release)

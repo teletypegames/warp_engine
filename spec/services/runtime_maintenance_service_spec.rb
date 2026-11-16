@@ -51,6 +51,17 @@ RSpec.describe WarpEngine::RuntimeMaintenanceService do
     expect(other.reload.runtime_version).to be_nil
   end
 
+  it "binds a folder that lacks a base file a later recipe added, but not one without the binding's core" do
+    version = installed
+    older = old_release("1.0", runtime_files.except("emulator.min.js"))
+    coreless = old_release("0.9", runtime_files.except("cores/vice_x64sc-wasm.data"))
+
+    service.migrate(dry_run: false)
+
+    expect(older.reload.runtime_version).to eq(version)
+    expect(coreless.reload.runtime_version).to be_nil
+  end
+
   it "removes the html folder and zip of a release once it plays in a runtime" do
     release = old_release("1.0", runtime_files)
     release.update!(runtime_version: installed, web_binding: "emulatorjs")
