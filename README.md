@@ -84,26 +84,40 @@ catalog.
 
 | Service | Role | Where |
 | --- | --- | --- |
-| `app` | Minimal Rails host with the engine mounted as a path gem (headless: API + updater) | `http://localhost:8080` |
+| `app` | Rails host with the engine mounted as a path gem, ActiveAdmin + Devise for the admin | `http://localhost:8080` |
 | `mysql` | Catalog database | internal |
 | `gitea` | Git forge (profile `ci`) | `http://gitea:3000` |
 | `woodpecker` + agent | CI wired to gitea (profile `ci`) | `http://woodpecker:8000` |
 
-### Quickstart — catalog only
+### Quickstart — catalog and admin
 
 ```sh
-cd examples/compose
-cp .env.example .env   # defaults work for a throwaway local demo
-docker compose up --build
+git clone https://git.teletypegames.org/engines/warp_engine.git
+cd warp_engine/examples/compose
+cp .env.example .env
+docker compose up -d --build
+until curl -fs http://localhost:8080/api/service >/dev/null; do sleep 5; done; echo ready
+docker compose exec app bin/rails db:seed
 ```
 
 The first boot takes a few minutes: the app container bundles, runs
 `rails g warp_engine:install` and `rails db:prepare`, then serves on
-`http://localhost:8080`:
+`http://localhost:8080`. The first boot also seeds the empty database (`db:prepare`
+does); `db:seed` runs `host_app/db/seeds.rb` again whenever you like, and keeps what
+is there. The seed creates an admin user and publishes three demo games through the
+engine's own publish path, each with a playable web build, a Windows zip, a cover
+image and a few downloads.
 
-- `http://localhost:8080/api/software` — the (empty) catalog
+- `http://localhost:8080/admin` — the admin, `admin@example.org` / `warpengine`
+  (`docker compose exec -e ADMIN_EMAIL=you@example.org -e ADMIN_PASSWORD=secret123 app bin/rails db:seed`
+  adds one of your own)
+- `http://localhost:8080/api/software` — the catalog
+- `http://localhost:8080/file/starhop-1.0.0/index.html` — a web build
 - `http://localhost:8080/api/builds` — the platform build matrix
 - `http://localhost:8080/api/docs` — apipie API docs
+
+`APP_PORT` in `.env` moves the app off 8080; `docker compose down -v` removes it
+all.
 
 ### Publish a release by hand
 

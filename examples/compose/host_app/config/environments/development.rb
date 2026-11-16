@@ -6,5 +6,9 @@ Rails.application.configure do
   config.active_record.migration_error = :page_load
   config.active_record.verbose_query_logs = true
 
+  config.action_mailer.default_url_options = { host: "localhost", port: ENV.fetch("APP_PORT", "8080") }
+
+  config.assets.debug = true
+
   config.logger = ActiveSupport::Logger.new($stdout)
 end

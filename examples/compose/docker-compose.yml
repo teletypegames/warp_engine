@@ -1,20 +1,21 @@
 # Example stack: everything WarpEngine needs to come alive, end to end.
 #
 #   mysql             the catalog database
-#   app               a minimal Rails host with the engine mounted from this
-#                     repo checkout (headless: API + updater, no ActiveAdmin)
+#   app               a Rails host with the engine mounted from this repo
+#                     checkout, ActiveAdmin + Devise for the admin at /admin
 #   gitea             (profile "ci") the git forge
 #   woodpecker        (profile "ci") CI server + agent, wired to gitea
 #
-# Quickstart (catalog only):
+# Quickstart (catalog + admin):
 #   cp .env.example .env
-#   docker compose up --build
+#   docker compose up -d --build
+#   docker compose exec app bin/rails db:seed   # admin@example.org / warpengine
 #
 # Full loop with forge + CI:
 #   docker compose --profile ci up --build
 #
-# See ../../README.md ("Example stack") or the WarpEngine wiki page for the
-# full walkthrough, including the one-time gitea/woodpecker OAuth wiring.
+# See ../../README.md ("Example stack") or the WarpEngine Getting started wiki
+# page for the full walkthrough, including the one-time gitea/woodpecker OAuth wiring.
 
 services:
   mysql:

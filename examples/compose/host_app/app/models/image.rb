@@ -12,6 +12,10 @@ class Image < ApplicationRecord
   before_validation :assign_upload_attributes, if: -> { file_upload.present? }
   after_commit :store_upload_file, on: [ :create, :update ], if: -> { file_upload.present? }
 
+  def self.ransackable_associations(auth_object = nil)
+    %w[software_images]
+  end
+
   def self.ransackable_attributes(auth_object = nil)
     %w[content_type created_at deleted_at filename id original_filename updated_at]
   end
