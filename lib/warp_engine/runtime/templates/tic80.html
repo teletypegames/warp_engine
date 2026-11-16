@@ -22,17 +22,15 @@
   const runtimeUrl = {{ json runtime_url }}
   const payloadUrl = {{ json payload_url }}
   const { default: startTic80 } = await import(runtimeUrl + "tic80.js")
-  const cart = new Uint8Array(await (await fetch(payloadUrl)).arrayBuffer())
   const canvas = document.querySelector("#canvas")
   const play = document.getElementById("tic80-play")
   const options = {
     canvas,
-    arguments: ["cart.tic"],
+    arguments: [payloadUrl],
     locateFile: (file) => runtimeUrl + file,
     preRun: [
       (module) => {
         module.ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT = "#canvas"
-        module.FS.writeFile("cart.tic", cart)
       }
     ]
   }

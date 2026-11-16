@@ -11,7 +11,7 @@ module WarpEngine
       label "TIC-80"
       kind :cartridge, ext: ".tic", required: true
       kind :source, ext: ".lua", always: true
-      kind :html, always: true
+      kind :html
       kind :docs, always: true
       kinds :win_x64, :linux_x64, :mac_x64
       metadata :lua
