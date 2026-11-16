@@ -82,6 +82,19 @@ RSpec.describe "Assembly64 outlet", type: :request do
     expect(categories.map { |category| category["id"] }).to eq(categories.map { |category| category["id"] }.uniq)
   end
 
+  it "gives the details of a title, as the Assembly64/1.0 firmware asks for each result" do
+    ariadne = publish("ariadne", "1.1.0", title: "Thread of Ariadne", author: "Teletype Games")
+    untold = publish("untold", "1.0.0", title: "Untold", author: "")
+
+    expect(get_json("/leet/search/metadata/#{ariadne.id}/0"))
+      .to eq("name" => "Thread of Ariadne", "group" => "Teletype Games", "releaseDate" => "2026-11-01")
+    expect(get_json("/leet/search/metadata/#{untold.id}/0")).to eq("name" => "Untold", "releaseDate" => "2026-11-01")
+
+    get "/leet/search/metadata/999999/0", headers: firmware_headers
+    expect(response).to have_http_status(:not_found)
+    expect(response.body).to be_empty
+  end
+
   it "filters by group, type, year, repo and latest, and orders by sort and order" do
     publish("alpha", "1.0.0", author: "Zed", at: Time.utc(2025, 1, 1))
     publish("beta", "1.0.0", author: "Amy", at: 1.day.ago)

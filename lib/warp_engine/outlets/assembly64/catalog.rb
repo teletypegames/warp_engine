@@ -66,6 +66,22 @@ module WarpEngine
           end
         end
 
+        # Returns the details of the title +id+ as the real server's metadata
+        # answers them: a Hash of +name+, +group+ and +releaseDate+
+        # (<tt>YYYY-MM-DD</tt>, the release offered), the empty ones left out;
+        # +nil+ when the title is not on offer.
+        def metadata(id)
+          row = all_rows.find { |candidate| candidate[:software].id.to_s == id.to_s }
+          return nil if row.nil?
+
+          software = row[:software]
+          {
+            name: Names.clean(software.title),
+            group: Names.clean(software.author),
+            releaseDate: row[:release].created_at&.utc&.strftime("%Y-%m-%d")
+          }.compact_blank
+        end
+
         # Returns the files of the title +id+ as the +entries+ endpoint answers:
         # a Hash with +contentEntry+, one Hash a file (+path+, the file name;
         # +id+, its index; +size+; +date+, the release time in milliseconds), or

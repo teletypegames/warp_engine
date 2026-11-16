@@ -33,6 +33,7 @@ module WarpEngine
     # [<tt>/leet/search/categories</tt>]                 the categories the result ids stand for
     # [<tt>/leet/search/aql?query=</tt>]                 a search, cut to fit LEGACY_BODY_LIMIT
     # [<tt>/leet/search/aql/START/COUNT?query=</tt>]     a page of a search
+    # [<tt>/leet/search/metadata/ID/CATEGORY</tt>]       the details of a title
     # [<tt>/leet/search/entries/ID/CATEGORY</tt>]        the files of a title
     # [<tt>/leet/search/bin/ID/CATEGORY/FILE</tt>]       one file
     #
@@ -104,6 +105,7 @@ module WarpEngine
               mapper.get "aql/:start/:count", to: "assembly64#search", as: :search_page,
                                               constraints: { start: /\d+/, count: /\d+/ }
               mapper.get "aql", to: "assembly64#search", as: :search
+              mapper.get "metadata/:id/:category", to: "assembly64#metadata", as: :metadata
               mapper.get "entries/:id/:category", to: "assembly64#entries", as: :entries
               mapper.get "bin/:id/:category/:file", to: "assembly64#bin", as: :bin, constraints: { file: %r{[^/]+} }
             end

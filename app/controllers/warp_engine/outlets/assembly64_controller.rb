@@ -40,6 +40,14 @@ module WarpEngine
         render json: []
       end
 
+      # <tt>GET /leet/search/metadata/:id/:category</tt>: the details of a
+      # title (WarpEngine::Outlets::Assembly64::Catalog#metadata); 404 with an
+      # empty body when it is not on offer.
+      def metadata
+        result = catalog.metadata(params[:id])
+        result ? render(json: result) : head(:not_found)
+      end
+
       # <tt>GET /leet/search/entries/:id/:category</tt>: the files of a title
       # (WarpEngine::Outlets::Assembly64::Catalog#entries); 404 with an empty body when
       # it is not on offer.
