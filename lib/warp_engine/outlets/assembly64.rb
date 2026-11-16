@@ -30,6 +30,7 @@ module WarpEngine
     # Endpoints (all GET, under the engine's mount):
     #
     # [<tt>/leet/search/aql/presets</tt>]                the search form's presets
+    # [<tt>/leet/search/categories</tt>]                 the categories the result ids stand for
     # [<tt>/leet/search/aql?query=</tt>]                 a search, cut to fit LEGACY_BODY_LIMIT
     # [<tt>/leet/search/aql/START/COUNT?query=</tt>]     a page of a search
     # [<tt>/leet/search/entries/ID/CATEGORY</tt>]        the files of a title
@@ -99,6 +100,7 @@ module WarpEngine
           mapper.constraints(constraint) do
             mapper.scope PATH, module: "outlets", as: "assembly64", format: false do
               mapper.get "aql/presets", to: "assembly64#presets", as: :presets
+              mapper.get "categories", to: "assembly64#categories", as: :categories
               mapper.get "aql/:start/:count", to: "assembly64#search", as: :search_page,
                                               constraints: { start: /\d+/, count: /\d+/ }
               mapper.get "aql", to: "assembly64#search", as: :search

@@ -72,6 +72,16 @@ RSpec.describe "Assembly64 outlet", type: :request do
     expect(response.headers["Content-Disposition"]).to include('filename="ARIADNE.PRG"')
   end
 
+  it "lists the categories behind the result ids, as the Assembly64/1.0 firmware asks after a search" do
+    categories = get_json("/leet/search/categories", headers: firmware_headers.merge("User-Agent" => "Assembly64/1.0"))
+
+    expect(response).to have_http_status(:ok)
+    expect(categories.size).to eq(WarpEngine::Outlets::Assembly64::CATEGORY_IDS.size)
+    expect(categories).to include({ "description" => "Teletype Games games", "groupingName" => "Games", "id" => 0,
+                                    "name" => "games", "type" => "ttg" })
+    expect(categories.map { |category| category["id"] }).to eq(categories.map { |category| category["id"] }.uniq)
+  end
+
   it "filters by group, type, year, repo and latest, and orders by sort and order" do
     publish("alpha", "1.0.0", author: "Zed", at: Time.utc(2025, 1, 1))
     publish("beta", "1.0.0", author: "Amy", at: 1.day.ago)

@@ -20,6 +20,15 @@ module WarpEngine
         render json: catalog.presets
       end
 
+      # <tt>GET /leet/search/categories</tt>: the categories behind the
+      # +category+ ids of the results
+      # (WarpEngine::Outlets::Assembly64::Catalog#categories) as a JSON array.
+      # The <tt>Assembly64/1.0</tt> firmware asks for it after a search and
+      # keeps asking while it is missing.
+      def categories
+        render json: catalog.categories
+      end
+
       # <tt>GET /leet/search/aql?query=</tt> and
       # <tt>GET /leet/search/aql/:start/:count?query=</tt>: the search
       # results (WarpEngine::Outlets::Assembly64::Catalog#search) as a JSON array; an

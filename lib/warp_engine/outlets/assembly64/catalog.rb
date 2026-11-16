@@ -32,6 +32,17 @@ module WarpEngine
           ]
         end
 
+        # Returns the categories a result's +category+ id can stand for, every
+        # one of CATEGORY_IDS, as Hashes of +id+, +name+ (the aqlKey),
+        # +description+, +groupingName+ and +type+ (the repository key), in
+        # the shape the real server answers them.
+        def categories
+          CATEGORY_IDS.map do |aql, id|
+            name = CATEGORY_NAMES.fetch(aql)
+            { description: "#{repo_name} #{name.downcase}", groupingName: name, id: id, name: aql, type: repo }
+          end
+        end
+
         # Runs the AQL search +text+ and returns the results as Hashes of +id+
         # (a String), +name+, +group+, +year+, +category+ (an Integer), +updated+
         # and +type+, one a title.
