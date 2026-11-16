@@ -16,13 +16,14 @@ module WarpEngine
       # Creates or updates the WarpEngine::Software named in +metadata+ (its
       # +site+ and +repo+ become external links), creates the
       # WarpEngine::Release +version+ when new, writes a WarpEngine::ReleaseAsset
-      # for every <tt>kind => path</tt> of +assets+ and soft-deletes the assets
-      # of kinds the platform no longer publishes.
+      # for every <tt>kind => path</tt> of +assets+, soft-deletes the assets
+      # of kinds the platform no longer publishes, and binds the release to
+      # its web runtime from the metadata's +web+ section (Publish::WebBinder).
       #
       # Returns the WarpEngine::Release. Raises ActiveRecord::RecordInvalid when a
       # record does not save.
       def record(metadata, version, assets)
-        attributes = metadata.except(:site, :repo).merge(platform: @definition.name)
+        attributes = metadata.except(:site, :repo, :web).merge(platform: @definition.name)
         ActiveRecord::Base.transaction do
           software = restore(WarpEngine::Software.find_or_initialize_by(name: attributes[:name]), attributes.except(:name))
           { SITE_LABEL => metadata[:site], REPO_LABEL => metadata[:repo] }.each do |label, url|
@@ -37,6 +38,7 @@ module WarpEngine
           end
           WarpEngine::ReleaseAsset.kept.where(release_id: release.id).where.not(kind: @definition.expected_kinds)
                                   .find_each(&:soft_delete!)
+          WebBinder.new(WarpEngine::Platform.find(@definition.name)).bind(release, metadata[:web])
           release
         end
       end

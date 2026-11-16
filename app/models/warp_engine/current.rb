@@ -1,0 +1,27 @@
+module WarpEngine
+  # Per-request memory of the engine (ActiveSupport::CurrentAttributes, reset
+  # by Rails around every request and job): the installed runtime versions,
+  # read once however many releases a catalog page serializes.
+  class Current < ActiveSupport::CurrentAttributes
+    # The kept WarpEngine::RuntimeVersion records with their components, or
+    # +nil+ until #runtime_versions first loads them.
+    attribute :installed_runtime_versions
+
+    # Returns the kept WarpEngine::RuntimeVersion records, components loaded.
+    def runtime_versions
+      self.installed_runtime_versions ||= WarpEngine::RuntimeVersion.kept.includes(:runtime_components).to_a
+    end
+
+    # Returns the kept WarpEngine::RuntimeVersion with the id +id+, or +nil+.
+    def runtime_version(id) = runtime_versions.find { |version| version.id == id }
+
+    # Returns the WarpEngine::RuntimeVersion new releases of the runtime
+    # +runtime+ (a WarpEngine::Runtime) get, as WarpEngine::Runtime#current_version
+    # finds it, or +nil+.
+    def current_runtime_version(runtime)
+      own = runtime_versions.select { |version| version.name == runtime.name }
+      chosen = runtime.chosen_version
+      chosen ? own.find { |version| version.version == chosen } : own.max_by { |version| [ version.created_at, version.id ] }
+    end
+  end
+end

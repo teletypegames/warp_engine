@@ -13,6 +13,7 @@ module WarpEngine
           Definitions::Statistics,
           Definitions::Pipelines,
           Definitions::Files,
+          Definitions::Runtimes,
           Definitions::Tokens
         ]
       end

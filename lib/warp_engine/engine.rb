@@ -6,9 +6,15 @@ module WarpEngine
   # ActiveAdmin 3, linked by the host on ActiveAdmin 4, which has no registry), validates the outlets, shelves among them
   # (and the MCP dependency when enabled) after boot, and enqueues a
   # WarpEngine::OutletRefreshJob for the materialized outlets of a platform on
-  # every <tt>warp_engine.publish</tt> notification.
+  # every <tt>warp_engine.publish</tt> notification. It registers the
+  # <tt>application/wasm</tt> MIME type the runtimes' files need, unless the
+  # host did.
   class Engine < ::Rails::Engine
     isolate_namespace WarpEngine
+
+    initializer "warp_engine.mime_types" do
+      Mime::Type.register "application/wasm", :wasm unless Mime::Type.lookup_by_extension(:wasm)
+    end
 
     initializer "warp_engine.ignore_admin_dir", before: :setup_main_autoloader do
       Rails.autoloaders.main.ignore(Engine.root.join("app/admin"))

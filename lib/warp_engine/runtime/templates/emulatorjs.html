@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #game { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<script>
+  EJS_player = "#game";
+  EJS_core = {{ json params.core }};
+  EJS_gameName = {{ json title }};
+  EJS_gameUrl = {{ json payload_url }};
+  EJS_pathtodata = {{ json runtime_url }};
+  EJS_startOnLoaded = true;
+  EJS_backgroundColor = "#000000";
+  EJS_disableAutoLang = false;
+  EJS_threads = {{ json isolated }};
+  EJS_defaultOptions = {{ json params.options }};
+  EJS_defaultControls = {{ json params.controls }};
+</script>
+<script src="{{ runtime_url }}loader.js"></script>
+</body>
+</html>

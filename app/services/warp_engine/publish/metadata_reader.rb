@@ -8,9 +8,10 @@ module WarpEngine
     # header comments of <tt>name-version.lua</tt> (the TIC-80 cartridge
     # style), a callable is called with the Upload.
     module MetadataReader
-      # The metadata keys a publish takes over onto the WarpEngine::Software;
-      # every other key is dropped.
-      KEYS = %i[name title author desc site repo license category shelf_name].freeze
+      # The metadata keys a publish takes over: onto the WarpEngine::Software,
+      # except +web+, which goes to the release (Publish::WebBinder); every
+      # other key is dropped.
+      KEYS = %i[name title author desc site repo license category shelf_name web].freeze
 
       module_function
 

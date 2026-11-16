@@ -91,6 +91,19 @@ module WarpEngine
       # Registers a platform; see WarpEngine::Configuration#register_platform.
       def register_platform(name, **options, &) = @config.register_platform(name, **options, &)
 
+      # Registers a runtime; see WarpEngine::Configuration#register_runtime.
+      def register_runtime(name, &) = @config.register_runtime(name, &)
+
+      # Chooses a runtime version; see WarpEngine::Configuration#runtime.
+      #
+      #   runtime :emulatorjs, version: "4.2.3"
+      def runtime(name, version:) = @config.runtime(name, version: version)
+
+      # Changes a platform's web bindings; see WarpEngine::Configuration#platform_web.
+      #
+      #   platform_web :c64, :emulatorjs, enabled: false
+      def platform_web(platform, runtime, **options) = @config.platform_web(platform, runtime, **options)
+
       # Evaluates +block+ with a WarpEngine::Configuration::AdminApiDSL on the
       # admin API settings.
       def admin_api(&block)

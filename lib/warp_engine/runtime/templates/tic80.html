@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  body { margin: 0; padding: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  .tic80-container { width: 100%; padding-top: 50%; position: relative; }
+  .tic80-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; outline-style: none; }
+  .tic80-play { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: #1a1c2c; color: #fff; display: flex; justify-content: center; align-items: center; image-rendering: pixelated; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="tic80-container">
+  <canvas class="tic80-canvas" id="canvas" oncontextmenu="event.preventDefault()" tabindex="1"></canvas>
+  <div class="tic80-play" id="tic80-play">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAF9JREFUOE+d0jsOACAIA1B6/0NjHDB+UFtcnPpC0sLd3cwMAPqvPgQQQRU6ABW6Aiz0BX4QDdwgGdihMjCgvUZlB73y0gXzViQgGxkFvNb5BJhZpwATTFtQggtQCQbQAJ4FQA3PbK2EAAAAAElFTkSuQmCC" alt="Play" width="64" height="64">
+  </div>
+</div>
+<script type="module">
+  const runtimeUrl = {{ json runtime_url }}
+  const payloadUrl = {{ json payload_url }}
+  const { default: startTic80 } = await import(runtimeUrl + "tic80.js")
+  const cart = new Uint8Array(await (await fetch(payloadUrl)).arrayBuffer())
+  const canvas = document.querySelector("#canvas")
+  const play = document.getElementById("tic80-play")
+  const options = {
+    canvas,
+    arguments: ["cart.tic"],
+    locateFile: (file) => runtimeUrl + file,
+    preRun: [
+      (module) => {
+        module.ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT = "#canvas"
+        module.FS.writeFile("cart.tic", cart)
+      }
+    ]
+  }
+  canvas.addEventListener("click", () => canvas.focus())
+  play.addEventListener("click", () => {
+    play.style.display = "none"
+    canvas.focus()
+    startTic80(options)
+  })
+</script>
+</body>
+</html>

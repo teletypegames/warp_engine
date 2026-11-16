@@ -16,6 +16,7 @@ module WarpEngine
     # [<tt>GET /api/software</tt>]                the catalog, with +highlighted+, +facets+ and +vocabulary+ beside it
     # [<tt>GET /api/download?path=</tt>]          a file, counted
     # [<tt>GET /file/*path</tt>]                  a file or a web build
+    # [<tt>GET /play/:name/:version(/:binding)</tt>] the web player page of a release in a runtime
     class Wecp < Base
       include Served
 
@@ -43,6 +44,8 @@ module WarpEngine
           end
 
           mapper.get "file/*path", to: "files#show", format: false, as: :file
+          mapper.get "play/:name/:version(/:binding)", to: "play#show", format: false, as: :play,
+                                                       constraints: { name: %r{[^/]+}, version: %r{[^/]+}, binding: %r{[^/]+} }
         end
       end
 

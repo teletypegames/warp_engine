@@ -37,8 +37,12 @@ module WarpEngine
     # [ci_template]    the CI-neutral pipeline template: a builtin name or a path
     # [ci_variables]   extra variables the template sees
     # [version_source] the shell command that prints the version of the source
+    # [web_bindings]   the WebBinding list: the runtimes its releases play in
     Definition = ::Data.define(:name, :label, :kind_specs, :metadata, :release_rule, :shelf_folder,
-                               :ci_template, :ci_variables, :version_source) do
+                               :ci_template, :ci_variables, :version_source, :web_bindings) do
+      # Builds a Definition; +web_bindings+ defaults to none.
+      def initialize(web_bindings: [], **attributes) = super
+
       # Returns the names of every kind the platform publishes.
       def expected_kinds = kind_specs.map(&:name)
 
@@ -60,6 +64,7 @@ module WarpEngine
     #   kind :cartridge, ext: ".adf", required: true
     #   kinds :html, :win_x64
     #   kind :mac_arm64, built: false
+    #   web :emulatorjs, core: "puae"
     #   ci template: Rails.root.join("ci/amiga.yaml.erb")
     class Builder
       # [name] the platform name
@@ -69,6 +74,7 @@ module WarpEngine
         @kind_specs = []
         @metadata = :json
         @ci = { template: @name, variables: {} }
+        @web_bindings = []
       end
 
       # Sets the human-readable name (default: the titleized name).
@@ -99,6 +105,24 @@ module WarpEngine
       # release metadata.
       def shelf_folder(callable) = @shelf_folder = callable
 
+      # Binds the platform to the runtime +runtime+ (see WebBinding): its
+      # releases play in it on the web. Call it again for more runtimes; the
+      # first binding, or the one with <tt>default: true</tt>, is the default.
+      #
+      # [as]       the binding key, needed when two bindings use one runtime
+      # [payload]  the asset kind the runtime plays (default +:cartridge+)
+      # [default]  makes this the default binding
+      # [isolated] serves the page cross-origin isolated
+      # [params]   the runtime parameters
+      #
+      # Raises ArgumentError when the key is taken.
+      def web(runtime, **options)
+        binding = WebBinding.build(runtime, **options)
+        raise ArgumentError, "platform #{@name}: web binding #{binding.key} is declared twice" if @web_bindings.any? { |other| other.key == binding.key }
+
+        @web_bindings << binding
+      end
+
       # Sets the shell command that prints the version of the source.
       def version_source(command) = @version_source = command.to_s
 
@@ -113,7 +137,8 @@ module WarpEngine
       def build
         Definition.new(name: @name, label: @label, kind_specs: @kind_specs.freeze, metadata: @metadata,
                        release_rule: @release_rule, shelf_folder: @shelf_folder, ci_template: @ci[:template],
-                       ci_variables: @ci[:variables], version_source: @version_source)
+                       ci_variables: @ci[:variables], version_source: @version_source,
+                       web_bindings: Platform.with_default(@web_bindings).freeze)
       end
     end
   end

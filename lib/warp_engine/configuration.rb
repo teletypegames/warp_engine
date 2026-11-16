@@ -71,6 +71,18 @@ module WarpEngine
     # WarpEngine::Platform::Registration, filled by #register_platform.
     attr_reader :platforms
 
+    # The runtimes the host registered: a Hash of name to
+    # WarpEngine::Runtime::Definition, filled by #register_runtime.
+    attr_reader :runtimes
+
+    # The runtime versions the host chose: a Hash of runtime name to version,
+    # filled by #runtime. A runtime without an entry uses its newest version.
+    attr_reader :runtime_versions
+
+    # The host's changes to the platforms' web bindings: a Hash of platform
+    # name to a list of option Hashes, filled by #platform_web.
+    attr_reader :platform_web_changes
+
     # Creates a configuration with every setting at its default.
     def initialize
       @site_url                      = nil
@@ -98,6 +110,9 @@ module WarpEngine
       @outlets                       = []
       @outlet_types                  = {}
       @platforms                     = {}
+      @runtimes                      = {}
+      @runtime_versions              = {}
+      @platform_web_changes          = {}
     end
 
     # Registers (or replaces) a platform the engine does not ship. With a block,
@@ -134,6 +149,48 @@ module WarpEngine
         templates:      templates.to_h.to_h { |adapter, path| [ adapter.to_sym, Pathname.new(path.to_s) ] },
         version_source: version_source&.to_s
       )
+    end
+
+    # Registers (or replaces) a runtime the engine does not ship; the block is
+    # the WarpEngine::Runtime::Builder DSL:
+    #
+    #   config.register_runtime "ruffle" do
+    #     label "Ruffle"
+    #     source :upload
+    #     files "ruffle.js", "*.wasm"
+    #     template Rails.root.join("runtimes/ruffle.html")
+    #   end
+    #
+    # Returns the WarpEngine::Runtime::Definition. Raises ArgumentError for a
+    # malformed name or definition.
+    def register_runtime(name, &block)
+      builder = Runtime::Builder.new(name)
+      builder.instance_eval(&block) if block
+      @runtimes[name.to_s] = builder.build
+    end
+
+    # Chooses the version +version+ of the runtime +name+ for the new
+    # releases; see WarpEngine::Runtime#chosen_version. Returns the version.
+    def runtime(name, version:)
+      @runtime_versions[name.to_s] = version.to_s
+    end
+
+    # Changes the web bindings of the platform +platform+: a binding keyed
+    # +as+ (default: +runtime+) that exists gets the +options+ merged in (a
+    # WarpEngine::Platform::WebBinding attribute or a runtime parameter),
+    # otherwise a new binding to +runtime+ is added. Calling it again for
+    # the same key replaces the earlier change.
+    #
+    #   config.platform_web :c64, :emulatorjs, as: :fast, core: "vice_x64"   # adds a binding
+    #   config.platform_web :c64, :fast, default: true                       # makes it the default
+    #   config.platform_web :c64, :emulatorjs, enabled: false                # switches one off
+    #
+    # Returns the platform's change list.
+    def platform_web(platform, runtime, **options)
+      change = { runtime: runtime.to_s, **options }
+      key = (change[:as] || change[:runtime]).to_s
+      list = @platform_web_changes.fetch(platform.to_s, []).reject { |other| (other[:as] || other[:runtime]).to_s == key }
+      @platform_web_changes[platform.to_s] = list + [ change ]
     end
 
     # Returns the WarpEngine::AdminApi::Configuration, creating it with its

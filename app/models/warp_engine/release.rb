@@ -11,6 +11,7 @@ module WarpEngine
     include OutletRefreshing
 
     belongs_to :software
+    belongs_to :runtime_version, optional: true
     has_many :downloads, -> { kept }
     has_many :release_assets, -> { kept }
 

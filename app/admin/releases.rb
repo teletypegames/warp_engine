@@ -28,6 +28,13 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
       row :id
       row(:software) { |r| link_to r.software.title, admin_software_path(r.software) }
       row :version
+      row("Plays in") do |r|
+        if r.runtime_version
+          link_to("#{r.web_binding} · #{r.runtime_version.label}", admin_runtime_path(r.runtime_version))
+        else
+          r.release_assets.any? { |asset| asset.kind == "html" } ? "its html folder" : "-"
+        end
+      end
       row :created_at
       row :updated_at
     end

@@ -1,4 +1,5 @@
 require "warp_engine/asset_kind"
+require "warp_engine/platform/web_binding"
 require "warp_engine/platform/definition"
 
 module WarpEngine
@@ -11,6 +12,10 @@ module WarpEngine
   class Platform
     # The form a registered platform name must have.
     FORMAT = /\A[a-z0-9_]{2,32}\z/
+
+    # The WebBinding attributes a host's +platform_web+ change may set; every
+    # other option is a runtime parameter.
+    WEB_BINDING_OPTIONS = %i[payload default enabled isolated].freeze
 
     # A platform registered the pre-1.12 way, with a service class built from
     # WarpEngine::Platforms::Updatable: its +name+, +service+ class name,
@@ -60,6 +65,15 @@ module WarpEngine
 
       # Returns every registration, keyed by name.
       def registrations = WarpEngine.config.platforms
+
+      # Returns the WebBinding list +bindings+ with exactly one default among
+      # the enabled ones: the last enabled one marked default, else the first
+      # enabled one. A disabled binding is never the default.
+      def with_default(bindings)
+        enabled = bindings.select(&:enabled)
+        chosen = enabled.reverse.find(&:default) || enabled.first
+        bindings.map { |binding| binding.with(default: binding.equal?(chosen)) }
+      end
     end
 
     # The platform name as a String.
@@ -113,6 +127,40 @@ module WarpEngine
     # Returns the folder spec of asset +kind+ on a +folders+ shelf, read from the
     # release +metadata+, or +nil+ when the platform has none.
     def shelf_folder(metadata, kind) = definition.shelf_folder&.call(metadata, kind)
+
+    # Returns every WebBinding of the platform, the disabled ones too: the
+    # definition's bindings with the host's WarpEngine::Configuration#platform_web
+    # changes applied (a change to an existing key merges into it, any other
+    # adds a binding). A legacy platform has none.
+    def all_web_bindings
+      bindings = legacy? ? [] : definition.web_bindings.dup
+      chosen = nil
+      WarpEngine.config.platform_web_changes.fetch(name, []).each do |change|
+        key = (change[:as] || change[:runtime]).to_s
+        index = bindings.index { |binding| binding.key == key }
+        if index
+          options = change.except(:runtime, :as)
+          attributes = options.slice(*WEB_BINDING_OPTIONS).transform_values { |value| value.is_a?(Symbol) ? value.to_s : value }
+          params = bindings[index].params.merge(options.except(*WEB_BINDING_OPTIONS)).freeze
+          bindings[index] = bindings[index].with(**attributes, params: params)
+        else
+          bindings << WebBinding.build(change[:runtime], **change.except(:runtime))
+        end
+        chosen = key if change[:default]
+      end
+      bindings = bindings.map { |binding| binding.with(default: binding.key == chosen) } if chosen
+      self.class.with_default(bindings)
+    end
+
+    # Returns the enabled WebBinding list; the default one is among them
+    # unless the list is empty.
+    def web_bindings = all_web_bindings.select(&:enabled)
+
+    # Returns the enabled WebBinding with the key +key+, or the default one
+    # when +key+ is blank; +nil+ when there is none.
+    def web_binding(key = nil)
+      key.blank? ? web_bindings.find(&:default) : web_bindings.find { |binding| binding.key == key.to_s }
+    end
 
     # Returns +true+ for a platform registered the pre-1.12 way (a Registration).
     def legacy? = !legacy_registration.nil?

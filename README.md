@@ -20,6 +20,11 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   `expected_kinds`, `built_kinds` and publishes an upload (`#publish`). Reference it
   instead of writing a platform list of your own — `PlatformLink::SUPPORTED_PLATFORMS`
   is kept as an alias of `Platform::NAMES`.
+- **Runtimes (3.1)**: a release can play on the web in a runtime the engine keeps
+  once, instead of a self-contained `html` build per release — EmulatorJS for the
+  C64 and the Plus/4, the TIC-80 player, a host's own. A platform binds to one or
+  more runtimes, a runtime serves many platforms, the page is rendered at
+  `/play/<name>/<version>`. See *Runtimes*.
 - **Asset checklist**: `rake warp_engine:builds:check` prints, per software and
   release, which release assets exist and which the platform's pipeline could
   still deliver. See *Which assets are missing*.
@@ -900,6 +905,109 @@ signing adapter turns them into redirects without any further change.
 the admin file manager — still writes to the local disk. A remote adapter
 needs its own upload path today.
 
+## Runtimes
+
+A runtime is what a release plays in on the web: EmulatorJS, the TIC-80 player, a
+host's own. The engine keeps each version of it **once**, under
+`_runtimes/<name>-<version>/` of the file container, and renders the player page
+of a release from the runtime's template and the release's own asset (usually the
+cartridge) at `GET /play/<name>/<version>`. The release needs no `html` build of
+its own; a fix in the runtime reaches every release, and a browser caches the
+runtime's files once for all of them (they are served `immutable` for a year).
+
+A runtime knows nothing of platforms. **A platform binds to a runtime**, with the
+parameters it needs, and the binding is many-to-many: EmulatorJS serves the C64
+and the Plus/4 (and any platform with a libretro core), and a platform may offer
+more than one runtime, one of them the default.
+
+| Builtin runtime | Files come from | Bound by |
+|---|---|---|
+| `emulatorjs` | downloaded from `cdn.emulatorjs.org`, SHA-256 checked per file (`lib/warp_engine/runtime/checksums/`), cores as components | `c64` (`vice_x64sc`), `plus4` (`vice_xplus4`) |
+| `tic80` | uploaded by a build (`POST /build/runtime`): the player of a TIC-80 Pro build | `tic80` |
+
+### Installing
+
+```sh
+bin/rails warp_engine:runtimes:install            # every downloaded runtime, the cores the platforms need
+bin/rails warp_engine:runtimes:install NAME=emulatorjs COMPONENTS=core:vice_x64 DRY_RUN=1
+bin/rails warp_engine:runtimes:list               # versions, components, size, releases bound
+bin/rails warp_engine:runtimes:verify             # every file against its SHA-256
+```
+
+Run `install` after every deploy (it only fetches what is missing; installed files
+never change). An uploaded runtime arrives from its build:
+
+```sh
+curl -fsS -H "X-Update-Secret: $TOKEN" -F name=tic80 -F version=1.1.2837 \
+     -F file=@tic80-runtime.zip https://games.example.org/build/runtime
+```
+
+The zip's declared files are taken (others ignored); the same version again with
+the same files answers 200, with other files 409.
+
+### Choosing and binding
+
+```ruby
+WarpEngine.configure do
+  runtime :emulatorjs, version: "4.2.3"          # the version new releases bind to (default: the newest)
+
+  platform_web :c64, :emulatorjs, as: :fast, core: "vice_x64"   # a second binding
+  platform_web :c64, :fast, default: true                       # make it the default
+  platform_web :plus4, :emulatorjs, enabled: false               # switch one off
+
+  register_platform "amiga" do
+    kind :cartridge, ext: ".adf", required: true
+    web :emulatorjs, core: "puae"                                # bind a platform of your own
+  end
+
+  register_runtime "ruffle" do                                   # a runtime of your own
+    label "Ruffle"
+    source :upload
+    files "ruffle.js", "*.wasm"
+    template Rails.root.join("runtimes/ruffle.html")
+  end
+end
+```
+
+A binding may say `isolated: true` when its runtime needs `SharedArrayBuffer` (a
+threaded core): the page is then served with `Cross-Origin-Opener-Policy` and
+`Cross-Origin-Embedder-Policy`. A template is plain HTML with `{{ title }}`
+(escaped) and `{{ json params.core }}` (JSON for a script) placeholders; it sees
+`title`, `name`, `version`, `payload_url`, `runtime_url`, `isolated`, `params` and
+`start`.
+
+### Publishing and playing
+
+A publish binds the release to the platform's default binding in the runtime
+version the host chose, when that version is installed with the components the
+binding names; otherwise the release stays unbound and plays (if at all) from its
+`html` asset. `metadata.json` may steer it:
+
+```json
+{ "web": { "runtime": "fast", "params": { "options": { "keyboardInput": "enabled" } }, "enabled": true } }
+```
+
+`enabled: false` keeps a release off the web. The catalog API gives every release
+`playUrl` (its runtime page, else its `html` folder) and `players` (every binding
+it can play in now, with its URL: `/play/<name>/<version>/<binding>`).
+
+### Moving releases
+
+```sh
+bin/rails warp_engine:runtimes:migrate DRY_RUN=1       # bind releases that play from an html folder holding the runtime bit for bit
+bin/rails warp_engine:runtimes:prune_html DRY_RUN=1    # then drop those html folders and zips
+bin/rails warp_engine:runtimes:rebind NAME=emulatorjs FROM=4.2.3 TO=4.2.4
+bin/rails warp_engine:runtimes:gc DRY_RUN=1            # versions no release uses
+```
+
+`migrate` recognises the version by the files' digests, never by a guess: a
+folder that holds no installed version bit for bit is skipped and reported.
+
+SysInfo shows a *Runtimes* group (version, source, components needed and
+missing, platforms, size, and the file check among the live checks), a *Plays on
+the web in* line per platform, and a *Runtimes* number on the catalog strip; the
+admin has a *Runtimes* page and the Admin API a `runtimes` resource.
+
 ## Outlets
 
 An outlet is a format the catalog leaves the engine in. Three layers make up the way
@@ -1486,6 +1594,18 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.1
+
+- **Migrate**: `runtime_versions`, `runtime_components`, and `releases.runtime_version_id`,
+  `web_binding`, `web_options`. Nothing changes for a release until a runtime is
+  installed: run `bin/rails warp_engine:runtimes:install` (it downloads EmulatorJS
+  4.2.3 with the cores the platforms need, about 10 MB).
+- From then on new C64 and Plus/4 releases play in EmulatorJS (`playUrl` is
+  `/play/...`); the old ones keep their `html` folders until `runtimes:migrate`.
+- The catalog API adds `playUrl` and `players` to every release; `htmlFolderPath`
+  stays. `webPlayableRelease` now counts a release that plays in a runtime.
+- `metadata.json` may carry a `web` section; it goes to the release, not the software.
 
 ## Upgrading to 3.0.3
 

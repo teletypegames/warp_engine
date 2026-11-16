@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_10_25_202844) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_16_224017) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -115,11 +115,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_202844) do
   create_table "releases", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
+    t.bigint "runtime_version_id", unsigned: true
     t.bigint "software_id", unsigned: true
     t.datetime "updated_at", precision: 3
     t.string "version", limit: 64
+    t.string "web_binding", limit: 32
+    t.json "web_options"
     t.index ["deleted_at"], name: "idx_releases_deleted_at"
+    t.index ["runtime_version_id"], name: "idx_releases_runtime_version_id"
     t.index ["software_id"], name: "idx_releases_software_id"
+  end
+
+  create_table "runtime_components", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3
+    t.string "key", limit: 64, null: false
+    t.string "kind", limit: 32, null: false
+    t.bigint "runtime_version_id", null: false, unsigned: true
+    t.datetime "updated_at", precision: 3
+    t.index ["runtime_version_id", "kind", "key"], name: "idx_runtime_components_version_kind_key", unique: true
+  end
+
+  create_table "runtime_versions", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.json "files"
+    t.string "name", limit: 32, null: false
+    t.string "path", null: false
+    t.bigint "size_bytes", default: 0, null: false
+    t.string "source", limit: 16, null: false
+    t.datetime "updated_at", precision: 3
+    t.string "version", limit: 64, null: false
+    t.index ["deleted_at"], name: "idx_runtime_versions_deleted_at"
+    t.index ["name", "version"], name: "idx_runtime_versions_name_version", unique: true
   end
 
   create_table "software_categories", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -188,7 +215,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_25_202844) do
   add_foreign_key "external_links", "softwares", name: "fk_softwares_external_links", on_delete: :cascade
   add_foreign_key "pipelines", "softwares", name: "fk_pipelines_software", on_delete: :nullify
   add_foreign_key "release_assets", "releases", name: "fk_releases_release_assets", on_delete: :cascade
+  add_foreign_key "releases", "runtime_versions", name: "fk_runtime_versions_releases", on_delete: :nullify
   add_foreign_key "releases", "softwares", name: "fk_softwares_releases", on_delete: :cascade
+  add_foreign_key "runtime_components", "runtime_versions", name: "fk_runtime_versions_components", on_delete: :cascade
   add_foreign_key "software_images", "images"
   add_foreign_key "software_images", "softwares", on_delete: :cascade
 end

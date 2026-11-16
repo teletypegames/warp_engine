@@ -1,6 +1,7 @@
 module WarpEngine
   # Serves the file container under <tt>/file/</tt>: a file through the access
-  # policy, a directory as its <tt>index.html</tt> page.
+  # policy (an installed runtime's file, under <tt>_runtimes/</tt>, without it),
+  # a directory as its <tt>index.html</tt> page.
   class FileService
     include AccessPolicyGuard
 
@@ -32,7 +33,7 @@ module WarpEngine
     private
 
     def authorize!(relative, subject)
-      return WarpEngine::Access::Grant::OPEN if WarpEngine::AccessPolicy.open?
+      return WarpEngine::Access::Grant::OPEN if WarpEngine::AccessPolicy.open? || runtime_file?(relative)
 
       authorize_download!(asset: WarpEngine::ReleaseAsset.for_relative_path(relative), subject: subject)
     end
@@ -40,6 +41,8 @@ module WarpEngine
     def storage
       WarpEngine.storage
     end
+
+    def runtime_file?(relative) = relative.start_with?("#{WarpEngine::Runtime::ROOT}/")
 
     def to_result(location)
       location.redirect? ? FileResultDto.redirect(location.url) : FileResultDto.file(location.path)

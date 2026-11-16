@@ -22,7 +22,7 @@ RSpec.describe WarpEngine::SysInfo do
   end
 
   it "describes every part of the configuration as a group with an icon" do
-    expect(info.tree.map(&:key)).to eq(%w[engine publishing adapters signin ci platforms outlets adminapi extras])
+    expect(info.tree.map(&:key)).to eq(%w[engine publishing adapters signin ci platforms runtimes outlets adminapi extras])
     expect(info.tree.map(&:icon)).to all(be_a(Symbol))
   end
 
@@ -114,7 +114,7 @@ RSpec.describe WarpEngine::SysInfo do
     allow(WarpEngine::Outlets).to receive(:validate!).and_raise(WarpEngine::ConfigurationError, "two outlets share the key x")
 
     expect(find("outlets.invalid")).to have_attributes(status: "error", hint: "two outlets share the key x")
-    expect(info.stats.last.value).to eq("?")
+    expect(info.stats.find { |stat| stat.label == "Outlets" }.value).to eq("?")
   end
 
   it "shows a shelf that is not built yet as one to check" do
@@ -138,5 +138,35 @@ RSpec.describe WarpEngine::SysInfo do
     labels = info.stats.to_h { |stat| [ stat.label, stat.value ] }
 
     expect(labels).to include("Softwares" => 1, "Releases" => 1, "Downloads" => 0)
+  end
+
+  describe "runtimes" do
+    let(:container) { Dir.mktmpdir }
+
+    before { allow(WarpEngine.config).to receive(:file_container_path).and_return(container) }
+
+    after { FileUtils.rm_rf(container) }
+
+    it "calls a bound runtime that is not installed an error and an uploaded one not sent yet a warning" do
+      expect(find("runtimes.emulatorjs.version")).to have_attributes(status: "error", value: "4.2.3 not installed")
+      expect(find("runtimes.emulatorjs.platforms").chips).to contain_exactly("c64", "plus4")
+      expect(find("runtimes.tic80.version")).to have_attributes(status: "warn", value: "none uploaded")
+    end
+
+    it "lists the components the bindings need and flags a missing one" do
+      version = WarpEngine::RuntimeVersion.create!(name: "emulatorjs", version: "4.2.3", source: "download",
+                                                   path: "_runtimes/emulatorjs-4.2.3", files: {}, size_bytes: 1024)
+      version.runtime_components.create!(kind: "core", key: "vice_x64sc")
+
+      expect(find("runtimes.emulatorjs.version")).to have_attributes(status: "ok", value: "4.2.3")
+      expect(find("runtimes.emulatorjs.components"))
+        .to have_attributes(status: "error", chips: [ "core vice_x64sc", "core vice_xplus4 (missing)" ])
+      expect(info.stats.find { |stat| stat.label == "Runtimes" }.value).to eq(1)
+    end
+
+    it "shows each platform's web bindings, the default marked" do
+      expect(find("platforms.c64.web")).to have_attributes(status: "ok", chips: [ "emulatorjs default" ])
+      expect(find("platforms.godot.web")).to have_attributes(status: "off", value: "no runtime")
+    end
   end
 end

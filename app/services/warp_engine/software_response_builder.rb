@@ -7,14 +7,14 @@ module WarpEngine
 
     # Renders +software+ with WarpEngine::SoftwareDetailSerializer: its
     # +releases+ newest first, the latest non-dev release, the web playable
-    # release (the latest, when it has an +html+ asset), the download totals from
+    # release (the latest, when it plays on the web: ReleaseSerializer.play_url), the download totals from
     # +download_counts+ (release id => count) and the access of +subject+.
     # Returns a Hash.
     def build_response(software, releases, download_counts, subject: nil)
       sorted = releases.sort_by { |r| r.created_at || Time.at(0) }.reverse
       latest = Release.latest_non_dev(releases)
 
-      web_playable = latest if latest&.release_assets&.any? { |a| a.kind == "html" }
+      web_playable = latest if latest && ReleaseSerializer.play_url(latest).present?
       total_downloads = releases.sum { |r| download_counts.fetch(r.id, 0) }
 
       SoftwareDetailSerializer.render_as_hash(software,

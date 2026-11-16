@@ -92,7 +92,7 @@ module WarpEngine
     # Returns the groups of the tree, in page order: each a Node with an
     # +icon+, an +intro+ and its settings as children.
     def tree
-      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, outlets, admin_api, extras ]
+      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, runtimes, outlets, admin_api, extras ]
     end
 
     # Returns how many leaves of the tree have each status, as a Hash of
@@ -102,9 +102,9 @@ module WarpEngine
     end
 
     # Returns the catalog numbers, as Stat objects: softwares by status,
-    # releases, downloads and outlets.
+    # releases, downloads, outlets and installed runtimes.
     def stats
-      @stats ||= [ softwares_stat, releases_stat, downloads_stat, outlets_stat ]
+      @stats ||= [ softwares_stat, releases_stat, downloads_stat, outlets_stat, runtimes_stat ]
     end
 
     private
@@ -291,10 +291,94 @@ module WarpEngine
                node("platforms.#{platform.name}.accepts", "Accepts", "", chips: list(platform.expected_kinds)),
                node("platforms.#{platform.name}.requires", "Requires", list(platform.required_kinds).empty? ? "nothing" : "", chips: list(platform.required_kinds)),
                node("platforms.#{platform.name}.builds", "Pipeline builds", built_here ? "" : "not built here", chips: built_here ? list(platform.built_kinds) : []),
-               node("platforms.#{platform.name}.release", "Releases from", platform.release_rule || "marker decides")
+               node("platforms.#{platform.name}.release", "Releases from", platform.release_rule || "marker decides"),
+               platform_web(platform)
              ])
       end
       group("platforms", "Platforms", icon: :gamepad, intro: "#{children.size} platforms; a publish fails without a required kind", children: children)
+    end
+
+    def platform_web(platform)
+      key = "platforms.#{platform.name}.web"
+      bindings = platform.all_web_bindings
+      return node(key, "Plays on the web in", "no runtime", status: "off") if bindings.empty?
+
+      broken = bindings.select(&:enabled).reject(&:valid?)
+      chips = bindings.map do |binding|
+        [ binding.key, binding.key == binding.runtime ? nil : "(#{binding.runtime})", binding.default ? "default" : nil,
+          binding.enabled ? nil : "off" ].compact.join(" ")
+      end
+      if broken.any?
+        return node(key, "Plays on the web in", "#{broken.size} broken", status: "error", chips: chips,
+                                                                           hint: broken.map { |binding| "#{binding.key}: #{binding.errors.join(', ')}" }.join("; "))
+      end
+
+      node(key, "Plays on the web in", "", status: "ok", chips: chips)
+    end
+
+    def runtimes
+      installed = WarpEngine::RuntimeVersion.kept.includes(:runtime_components).to_a
+      children = WarpEngine::Runtime.all.map { |runtime| runtime_node(runtime, installed.select { |version| version.name == runtime.name }) }
+      group("runtimes", "Runtimes", icon: :code, intro: "Where the releases play on the web; rake warp_engine:runtimes:install fetches them",
+                                    children: children)
+    end
+
+    def runtime_node(runtime, installed)
+      key = "runtimes.#{runtime.name}"
+      origin = WarpEngine::Runtime.builtin?(runtime.name) && !config.runtimes.key?(runtime.name) ? "built-in" : "host"
+      current = runtime.current_version
+      node(key, "#{runtime.name} · #{runtime.label}", origin, status: current ? "ok" : "info", children: [
+        runtime_version_node(key, runtime, installed, current),
+        node("#{key}.source", "Source", runtime.download? ? "downloaded, SHA-256 checked" : "uploaded by a build",
+             chips: runtime.download? ? runtime.definition.versions.keys : []),
+        runtime_components_node(key, runtime, current),
+        node("#{key}.platforms", "Platforms", runtime.platforms.empty? ? "none bound" : "",
+             status: runtime.platforms.empty? ? "off" : "info", chips: runtime.platforms),
+        node("#{key}.size", "On disk", installed.empty? ? "nothing installed" : size(installed.sum(&:size_bytes)),
+             chips: installed.map { |version| "#{version.version}: #{version.releases.count} releases" }),
+        runtime_verify_node(key, installed)
+      ])
+    end
+
+    def runtime_version_node(key, runtime, installed, current)
+      chosen = runtime.chosen_version
+      label = config.runtime_versions.key?(runtime.name) ? "chosen by the host" : "newest"
+      if current
+        node("#{key}.version", "Version", current.version, status: "ok", chips: [ label ])
+      elsif runtime.upload? && chosen.nil?
+        node("#{key}.version", "Version", "none uploaded", status: runtime.platforms.empty? ? "info" : "warn",
+                                                          hint: "A build installs it through POST /build/runtime; until then its platforms play from html assets.")
+      else
+        node("#{key}.version", "Version", "#{chosen} not installed", status: runtime.platforms.empty? ? "info" : "error",
+                                                                     chips: installed.map(&:version),
+                                                                     hint: runtime.download? ? "Run rake warp_engine:runtimes:install NAME=#{runtime.name}." : "Upload it through POST /build/runtime.")
+      end
+    end
+
+    def runtime_components_node(key, runtime, current)
+      needed = runtime.required_components.flat_map { |kind, keys| keys.map { |component| [ kind, component ] } }
+      return node("#{key}.components", "Components", "none needed") if needed.empty?
+
+      missing = current ? needed.reject { |kind, component| current.component?(kind, component) } : needed
+      chips = needed.map { |kind, component| "#{kind} #{component}#{' (missing)' if missing.include?([ kind, component ])}" }
+      extra = current ? current.runtime_components.map { |component| [ component.kind, component.key ] } - needed : []
+      chips += extra.map { |kind, component| "#{kind} #{component} (unused)" }
+      return node("#{key}.components", "Components", "", status: "ok", chips: chips) if missing.empty?
+
+      node("#{key}.components", "Components", "#{missing.size} missing", status: current ? "error" : "info", chips: chips,
+                                                                           hint: "rake warp_engine:runtimes:install NAME=#{runtime.name} installs what the bindings need.")
+    end
+
+    def runtime_verify_node(key, installed)
+      return node("#{key}.verify", "Files", "nothing installed", status: "off") if installed.empty?
+      return node("#{key}.verify", "Files", "not checked", hint: "The live checks read every file and compare its SHA-256.") unless live?
+
+      service = WarpEngine::RuntimeInstallService.new
+      broken = installed.to_h { |version| [ version.version, service.verify(version) ] }.reject { |_, files| files.empty? }
+      return node("#{key}.verify", "Files", "intact", status: "ok") if broken.empty?
+
+      node("#{key}.verify", "Files", "#{broken.values.sum(&:size)} damaged or missing", status: "error",
+                                                                                        chips: broken.flat_map { |version, files| files.map { |file| "#{version}/#{file}" } })
     end
 
     def outlets
@@ -429,6 +513,13 @@ module WarpEngine
       today = downloads.where(created_at: Time.current.beginning_of_day..).count
       month = downloads.where(created_at: 30.days.ago..).count
       Stat.new(label: "Downloads", value: today, detail: "today · #{ActiveSupport::NumberHelper.number_to_delimited(month)} in 30 days")
+    end
+
+    def runtimes_stat
+      versions = WarpEngine::RuntimeVersion.kept
+      bound = WarpEngine::Release.kept.where.not(runtime_version_id: nil).count
+      Stat.new(label: "Runtimes", value: versions.count,
+               detail: "#{versions.distinct.count(:name)} runtimes · #{size(versions.sum(:size_bytes))} · #{bound} releases play in one")
     end
 
     def outlets_stat

@@ -196,6 +196,26 @@ module WarpEngine
                                   deactivated: S.array(S.ref("Pipeline")) })
         end
 
+        # The +RuntimeVersion+ schema, one installed version of a runtime.
+        def runtime_version
+          named("RuntimeVersion", { id: S.id, name: S.string, version: S.string, source: S.enum(WarpEngine::RuntimeVersion::SOURCES),
+                                    path: S.string("Relative to the artifact store"), sizeBytes: S.integer,
+                                    components: S.array(S.object({ kind: S.string, key: S.string })),
+                                    releases: S.integer("Releases bound to it"), **timestamps })
+        end
+
+        # The body of installing a runtime.
+        def runtime_install_body
+          S.object({ name: S.string("A downloaded runtime"), version: S.nullable(S.string("Default: the chosen one")),
+                     dryRun: S.boolean("Only report what would be fetched") }, required: [ :name ])
+        end
+
+        # The +RuntimeInstall+ schema: what an install did.
+        def runtime_install
+          named("RuntimeInstall", { name: S.string, version: S.string, fetched: S.array(S.string), kept: S.array(S.string),
+                                    components: S.object({}, additional: true), dryRun: S.boolean })
+        end
+
         # The +FileEntry+ schema, one file or directory of the artifact store.
         def file_entry
           named("FileEntry", { name: S.string, path: S.string, type: S.enum(%w[file directory]),

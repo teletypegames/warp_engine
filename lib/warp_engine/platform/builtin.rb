@@ -4,7 +4,8 @@ module WarpEngine
   # The platforms the engine ships, each declared once with the Platform::Builder
   # DSL: its kinds (what a publish accepts, what the pipeline builds), where its
   # metadata comes from and which CI-neutral template builds it
-  # (<tt>lib/warp_engine/ci/platforms/<template>.yaml.erb</tt>).
+  # (<tt>lib/warp_engine/ci/platforms/<template>.yaml.erb</tt>), and the
+  # runtimes its releases play in on the web (WarpEngine::Runtime).
   class Platform
     define :tic80 do
       label "TIC-80"
@@ -14,6 +15,7 @@ module WarpEngine
       kind :docs, always: true
       kinds :win_x64, :linux_x64, :mac_x64
       metadata :lua
+      web :tic80
       version_source "sed -n 's/^-- version: //p' inc/meta/meta.header.lua 2>/dev/null | head -n 1 | tr -d '[:space:]'"
     end
 
@@ -31,11 +33,12 @@ module WarpEngine
       kinds :win_x64, :linux_x64, :mac_universal
     end
 
-    { c64: "C64", plus4: "Plus/4" }.each do |machine, name|
+    { c64: [ "C64", "vice_x64sc" ], plus4: [ "Plus/4", "vice_xplus4" ] }.each do |machine, (name, core)|
       define machine do
         label name
         kind :cartridge, ext: ".prg", required: true
         kinds :html, :win_x64, :linux_x64, :mac_arm64
+        web :emulatorjs, core: core, options: { "keyboardInput" => "enabled" }
         ci template: "commodore", machine: machine.to_s
       end
     end
