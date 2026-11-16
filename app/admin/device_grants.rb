@@ -1,7 +1,7 @@
 ActiveAdmin.register WarpEngine::DeviceGrant, as: "Device Sign-in" do
   actions :index, :show
 
-  menu parent: "🌀 WarpEngine", priority: 10, label: "📱 Device Sign-ins",
+  menu parent: "WarpEngine", priority: 10, label: "Device Sign-ins",
        if: proc { WarpEngine.identity_configured? }
 
   config.sort_order = "created_at_desc"

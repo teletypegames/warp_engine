@@ -3,7 +3,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
 
   permit_params :platform, :software_id
 
-  menu parent: "🌀 WarpEngine", priority: 10, label: "🚀 Pipelines"
+  menu parent: "WarpEngine", priority: 10, label: "Pipelines"
 
   config.sort_order = "repo_name_asc"
   config.batch_actions = false
@@ -76,9 +76,9 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
     panel "Pipelines" do
       if !WarpEngine.ci.configured?
         para "No CI provider is configured. Set c.ci_adapter in the WarpEngine initializer.",
-             style: "color:#999;"
+             class: "we-muted"
       elsif !resource.active
-        para "This repository is inactive.", style: "color:#999;"
+        para "This repository is inactive.", class: "we-muted"
       else
         begin
           runs = WarpEngine::PipelineService.new.runs(resource, page: 1)
@@ -91,7 +91,7 @@ ActiveAdmin.register WarpEngine::Pipeline, as: "Pipeline" do
               column("Created") { |r| r.created_at ? r.created_at.strftime("%Y-%m-%d %H:%M") : "-" }
             end
           else
-            para "No pipelines found.", style: "color:#999;"
+            para "No pipelines found.", class: "we-muted"
           end
         rescue => e
           para "Error fetching pipelines: #{e.message}", style: "color:red;"

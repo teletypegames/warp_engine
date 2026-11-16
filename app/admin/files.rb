@@ -1,5 +1,5 @@
 ActiveAdmin.register_page "Files" do
-  menu parent: "🌀 WarpEngine", priority: 6, label: "📁 Files"
+  menu parent: "WarpEngine", priority: 6, label: "Files"
 
   content do
     service = WarpEngine::FileManagerService.new
@@ -21,7 +21,7 @@ ActiveAdmin.register_page "Files" do
       h2 do
         text_node "File Manager"
         if picker_mode
-          span " — select a file or folder", style: "font-size:14px; color:#888; font-weight:normal;"
+          span " — select a file or folder", class: "we-muted"
         end
       end
 
@@ -29,7 +29,7 @@ ActiveAdmin.register_page "Files" do
         parts = current_dir.split("/").reject(&:blank?)
         picker_params = picker_mode ? { picker: 1, field: picker_field } : {}
 
-        a "softwares/", href: admin_files_path(picker_params)
+        a "#{File.basename(WarpEngine.config.file_container_path.to_s)}/", href: admin_files_path(picker_params)
         accumulated = ""
         parts.each do |part|
           accumulated = [ accumulated, part ].reject(&:blank?).join("/")
@@ -72,7 +72,7 @@ ActiveAdmin.register_page "Files" do
 
             tr do
               td do
-                span "#{WarpEngine::FileIcon::DIRECTORY} ", style: "font-size:15px;"
+                text_node WarpEngine::FileIcon.svg("..", directory: true)
                 a "..", href: admin_files_path(picker_params.merge(dir: parent))
               end
               td ""
@@ -87,10 +87,10 @@ ActiveAdmin.register_page "Files" do
               td do
                 picker_params = picker_mode ? { picker: 1, field: picker_field } : {}
                 if entry[:type] == :directory
-                  span "#{WarpEngine::FileIcon::DIRECTORY} ", style: "font-size:15px;"
+                  text_node WarpEngine::FileIcon.svg(entry[:name], directory: true)
                   a entry[:name], href: admin_files_path(picker_params.merge(dir: entry[:path]))
                 else
-                  span "#{WarpEngine::FileIcon.for(entry[:name])} ", style: "font-size:15px;"
+                  text_node WarpEngine::FileIcon.svg(entry[:name])
                   span entry[:name]
                 end
               end
@@ -100,7 +100,7 @@ ActiveAdmin.register_page "Files" do
               td do
                 if entry[:type] != :directory
                   count = entry[:downloads] || 0
-                  span count.to_s, style: count > 0 ? "font-weight:bold;" : "color:#999;"
+                  span count.to_s, class: count.positive? ? "fm-count" : "fm-count fm-count-zero"
                 end
               end
               td do
@@ -110,17 +110,17 @@ ActiveAdmin.register_page "Files" do
                 entry_id = entry[:path].parameterize
 
                 if entry[:type] != :directory
-                  a "⬇️", href: "/file/#{entry[:path]}", class: "fm-icon-btn", title: "Download", download: entry[:name]
+                  a WarpEngine::AdminIcons.svg(:download, label: "Download"), href: "/file/#{entry[:path]}", class: "fm-icon-btn", title: "Download", download: entry[:name]
                 end
 
-                a "✏️", href: "#", class: "fm-icon-btn", title: "Rename",
+                a WarpEngine::AdminIcons.svg(:pencil, label: "Rename"), href: "#", class: "fm-icon-btn", title: "Rename",
                   onclick: "var n=prompt('New name:','#{escape_javascript(entry[:name])}');if(n){var f=document.getElementById('rename-#{entry_id}');f.querySelector('[name=new_name]').value=n;f.submit();}return false;"
 
-                a "🗑️", href: "#", class: "fm-icon-btn fm-icon-danger", title: "Delete",
+                a WarpEngine::AdminIcons.svg(:trash, label: "Delete"), href: "#", class: "fm-icon-btn fm-icon-danger", title: "Delete",
                   onclick: "if(confirm('Delete \\'#{escape_javascript(entry[:name])}\\'?')){document.getElementById('delete-#{entry_id}').submit();}return false;"
 
                 if entry[:type] != :directory
-                  a "📊", href: admin_downloads_path(q: { file_path_cont: entry[:path] }), class: "fm-icon-btn", title: "Stats"
+                  a WarpEngine::AdminIcons.svg(:chart, label: "Stats"), href: admin_downloads_path(q: { file_path_cont: entry[:path] }), class: "fm-icon-btn", title: "Stats"
                 end
 
                 if picker_mode
@@ -149,7 +149,7 @@ ActiveAdmin.register_page "Files" do
       end
 
       if entries.empty? && current_dir.blank?
-        para "No files found in /softwares", style: "color:#999; text-align:center; padding:40px 0;"
+        para "No files found in #{WarpEngine.config.file_container_path}", class: "we-muted we-empty"
       end
     end
   end
@@ -159,7 +159,8 @@ ActiveAdmin.register_page "Files" do
     dir = params[:dir].to_s.presence || ""
     begin
       entries = service.list(dir)
-      render json: { entries: entries, dir: dir }
+      render json: { entries: entries, dir: dir, root: WarpEngine.config.file_container_path.to_s,
+                     rootName: File.basename(WarpEngine.config.file_container_path.to_s) }
     rescue ArgumentError => e
       render json: { entries: [], dir: dir, error: e.message }
     end

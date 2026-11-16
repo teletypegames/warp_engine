@@ -10,7 +10,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     ] + WarpEngine::AdditionalResource.permitted_params_for(:software)
   end
 
-  menu parent: "🌀 WarpEngine", priority: 2, label: "🎮 Softwares"
+  menu parent: "WarpEngine", priority: 2, label: "Softwares"
 
   actions :all, except: [ :edit ]
 
@@ -52,19 +52,19 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     if WarpEngine.config.site_url.present?
       catalog_url = "#{WarpEngine.config.site_url.chomp('/')}/catalog/#{resource.name}"
 
-      div style: "margin-bottom:8px;" do
-        a href: catalog_url, target: "_blank", style: "display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5850ec;" do
-          span "🌐", style: "font-size:16px;"
+      div class: "we-quick-link" do
+        a href: catalog_url, target: "_blank" do
+          text_node WarpEngine::AdminIcons.svg(:globe)
           text_node "View on site"
         end
       end
     end
 
     if resource.pipeline
-      div style: "margin-bottom:8px;" do
-        a href: admin_pipeline_path(resource.pipeline), style: "display:inline-flex;align-items:center;gap:6px;font-weight:bold;color:#5850ec;" do
-          span "🚀", style: "font-size:16px;"
-          text_node "Pipelines"
+      div class: "we-quick-link" do
+        a href: admin_pipeline_path(resource.pipeline) do
+          text_node WarpEngine::AdminIcons.svg(:branch)
+          text_node "Pipeline"
         end
       end
     end
@@ -83,7 +83,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
       div style: "margin-bottom:16px;" do
         h4 do
           text_node link_to("v#{rel[:version]}", admin_release_path(rel[:release_id]))
-          span " (#{rel[:downloads]})", style: "color:#666;"
+          span " (#{rel[:downloads]})", class: "we-muted"
         end
         if rel[:files].any?
           table_for rel[:files] do
@@ -92,7 +92,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
             column("Last") { |row| row[:last_download_at]&.strftime("%m-%d") }
           end
         else
-          para "No downloads", style: "color:#999;font-style:italic;"
+          para "No downloads", class: "we-muted"
         end
       end
     end

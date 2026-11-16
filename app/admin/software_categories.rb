@@ -1,7 +1,7 @@
 ActiveAdmin.register WarpEngine::SoftwareCategory, as: "Software Category" do
   permit_params :key, :label, :position, :needs_review
 
-  menu parent: "🌀 WarpEngine", priority: 4, label: "🗂 Categories"
+  menu parent: "WarpEngine", priority: 4, label: "Categories"
 
   config.sort_order = "position_asc"
 

@@ -1,7 +1,8 @@
 module WarpEngine
   # The Rails engine. It isolates the WarpEngine namespace, appends its
   # migrations to the host's, loads the ActiveAdmin resources of +app/admin+
-  # when ActiveAdmin is present, validates the outlets, shelves among them
+  # when ActiveAdmin is present together with their stylesheet and script
+  # (<tt>warp_engine/admin.css</tt>, <tt>warp_engine/admin.js</tt>), validates the outlets, shelves among them
   # (and the MCP dependency when enabled) after boot, and enqueues a
   # WarpEngine::OutletRefreshJob for the materialized outlets of a platform on
   # every <tt>warp_engine.publish</tt> notification.
@@ -37,6 +38,14 @@ module WarpEngine
         ActiveAdmin.application.load_paths << admin_dir
 
         app.config.watchable_dirs[admin_dir] = [ :rb ]
+        app.config.assets.precompile += %w[warp_engine/admin.css warp_engine/admin.js] if app.config.respond_to?(:assets)
+      end
+    end
+
+    config.after_initialize do
+      if defined?(ActiveAdmin)
+        ActiveAdmin.application.register_stylesheet "warp_engine/admin.css"
+        ActiveAdmin.application.register_javascript "warp_engine/admin.js"
       end
     end
   end

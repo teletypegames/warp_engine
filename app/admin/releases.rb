@@ -39,7 +39,7 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
           column(:path) { |a| span a.path, style: "font-family:monospace;font-size:12px;" }
         end
       else
-        para "No assets for this release.", style: "color:#999;font-style:italic;"
+        para "No assets for this release.", class: "we-muted"
       end
     end
 
@@ -58,7 +58,7 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
           column("Last download") { |row| row[:last_download_at]&.strftime("%Y-%m-%d %H:%M") }
         end
       else
-        para "No downloads for this release.", style: "color:#999;font-style:italic;"
+        para "No downloads for this release.", class: "we-muted"
       end
     end
   end

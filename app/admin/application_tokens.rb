@@ -2,7 +2,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   actions :index, :show, :new, :create, :edit, :update, :destroy
   permit_params :name, :owner_id, :expires_at, :scopes_string, :unrestricted
 
-  menu parent: "🌀 WarpEngine", priority: 9, label: "🎟️ App Tokens"
+  menu parent: "WarpEngine", priority: 9, label: "App Tokens"
 
   config.sort_order = "created_at_desc"
   config.batch_actions = false
@@ -80,8 +80,8 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
 
   show do
     if (plain = controller.instance_variable_get(:@plain_token))
-      panel "⚠️ Token — shown only once, copy it now!" do
-        pre plain, style: "font-family:monospace;font-size:14px;padding:8px;background:#fff3cd;user-select:all;"
+      panel "Token: shown only once, copy it now", class: "we-panel-warn" do
+        pre plain, class: "we-secret"
       end
     end
     attributes_table do

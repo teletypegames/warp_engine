@@ -1,7 +1,7 @@
 ActiveAdmin.register WarpEngine::SoftwareStatus, as: "Software Status" do
   permit_params :key, :label, :position, :default_visible, :badge
 
-  menu parent: "🌀 WarpEngine", priority: 3, label: "🏷 Statuses"
+  menu parent: "WarpEngine", priority: 3, label: "Statuses"
 
   config.sort_order = "position_asc"
 

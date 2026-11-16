@@ -1365,12 +1365,16 @@ too — a client needs the version most when something came back wrong. The name
 ## Admin integration
 
 The host owns the single ActiveAdmin instance — authentication (Devise),
-theme, assets and the `/admin` routes. WarpEngine only appends its resource
-files to `ActiveAdmin.application.load_paths`. Two things to copy into a new
-host:
+theme and the `/admin` routes. WarpEngine appends its resource files to
+`ActiveAdmin.application.load_paths` and registers its own stylesheet and script
+(`warp_engine/admin.css`, `warp_engine/admin.js`: the file manager, its picker
+for release-asset paths, the quick links), so its pages work in any host. They
+are under the menu parent `WarpEngine`, use no emoji (icons are inline SVG from
+`WarpEngine::AdminIcons`) and take their colors from the host theme's
+`--c-*` custom properties (RGB triplets, as `--c-accent: 21 128 61`), with light
+defaults when the host defines none — a host theme that switches those for dark
+mode switches the engine's pages too. One thing to copy into a new host:
 
-- the small file-picker JS for release-asset path inputs (an iframe pointing
-  at `/admin/files?picker=1&field=<dom_id>`) in your `active_admin.js`;
 - if you generate apipie docs, add
   `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"` to your
   `api_controllers_matcher`.
@@ -1456,6 +1460,19 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.0
+
+- **No emoji in the admin.** The menu parent is `WarpEngine` (was `🌀 WarpEngine`) and
+  the items carry plain labels; a host resource that hung under the old parent moves
+  with `menu parent: "WarpEngine"`. `WarpEngine::FileIcon.for` returns a
+  `WarpEngine::AdminIcons` name (`:folder`, `:gamepad`, …), `FileIcon.svg` the icon.
+- **The engine brings its admin assets.** `warp_engine/admin.css` and
+  `warp_engine/admin.js` are registered with ActiveAdmin and precompiled; drop the
+  copies of the file manager's styles (`fm-*`) and its picker script from the host.
+  The picker takes the root from the server, so it no longer assumes `/softwares`.
+- **Theme tokens.** The engine's pages read the host's `--c-*` custom properties
+  (see *Admin integration*); the SysInfo page uses the system font stack.
 
 ## Upgrading to 2.0
 

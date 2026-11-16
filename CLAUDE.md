@@ -57,7 +57,10 @@ Keep new code in the layer its neighbours are in; 2.0 made them agree.
   share request parsing through concerns (`CatalogFilters`), the version header
   through `VersionHeader`, and use nested `module ... class` declarations.
 - **Admin layers** (ActiveAdmin and the Admin API) are CRUD over the models;
-  anything more than a save goes through a service.
+  anything more than a save goes through a service. The admin pages bring
+  their own styles and scripts (`app/assets/*/warp_engine/admin.*`), use no
+  emoji (`WarpEngine::AdminIcons` instead), no hardcoded colors (the host's
+  `--c-*` tokens via `var(--we-*)`), and no host paths.
 - **Outlets**: one shape for every type — `lib/warp_engine/outlets/TYPE.rb`
   (options, `validate!`, `descriptor`, `draw_routes` or `sync!`) plus the
   objects that do the work in `lib/warp_engine/outlets/TYPE/`, taking the
