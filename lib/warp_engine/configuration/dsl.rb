@@ -16,7 +16,8 @@ module WarpEngine
       # writer; each gets a DSL method of the same name taking the value.
       SETTINGS = %i[site_url file_container_path update_secret max_upload_size enforce_software_ownership
                     image_adapter access_policy access_token_owner_class identity_verification_url
-                    device_code_ttl device_code_interval catalog_page_size catalog_max_page_size].freeze
+                    device_code_ttl device_code_interval catalog_page_size catalog_max_page_size
+                    sys_info_live_checks].freeze
 
       # Evaluates +block+ against a new DSL writing into +config+ and returns
       # +config+.

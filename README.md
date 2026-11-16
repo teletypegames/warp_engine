@@ -1375,13 +1375,28 @@ host:
   `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"` to your
   `api_controllers_matcher`.
 
-**SysInfo (1.13).** The *WarpEngine → ℹ️ SysInfo* page describes the configuration
-as it runs, in words: the engine (version, site URL, file container and whether it
-is writable, upload limit), publishing credentials, the storage, image and access
-adapters, client sign-in, the CI server and the platforms it builds, every platform
-with its kinds, the outlets and shelves (or why their configuration is invalid), the
-Admin API and the additional resources. It is computed on every request
-(`WarpEngine::SysInfo`), and secrets show only as *set* or *not set*.
+**SysInfo (1.13, a tree since 2.1).** The *WarpEngine → ℹ️ SysInfo* page shows the
+engine as it runs, as one tree: engine, publishing, adapters, client sign-in, CI, platforms,
+outlets, Admin API and additional resources, every line with a status — *error* (needs
+fixing), *warn* (works, with a catch), *ok*, *info* and *off* (switched off on purpose) —
+and a branch takes the worst below it. Branches with a problem open by themselves; the
+page counts each status (a click shows only the problems), searches labels and values,
+expands or collapses everything and remembers what was open. Above the tree the catalog
+in numbers: softwares by status, releases, downloads today and in 30 days, outlets.
+It is computed on every request (`WarpEngine::SysInfo`, the tree as `#tree` of
+`SysInfo::Node`), secrets show only as *set* or *not set*, and the page brings its own
+styles, so it looks the same in any host.
+
+**Live checks.** The page asks the CI server who its API token belongs to (`ping` of
+the CI adapter: `GET /api/user` on Woodpecker, `GET /api/v4/user` on GitLab, 3 s to
+connect, 5 s to answer) and shows the answer, or the error, with its time. A switch
+on the page turns them off for one view (`?live=0`); the host turns them off for good:
+
+```ruby
+WarpEngine.configure do
+  sys_info_live_checks false
+end
+```
 
 ## Admin API
 

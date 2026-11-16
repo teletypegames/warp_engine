@@ -32,6 +32,8 @@ module WarpEngine
     #                                 download statistics leave out (default empty)
     # [catalog_page_size]             catalog page size when the client names none (default 48)
     # [catalog_max_page_size]         the largest catalog page a client may ask for (default 200)
+    # [sys_info_live_checks]          whether the SysInfo page may call the CI server (default +true+; +false+
+    #                                 turns the live checks off for good)
     # [additional_resources]          the WarpEngine::AdditionalResource list (default empty)
     # [outlets]                       the outlet definitions, shelves among them, as hashes with +key+,
     #                                 +type+ and the type's options (see WarpEngine::Outlets; default empty)
@@ -57,6 +59,7 @@ module WarpEngine
                   :ignored_user_agents,
                   :catalog_page_size,
                   :catalog_max_page_size,
+                  :sys_info_live_checks,
                   :additional_resources,
                   :outlets,
                   :outlet_types
@@ -90,6 +93,7 @@ module WarpEngine
       @ignored_user_agents           = []
       @catalog_page_size             = 48
       @catalog_max_page_size         = 200
+      @sys_info_live_checks          = true
       @additional_resources          = []
       @outlets                       = []
       @outlet_types                  = {}

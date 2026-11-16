@@ -74,6 +74,17 @@ module WarpEngine
       end
     end
 
+    # The answer of an adapter's +ping+: whether the server answered and took
+    # the token (+ok+), what it said or what went wrong (+detail+) and how long
+    # it took (+ms+).
+    Ping = Struct.new(:ok, :detail, :ms, keyword_init: true) do
+      # Returns the milliseconds since +started+, a CLOCK_MONOTONIC reading.
+      def self.since(started) = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
+
+      # Returns +true+ when the server answered and took the token.
+      def ok? = ok ? true : false
+    end
+
     # The adapter used when CI is turned off (<tt>ci :none</tt>). It reports itself
     # as not configured, knows no platforms and serves no pipeline configs; every
     # operation that would talk to a CI server raises CI::NotConfigured.
@@ -93,6 +104,9 @@ module WarpEngine
       def update_server = nil
       # Returns no settings: there is no CI server.
       def settings = []
+
+      # Returns +nil+: there is no server to ask.
+      def ping = nil
 
       # Raises CI::NotConfigured.
       def repos                              = raise(NotConfigured, MESSAGE)

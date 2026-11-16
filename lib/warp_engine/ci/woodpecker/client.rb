@@ -10,11 +10,21 @@ module WarpEngine
       # raises CI::ConnectionError when the server cannot be reached and
       # CI::ApiError for an error status or a non-JSON body.
       class Client
-        # [url]   the Woodpecker server URL (a trailing slash is dropped)
-        # [token] the API token sent as <tt>Authorization: Bearer</tt>
-        def initialize(url:, token:)
-          @base_url = url.to_s.chomp("/")
-          @token    = token
+        # [url]           the Woodpecker server URL (a trailing slash is dropped)
+        # [token]         the API token sent as <tt>Authorization: Bearer</tt>
+        # [open_timeout]  seconds to wait for the connection (default 10)
+        # [read_timeout]  seconds to wait for an answer (default 30)
+        def initialize(url:, token:, open_timeout: 10, read_timeout: 30)
+          @base_url     = url.to_s.chomp("/")
+          @token        = token
+          @open_timeout = open_timeout
+          @read_timeout = read_timeout
+        end
+
+        # <tt>GET /api/user</tt>: returns the Hash of the user the token belongs to;
+        # the cheapest call that proves the server answers and takes the token.
+        def current_user
+          get("/api/user")
         end
 
         # <tt>GET /api/repos</tt>: returns the Array of repository Hashes the token can see.
@@ -121,8 +131,8 @@ module WarpEngine
 
           response = Net::HTTP.start(uri.hostname, uri.port,
                                      use_ssl: uri.scheme == "https",
-                                     open_timeout: 10,
-                                     read_timeout: 30) do |http|
+                                     open_timeout: @open_timeout,
+                                     read_timeout: @read_timeout) do |http|
             http.request(request)
           end
 

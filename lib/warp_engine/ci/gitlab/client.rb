@@ -10,11 +10,21 @@ module WarpEngine
       # empty body), raises CI::ConnectionError when the server cannot be reached
       # and CI::ApiError for an error status or a non-JSON body.
       class Client
-        # [url]   the GitLab URL (a trailing slash is dropped)
-        # [token] the access token sent as <tt>PRIVATE-TOKEN</tt>
-        def initialize(url:, token:)
-          @base_url = url.to_s.chomp("/")
-          @token    = token
+        # [url]           the GitLab URL (a trailing slash is dropped)
+        # [token]         the access token sent as <tt>PRIVATE-TOKEN</tt>
+        # [open_timeout]  seconds to wait for the connection (default 10)
+        # [read_timeout]  seconds to wait for an answer (default 30)
+        def initialize(url:, token:, open_timeout: 10, read_timeout: 30)
+          @base_url     = url.to_s.chomp("/")
+          @token        = token
+          @open_timeout = open_timeout
+          @read_timeout = read_timeout
+        end
+
+        # <tt>GET /api/v4/user</tt>: returns the Hash of the user the token belongs to;
+        # the cheapest call that proves the server answers and takes the token.
+        def current_user
+          get("/api/v4/user")
         end
 
         # <tt>GET /api/v4/projects</tt>: returns up to 100 project Hashes the token is a member of.
@@ -124,8 +134,8 @@ module WarpEngine
 
           response = Net::HTTP.start(uri.hostname, uri.port,
                                      use_ssl: uri.scheme == "https",
-                                     open_timeout: 10,
-                                     read_timeout: 30) do |http|
+                                     open_timeout: @open_timeout,
+                                     read_timeout: @read_timeout) do |http|
             http.request(request)
           end
 

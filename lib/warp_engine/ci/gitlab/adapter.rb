@@ -52,6 +52,18 @@ module WarpEngine
         # (see CI::PipelineConfig#built_kinds).
         def built_kinds(platform) = @config.built_kinds(platform)
 
+        # Asks the GitLab server who the API token belongs to, with short
+        # timeouts (3 s to connect, 5 s to answer), for the SysInfo page.
+        # Returns a CI::Ping; never raises.
+        def ping
+          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          user = Client.new(url: @url, token: @api_token, open_timeout: 3, read_timeout: 5).current_user
+          CI::Ping.new(ok: true, detail: "answers as #{user.to_h['login'] || user.to_h['username'] || 'the token user'}",
+                       ms: CI::Ping.since(started))
+        rescue CI::Error => e
+          CI::Ping.new(ok: false, detail: e.message.truncate(160), ms: CI::Ping.since(started))
+        end
+
         # Returns the memoized CI::Gitlab::Client for the configured URL and token.
         def client
           @client ||= Client.new(url: @url, token: @api_token)
