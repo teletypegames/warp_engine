@@ -52,17 +52,20 @@ RSpec.describe "Assembly64 outlet", type: :request do
     expect(response.headers["Access-Control-Allow-Origin"]).to eq("*")
     expect(presets.map { |preset| preset["type"] }).to eq(%w[repo category type date latest sort order])
     expect(presets[0]["values"]).to eq([ { "aqlKey" => "ttg", "name" => "Teletype Games" } ])
-    expect(presets[1]["values"]).to eq([ { "aqlKey" => "games", "name" => "Games" }, { "aqlKey" => "tools", "name" => "Tools" } ])
+    expect(presets[1]["values"]).to eq([ { "id" => 0, "aqlKey" => "games", "name" => "Games" },
+                                         { "id" => 8, "aqlKey" => "tools", "name" => "Tools" } ])
     expect(presets[2]["values"]).to eq([ { "aqlKey" => "prg" } ])
     expect(presets[3]["values"]).to eq([ { "aqlKey" => "2025" }, { "aqlKey" => "2026" } ])
 
     results = search('(name:"ariadne") & (category:games)')
     expect(results).to eq([ { "id" => ariadne.id.to_s, "name" => "Thread of Ariadne", "group" => "Teletype Games",
-                              "year" => 2026, "category" => 0, "updated" => "2026-11-01 00:00:00", "type" => "prg" } ])
+                              "year" => 2026, "released" => "2026-11-01", "category" => 0, "rating" => 0,
+                              "updated" => "2026-11-01 00:00:00", "type" => "prg" } ])
 
     entries = get_json("/leet/search/entries/#{ariadne.id}/0")
     expect(entries).to eq("contentEntry" => [ { "path" => "ARIADNE.PRG", "id" => 0, "size" => 7,
-                                                "date" => Time.utc(2026, 11, 1).to_i * 1000 } ])
+                                                "date" => Time.utc(2026, 11, 1).to_i * 1000 } ],
+                          "isContentByItself" => false)
 
     expect { get "/leet/search/bin/#{ariadne.id}/0/ARIADNE.PRG", headers: firmware_headers }
       .to change(WarpEngine::Download, :count).by(1)
@@ -72,14 +75,73 @@ RSpec.describe "Assembly64 outlet", type: :request do
     expect(response.headers["Content-Disposition"]).to include('filename="ARIADNE.PRG"')
   end
 
-  it "lists the categories behind the result ids, as the Assembly64/1.0 firmware asks after a search" do
+  it "lists the categories on offer, as the Assembly64/1.0 client asks after a search" do
+    publish("rabbit", "1.0.0", category: "utility")
+    publish("alpha", "1.0.0", category: "game")
+
     categories = get_json("/leet/search/categories", headers: firmware_headers.merge("User-Agent" => "Assembly64/1.0"))
 
     expect(response).to have_http_status(:ok)
-    expect(categories.size).to eq(WarpEngine::Outlets::Assembly64::CATEGORY_IDS.size)
-    expect(categories).to include({ "description" => "Teletype Games games", "groupingName" => "Games", "id" => 0,
-                                    "name" => "games", "type" => "ttg" })
-    expect(categories.map { |category| category["id"] }).to eq(categories.map { |category| category["id"] }.uniq)
+    expect(categories).to eq([
+      { "id" => 0, "name" => "games", "description" => "Games", "groupingName" => "Games", "type" => "ttg" },
+      { "id" => 8, "name" => "tools", "description" => "Tools", "groupingName" => "Tools", "type" => "ttg" }
+    ])
+  end
+
+  it "searches everything for the client's opening name:\"@\", paged" do
+    %w[a b c].each { |name| publish("title#{name}", "1.0.0") }
+
+    expect(search('(name:"@")', page: "/0/20").map { |row| row["name"] }).to eq(%w[Titlea Titleb Titlec])
+    expect(search('(name:"@")', page: "/1/1").map { |row| row["name"] }).to eq(%w[Titleb])
+    expect(search('(name:"@") & (category:"tools")', page: "/0/20")).to eq([])
+  end
+
+  it "gives a file by its entries id as well as by its name" do
+    software = publish("alpha", "1.0.0", content: "PRGDATA")
+
+    get "/leet/search/bin/#{software.id}/0/0", headers: firmware_headers
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to eq("PRGDATA")
+    expect(response.headers["Content-Disposition"]).to include('filename="ALPHA.PRG"')
+
+    get "/leet/search/bin/#{software.id}/0/1", headers: firmware_headers
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "sends the default image of a title as its screenshot" do
+    software = publish("alpha", "1.0.0")
+    other = publish("beta", "1.0.0")
+    FileUtils.mkdir_p(Image.upload_path)
+    first = create(:image, filename: "first-#{SecureRandom.hex(4)}.png")
+    cover = create(:image, filename: "cover-#{SecureRandom.hex(4)}.PNG")
+    File.binwrite(first.file_path, "FIRST")
+    File.binwrite(cover.file_path, "COVER")
+    WarpEngine::SoftwareImage.create!(software: software, image_id: first.id, position: 0)
+    WarpEngine::SoftwareImage.create!(software: software, image_id: cover.id, position: 1, is_default: true)
+
+    get "/leet/search/screenshot/#{software.id}/0", headers: firmware_headers
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to eq("COVER")
+    expect(response.headers["Content-Type"]).to eq("application/octet-stream")
+    expect(response.headers["Content-Disposition"]).to include('filename="screenshot.png"')
+
+    get "/leet/search/screenshot/#{other.id}/0", headers: firmware_headers
+    expect(response).to have_http_status(:not_found)
+    expect(response.body).to be_empty
+  ensure
+    [ first, cover ].compact.each { |image| FileUtils.rm_f(image.file_path) }
+  end
+
+  it "redirects to the screenshot when the image adapter only gives an absolute URL" do
+    software = publish("alpha", "1.0.0")
+    image = create(:image)
+    WarpEngine::SoftwareImage.create!(software: software, image_id: image.id, is_default: true)
+    adapter = Class.new { def url_for(id) = "https://cdn.example.org/#{id}.png" }.new
+    allow(WarpEngine::Images).to receive(:adapter).and_return(adapter)
+
+    get "/leet/search/screenshot/#{software.id}/0", headers: firmware_headers
+
+    expect(response).to redirect_to("https://cdn.example.org/#{image.id}.png")
   end
 
   it "gives the details of a title, as the Assembly64/1.0 firmware asks for each result" do
@@ -87,8 +149,11 @@ RSpec.describe "Assembly64 outlet", type: :request do
     untold = publish("untold", "1.0.0", title: "Untold", author: "")
 
     expect(get_json("/leet/search/metadata/#{ariadne.id}/0"))
-      .to eq("name" => "Thread of Ariadne", "group" => "Teletype Games", "releaseDate" => "2026-11-01")
-    expect(get_json("/leet/search/metadata/#{untold.id}/0")).to eq("name" => "Untold", "releaseDate" => "2026-11-01")
+      .to eq("name" => "Thread of Ariadne", "group" => "Teletype Games", "rating" => 0,
+             "released" => "2026-11-01 00:00:00", "updated" => "2026-11-01 00:00:00")
+    expect(get_json("/leet/search/meta/#{untold.id}/0")).to eq("name" => "Untold", "rating" => 0,
+                                                               "released" => "2026-11-01 00:00:00",
+                                                               "updated" => "2026-11-01 00:00:00")
 
     get "/leet/search/metadata/999999/0", headers: firmware_headers
     expect(response).to have_http_status(:not_found)
@@ -104,6 +169,7 @@ RSpec.describe "Assembly64 outlet", type: :request do
     expect(search("(repo:csdb)")).to eq([])
     expect(search("(latest:1week)").map { |row| row["name"] }).to eq(%w[Beta])
     expect(search("(sort:group) & (order:desc)").map { |row| row["name"] }).to eq(%w[Alpha Beta])
+    expect(search("(sort:updated) & (order:desc)").map { |row| row["name"] }).to eq(%w[Beta Alpha])
     expect(search("").map { |row| row["name"] }).to eq(%w[Alpha Beta])
   end
 

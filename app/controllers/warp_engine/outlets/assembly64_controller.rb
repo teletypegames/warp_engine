@@ -40,7 +40,24 @@ module WarpEngine
         render json: []
       end
 
-      # <tt>GET /leet/search/metadata/:id/:category</tt>: the details of a
+      # <tt>GET /leet/search/screenshot/:id/:category</tt>: the default image
+      # of a title (WarpEngine::Outlets::Assembly64::Catalog#screenshot) as an
+      # attachment, as the reference server sends it; a redirect when the
+      # image adapter only gives an absolute URL; 404 with an empty body when
+      # the title is not on offer or has no image.
+      def screenshot
+        image = catalog.screenshot(params[:id])
+        if image&.dig(:path)
+          send_file image[:path], disposition: "attachment", type: "application/octet-stream",
+                                  filename: "screenshot#{File.extname(image[:path]).downcase}"
+        elsif image&.dig(:url).to_s.match?(%r{\Ahttps?://})
+          redirect_to image[:url], allow_other_host: true
+        else
+          head :not_found
+        end
+      end
+
+      # <tt>GET /leet/search/metadata/:id/:category</tt> (and +meta+): the details of a
       # title (WarpEngine::Outlets::Assembly64::Catalog#metadata); 404 with an
       # empty body when it is not on offer.
       def metadata

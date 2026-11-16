@@ -42,6 +42,14 @@ module WarpEngine
         File.exist?(record.file_path.to_s)
       end
 
+      # Returns the path of the file of the image +image_id+, or +nil+ when
+      # there is no such image or its file is missing.
+      def file_path_for(image_id)
+        record = image_id.present? ? model.find_by(id: image_id) : nil
+        path = record.respond_to?(:file_path) ? record.file_path.to_s : ""
+        path.present? && File.file?(path) ? path : nil
+      end
+
       # Returns <tt>[label, id]</tt> pairs of every image, by file name, for the admin picker.
       def select_options
         model.order(:original_filename).map { |record| [ label_for(record), record.id ] }
@@ -85,6 +93,9 @@ module WarpEngine
       def label_for(record) = adapter.label_for(record)
       # Delegates to the adapter's +available?+.
       def available?(record) = adapter.available?(record)
+      # Delegates to the adapter's +file_path_for+; +nil+ when the adapter
+      # has none (its images are only served from #url_for).
+      def file_path_for(image_id) = adapter.respond_to?(:file_path_for) ? adapter.file_path_for(image_id) : nil
       # Delegates to the adapter's +select_options+.
       def select_options = adapter.select_options
     end

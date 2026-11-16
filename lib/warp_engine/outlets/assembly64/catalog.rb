@@ -23,7 +23,7 @@ module WarpEngine
           rows = all_rows
           [
             preset("repo", "Repository", [ [ repo, repo_name ] ]),
-            preset("category", "Category", rows.map { |row| row[:aql_category] }.uniq.sort.map { |aql| [ aql, CATEGORY_NAMES[aql] ] }),
+            preset("category", "Category", offered_categories(rows).map { |aql| [ aql, CATEGORY_NAMES[aql], CATEGORY_IDS[aql] ] }),
             preset("type", "Type", rows.flat_map { |row| row[:types] }.uniq.sort.map { |type| [ type, nil ] }),
             preset("date", "Date", rows.map { |row| row[:year] }.uniq.sort.map { |year| [ year.to_s, nil ] }),
             preset("latest", "Latest", LATEST.to_a),
@@ -32,20 +32,21 @@ module WarpEngine
           ]
         end
 
-        # Returns the categories a result's +category+ id can stand for, every
-        # one of CATEGORY_IDS, as Hashes of +id+, +name+ (the aqlKey),
-        # +description+, +groupingName+ and +type+ (the repository key), in
-        # the shape the real server answers them.
+        # Returns the categories on offer, the ones a result's +category+ id
+        # stands for, as Hashes of +id+, +name+ (the aqlKey) and +description+
+        # (the display name) as the reference server answers them, with the
+        # real server's +groupingName+ and +type+ (the repository key).
         def categories
-          CATEGORY_IDS.map do |aql, id|
+          offered_categories(all_rows).map do |aql|
             name = CATEGORY_NAMES.fetch(aql)
-            { description: "#{repo_name} #{name.downcase}", groupingName: name, id: id, name: aql, type: repo }
+            { id: CATEGORY_IDS.fetch(aql), name: aql, description: name, groupingName: name, type: repo }
           end
         end
 
         # Runs the AQL search +text+ and returns the results as Hashes of +id+
-        # (a String), +name+, +group+, +year+, +category+ (an Integer), +updated+
-        # and +type+, one a title.
+        # (a String), +name+, +group+, +year+, +released+
+        # (<tt>YYYY-MM-DD</tt>), +category+ (an Integer), +rating+ (0),
+        # +updated+ and +type+, one a title, the empty ones left out.
         #
         # [text]  the AQL query (see WarpEngine::Outlets::Assembly64::Query)
         # [start] the offset of a page, or +nil+ for an unpaged search
@@ -66,20 +67,31 @@ module WarpEngine
           end
         end
 
-        # Returns the details of the title +id+ as the real server's metadata
-        # answers them: a Hash of +name+, +group+ and +releaseDate+
-        # (<tt>YYYY-MM-DD</tt>, the release offered), the empty ones left out;
-        # +nil+ when the title is not on offer.
+        # Returns the details of the title +id+ as the reference server's
+        # metadata answers them: a Hash of +name+, +group+, +rating+ (0),
+        # +released+ and +updated+ (<tt>YYYY-MM-DD HH:MM:SS</tt>, the release
+        # offered), the empty ones left out; +nil+ when the title is not on offer.
         def metadata(id)
-          row = all_rows.find { |candidate| candidate[:software].id.to_s == id.to_s }
+          row = row_of(id)
           return nil if row.nil?
 
           software = row[:software]
-          {
-            name: Names.clean(software.title),
-            group: Names.clean(software.author),
-            releaseDate: row[:release].created_at&.utc&.strftime("%Y-%m-%d")
-          }.compact_blank
+          stamp = row[:release].created_at&.utc&.strftime("%Y-%m-%d %H:%M:%S")
+          { name: Names.clean(software.title), group: Names.clean(software.author), rating: 0,
+            released: stamp, updated: stamp }.compact_blank
+        end
+
+        # Returns the default image of the title +id+ (its default gallery
+        # image, else its first) as a Hash of +path+ (the file, when the image
+        # adapter gives one; see WarpEngine::Images.file_path_for) and +url+;
+        # +nil+ when the title is not on offer or has no image.
+        def screenshot(id)
+          row = row_of(id)
+          images = row ? row[:software].software_images : []
+          image = images.detect(&:is_default?) || images.first
+          return nil if image.nil?
+
+          { path: Images.file_path_for(image.image_id), url: Images.url_for(image.image_id) }
         end
 
         # Returns the files of the title +id+ as the +entries+ endpoint answers:
@@ -93,13 +105,20 @@ module WarpEngine
           {
             contentEntry: items.each_with_index.map do |item, index|
               { path: file_name(item), id: index, size: item.size, date: (item.release.created_at.to_f * 1000).to_i }
-            end
+            end,
+            isContentByItself: false
           }
         end
 
         # Returns the WarpEngine::Catalog::Offer::Item of the title +id+ whose file
-        # name (#file_name) is +file+, ignoring case, or +nil+.
-        def item(id, file) = items_of(id).find { |candidate| file_name(candidate).casecmp?(file.to_s) }
+        # name (#file_name) is +file+, ignoring case, or whose +entries+ id is
+        # +file+ when it is a number; +nil+ when there is none.
+        def item(id, file)
+          items = items_of(id)
+          return items[file.to_i] if file.to_s.match?(/\A\d+\z/)
+
+          items.find { |candidate| file_name(candidate).casecmp?(file.to_s) }
+        end
 
         # Returns the file name of +item+ in the listing: the software's
         # name as a shelf writes it (WarpEngine::Names.file_name), cut
@@ -118,6 +137,10 @@ module WarpEngine
           id.to_s.match?(/\A\d+\z/) ? offer.items_of(id.to_i) : []
         end
 
+        def row_of(id) = all_rows.find { |candidate| candidate[:software].id.to_s == id.to_s }
+
+        def offered_categories(rows) = rows.map { |row| row[:aql_category] }.uniq.sort_by { |aql| CATEGORY_IDS.fetch(aql) }
+
         def all_rows
           offer.items.group_by(&:software).map do |software, items|
             release = items.map(&:release).max_by { |candidate| [ candidate.created_at || Time.at(0), candidate.id ] }
@@ -131,15 +154,18 @@ module WarpEngine
 
         def result(row)
           software = row[:software]
+          created = (row[:release].created_at || Time.current).utc
           {
             id: software.id.to_s,
             name: Names.clean(software.title),
             group: Names.clean(software.author),
             year: row[:year],
+            released: created.strftime("%Y-%m-%d"),
             category: CATEGORY_IDS.fetch(row[:aql_category]),
-            updated: (row[:release].created_at || Time.current).utc.strftime("%Y-%m-%d %H:%M:%S"),
+            rating: 0,
+            updated: created.strftime("%Y-%m-%d %H:%M:%S"),
             type: row[:types].first.to_s
-          }
+          }.compact_blank
         end
 
         def match?(row, query)
@@ -154,7 +180,7 @@ module WarpEngine
         def matches?(row, name, value)
           software = row[:software]
           case name
-          when "name"              then [ software.title, software.name, software.shelf_name ].compact.any? { |text| text.downcase.include?(value) }
+          when "name"              then value == NAME_WILDCARD || [ software.title, software.name, software.shelf_name ].compact.any? { |text| text.downcase.include?(value) }
           when "group"             then software.author.to_s.downcase.include?(value)
           when "repo"              then value == repo
           when "category", "subcat" then value == row[:aql_category]
@@ -175,13 +201,14 @@ module WarpEngine
           sorted = case query["sort"]
           when "group" then rows.sort_by { |row| [ row[:software].author.to_s.downcase, row[:software].title.downcase ] }
           when "year"  then rows.sort_by { |row| [ row[:year], row[:software].title.downcase ] }
+          when "updated" then rows.sort_by { |row| [ row[:release].created_at || Time.at(0), row[:software].id ] }
           else rows.sort_by { |row| [ row[:software].title.downcase, row[:software].id ] }
           end
           query["order"].to_s.downcase == "desc" ? sorted.reverse : sorted
         end
 
         def preset(type, description, values)
-          { type: type, description: description, values: values.map { |aql, name| name ? { aqlKey: aql, name: name } : { aqlKey: aql } } }
+          { type: type, description: description, values: values.map { |aql, name, id| { id: id, aqlKey: aql, name: name }.compact } }
         end
       end
     end

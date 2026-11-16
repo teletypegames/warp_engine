@@ -33,9 +33,15 @@ module WarpEngine
     # [<tt>/leet/search/categories</tt>]                 the categories the result ids stand for
     # [<tt>/leet/search/aql?query=</tt>]                 a search, cut to fit LEGACY_BODY_LIMIT
     # [<tt>/leet/search/aql/START/COUNT?query=</tt>]     a page of a search
-    # [<tt>/leet/search/metadata/ID/CATEGORY</tt>]       the details of a title
+    # [<tt>/leet/search/metadata/ID/CATEGORY</tt>]       the details of a title (also under +meta+)
+    # [<tt>/leet/search/screenshot/ID/CATEGORY</tt>]     the default image of a title
     # [<tt>/leet/search/entries/ID/CATEGORY</tt>]        the files of a title
-    # [<tt>/leet/search/bin/ID/CATEGORY/FILE</tt>]       one file
+    # [<tt>/leet/search/bin/ID/CATEGORY/FILE</tt>]       one file, by name or by its +entries+ id
+    #
+    # The shapes follow the reference Assembly64 home server
+    # (<tt>freabemania/assembly64-home-server</tt>): <tt>name:"@"</tt>
+    # searches everything, a result carries +released+ and +rating+, the
+    # metadata carries +released+.
     #
     # Only anonymous, ungated titles are on offer (WarpEngine::Catalog::Offer);
     # a file goes out through WarpEngine::DownloadService, so the access policy
@@ -69,7 +75,10 @@ module WarpEngine
       }.freeze
 
       # The orders of the +sort+ preset: aqlKey to display name.
-      SORTS = { "name" => "Name", "group" => "Group", "year" => "Year" }.freeze
+      SORTS = { "name" => "Name", "group" => "Group", "year" => "Year", "updated" => "Recently updated" }.freeze
+
+      # The +name+ value that matches every title: the search the clients open with.
+      NAME_WILDCARD = "@".freeze
 
       # The query keys that narrow a search; a condition on any other key
       # (+handle+, +event+, +rating+) matches nothing, as no title here has one.
@@ -106,6 +115,8 @@ module WarpEngine
                                               constraints: { start: /\d+/, count: /\d+/ }
               mapper.get "aql", to: "assembly64#search", as: :search
               mapper.get "metadata/:id/:category", to: "assembly64#metadata", as: :metadata
+              mapper.get "meta/:id/:category", to: "assembly64#metadata", as: :meta
+              mapper.get "screenshot/:id/:category", to: "assembly64#screenshot", as: :screenshot
               mapper.get "entries/:id/:category", to: "assembly64#entries", as: :entries
               mapper.get "bin/:id/:category/:file", to: "assembly64#bin", as: :bin, constraints: { file: %r{[^/]+} }
             end

@@ -20,6 +20,19 @@ RSpec.describe WarpEngine::Images do
       expect(described_class.select_options).to include([ "cover.png", image.id ])
     end
 
+    it "finds the file of an image, when it is there" do
+      FileUtils.mkdir_p(Image.upload_path)
+      image = create(:image, filename: "present-#{SecureRandom.hex(4)}.png")
+      File.binwrite(image.file_path, "PNG")
+      missing = create(:image)
+
+      expect(described_class.file_path_for(image.id)).to eq(image.file_path)
+      expect(described_class.file_path_for(missing.id)).to be_nil
+      expect(described_class.file_path_for(nil)).to be_nil
+    ensure
+      FileUtils.rm_f(image.file_path) if image
+    end
+
     it "builds a host image from an upload" do
       expect(described_class.build_from_upload(nil)).to be_a(Image)
     end
@@ -32,6 +45,7 @@ RSpec.describe WarpEngine::Images do
       end.new
 
       expect(described_class.url_for(9)).to eq("https://cdn.example.com/9.png")
+      expect(described_class.file_path_for(9)).to be_nil
     end
   end
 
