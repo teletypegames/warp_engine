@@ -1,7 +1,7 @@
 require "rails_helper"
 require "tmpdir"
 
-RSpec.describe WarpEngine::ShelfPreview::C64 do
+RSpec.describe WarpEngine::Outlets::Shelf::Preview::C64 do
   let(:dir) { Dir.mktmpdir }
 
   after { FileUtils.rm_rf(dir) }

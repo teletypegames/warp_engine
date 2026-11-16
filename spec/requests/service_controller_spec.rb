@@ -21,30 +21,22 @@ RSpec.describe "GET /api/service", type: :request do
     expect(json["api"]).to eq("version" => WarpEngine::API_VERSION, "catalog" => { "pageSize" => 24, "maxPageSize" => 100 })
   end
 
-  it "lists the shelves and where they are served" do
-    allow(WarpEngine.config).to receive(:shelves).and_return(
-      [ { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", urls: [ "http://archive.example/C64" ] } ]
+  it "lists the outlets, the catalog API first, a shelf with where it is served" do
+    allow(WarpEngine.config).to receive(:outlets).and_return(
+      [ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG",
+          urls: [ "http://archive.example/C64" ] },
+        { key: "assembly64", type: "assembly64", hosts: [ "a64.example" ] } ]
     )
 
     get "/api/service"
 
-    expect(JSON.parse(response.body)["shelves"]).to eq(
-      [ { "platform" => "c64", "kinds" => [ "cartridge" ], "layout" => "flat", "index" => "INDEX.TXT",
-          "urls" => [ "http://archive.example/C64" ] } ]
-    )
-  end
-
-  it "lists the outlets, the catalog API first" do
-    allow(WarpEngine.config).to receive_messages(
-      shelves: [ { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG" } ],
-      outlets: [ { key: "assembly64", type: "assembly64", hosts: [ "a64.example" ] } ]
-    )
-
-    get "/api/service"
-
-    outlets = JSON.parse(response.body)["outlets"]
+    json = JSON.parse(response.body)
+    expect(json).not_to have_key("shelves")
+    outlets = json["outlets"]
     expect(outlets.map { |outlet| outlet.values_at("key", "type") })
-      .to eq([ %w[wecp wecp], %w[shelves/C64 shelf], %w[assembly64 assembly64] ])
+      .to eq([ %w[wecp wecp], %w[c64 shelf], %w[assembly64 assembly64] ])
+    expect(outlets[1]).to include("platforms" => [ "c64" ], "kinds" => [ "cartridge" ], "layout" => "flat",
+                                  "index" => "INDEX.TXT", "urls" => [ "http://archive.example/C64" ])
     expect(outlets.last).to include("hosts" => [ "a64.example" ], "path" => "/leet/search", "platforms" => [ "c64" ])
   end
 

@@ -3,7 +3,7 @@ namespace :warp_engine do
     desc "Checklist of which release assets exist and which the platform expects " \
          "(NAME=slug PLATFORM=godot RELEASES=all ONLY=missing STRICT=1)"
     task check: :environment do
-      coverage = WarpEngine::AssetCoverage.new(
+      coverage = WarpEngine::AssetCoverageService.new(
         name:     ENV["NAME"],
         platform: ENV["PLATFORM"],
         releases: ENV["RELEASES"] == "all" ? :all : :latest

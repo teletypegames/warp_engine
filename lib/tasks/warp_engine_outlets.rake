@@ -23,6 +23,7 @@ namespace :warp_engine do
       outlets.each do |outlet|
         result = outlet.sync!(dry_run: dry_run)
         puts "#{outlet.describe}#{' (dry run)' if dry_run}: #{result.changed? ? 'changed' : 'unchanged'}"
+        result.lines.each { |line| puts line } if result.respond_to?(:lines)
       end
     end
   end

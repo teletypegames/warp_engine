@@ -27,27 +27,27 @@ RSpec.describe "Serving through the storage adapter" do
     it "serves a local file (default adapter)" do
       allow(WarpEngine.config).to receive(:storage_adapter).and_return(:local)
 
-      result = described_class.new.show(WarpEngine::FileShowInputDto.new(path: "game-1.0.zip"))
+      result = described_class.new.show(path: "game-1.0.zip")
 
       expect(result.type).to eq(:file)
       expect(result.path).to eq(File.join(tmpdir, "game-1.0.zip"))
     end
 
-    it "redirects a directory to its index.html" do
+    it "answers a directory with its index.html" do
       allow(WarpEngine.config).to receive(:storage_adapter).and_return(:local)
       FileUtils.mkdir_p(File.join(tmpdir, "game-1.0"))
       File.write(File.join(tmpdir, "game-1.0", "index.html"), "<h1>hi</h1>")
 
-      result = described_class.new.show(WarpEngine::FileShowInputDto.new(path: "game-1.0"))
+      result = described_class.new.show(path: "game-1.0")
 
-      expect(result.type).to eq(:redirect)
-      expect(result.url).to eq("/file/game-1.0/index.html")
+      expect(result.type).to eq(:index)
+      expect(result.path).to eq("game-1.0/index.html")
     end
 
     it "hands back the adapter's redirect when storage is remote" do
       allow(WarpEngine.config).to receive(:storage_adapter).and_return(signing_adapter)
 
-      result = described_class.new.show(WarpEngine::FileShowInputDto.new(path: "game-1.0.zip"))
+      result = described_class.new.show(path: "game-1.0.zip")
 
       expect(result.type).to eq(:redirect)
       expect(result.url).to eq("https://cdn.example/game-1.0.zip?signed=1")
@@ -56,7 +56,7 @@ RSpec.describe "Serving through the storage adapter" do
     it "reports a missing file" do
       allow(WarpEngine.config).to receive(:storage_adapter).and_return(:local)
 
-      result = described_class.new.show(WarpEngine::FileShowInputDto.new(path: "nope.zip"))
+      result = described_class.new.show(path: "nope.zip")
 
       expect(result.type).to eq(:not_found)
     end

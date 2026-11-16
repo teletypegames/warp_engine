@@ -10,9 +10,19 @@ ActiveAdmin.register WarpEngine::PlatformLink, as: "Platform Link" do
     scope(platform.label) { |s| s.where(platform: platform.name) }
   end
 
+  batch_action :destroy, confirm: "Delete the selected records?" do |ids|
+    scoped_collection.where(id: ids).find_each(&:soft_delete!)
+    redirect_to collection_path, notice: "Deleted."
+  end
+
   controller do
     def scoped_collection
       super.kept
+    end
+
+    def destroy
+      resource.soft_delete!
+      redirect_to collection_path, notice: "Deleted."
     end
   end
 

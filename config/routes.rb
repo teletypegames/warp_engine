@@ -1,18 +1,7 @@
 WarpEngine::Engine.routes.draw do
+  WarpEngine::Outlets.draw_routes(self)
+
   namespace :api do
-    get "service", to: "service#show"
-
-    namespace :auth do
-      post   "device",       to: "devices#create"
-      post   "device/token", to: "device_tokens#create"
-      delete "token",        to: "tokens#destroy"
-    end
-
-    get "software",               to: "software#index"
-    get "software/highlighted",   to: "software_highlighted#show"
-    get "software/facets",        to: "software_facets#show"
-    get "software/vocabulary",    to: "software_vocabulary#show"
-    get "download",               to: "downloads#show"
     get "builds",                 to: "builds#index"
     get "softwares/:name/builds", to: "software_builds#show"
 
@@ -25,10 +14,6 @@ WarpEngine::Engine.routes.draw do
   post "build/publish", to: "build/publish#create"
   get  "build/config",  to: "build/configs#show"
   post "build/config",  to: "build/configs#create"
-
-  get "file/*path", to: "files#show", format: false
-
-  WarpEngine::Outlets.draw_routes(self)
 
   scope WarpEngine::AdminApi.url_path, module: "api/admin", as: "api_admin", format: false do
     get  "openapi.json", to: "documents#openapi", defaults: { format: "json" }, as: :openapi

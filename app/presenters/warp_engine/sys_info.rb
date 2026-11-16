@@ -151,16 +151,16 @@ module WarpEngine
         all = []
         problem = e.message
       end
-      shelves = all.grep(WarpEngine::Outlets::Shelf).map(&:shelf)
+      shelves = all.grep(WarpEngine::Outlets::Shelf)
       tables = [ Table.new(title: nil, columns: [ "Outlet", "Type", "Platforms" ],
                            rows: all.map { |outlet| [ outlet.key, outlet.type, list(outlet.platforms, "all") ] }) ]
       if shelves.any?
         tables << Table.new(
           title: "Shelves",
-          columns: [ "Platform", "Folder", "Layout", "Kinds", "Names", "Statuses", "Preview", "Served at" ],
+          columns: [ "Key", "Platform", "Folder", "Layout", "Kinds", "Names", "Statuses", "Preview", "Served at" ],
           rows: shelves.map do |shelf|
             names = shelf.folders? ? "folders of up to #{shelf.name_length}" : "#{shelf.name_length} characters, #{shelf.extension}"
-            [ shelf.platform, shelf.directory, shelf.layout, list(shelf.kinds), names, list(shelf.listed_statuses),
+            [ shelf.key, shelf.platform, shelf.directory, shelf.layout, list(shelf.kinds), names, list(shelf.offer.listed_statuses),
               shelf.preview || "none", list(shelf.urls, "not published") ]
           end
         )

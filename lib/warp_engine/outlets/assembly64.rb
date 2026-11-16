@@ -37,7 +37,8 @@ module WarpEngine
     #
     # Only anonymous, ungated titles are on offer (WarpEngine::Catalog::Offer);
     # a file goes out through WarpEngine::DownloadService, so the access policy
-    # sees it and it is counted.
+    # sees it and it is counted. The outlet reads its options and draws the
+    # routes; Assembly64::Catalog answers the requests.
     class Assembly64 < Base
       include Served
 
@@ -81,6 +82,10 @@ module WarpEngine
 
       # The form a +repo+ key must have.
       REPO_PATTERN = /\A[a-z0-9]{1,24}\z/
+
+      # The options an Assembly64 outlet takes.
+      OPTIONS = %i[platforms kinds statuses hosts host repo repo_name categories default_category client_ids
+                   max_results name_length].freeze
 
       class << self
         # Returns +assembly64+.
@@ -134,9 +139,10 @@ module WarpEngine
       # accepted.
       def client_allowed?(client_id) = client_ids.empty? || client_ids.include?(client_id.to_s)
 
-      # Checks the platforms, kinds, categories, repository key and limits.
-      # Raises ConfigurationError when one is invalid; returns +self+.
+      # Checks the option keys, platforms, kinds, categories, repository key
+      # and limits. Raises ConfigurationError when one is invalid; returns +self+.
       def validate!
+        check_keys!(OPTIONS)
         check_platforms!(platforms)
         check_kinds!(kinds)
         raise ConfigurationError, "#{key}: repo must match #{REPO_PATTERN.inspect}" unless repo.match?(REPO_PATTERN)
@@ -155,161 +161,27 @@ module WarpEngine
       # endpoints and the +repo+.
       def descriptor = super.merge(hosts: hosts, path: "/#{PATH}", repo: repo)
 
-      # Returns the presets of the search form, in the order the client shows
-      # them: +repo+, +category+ (the categories on offer), +type+ (the file
-      # types on offer), +date+ (the years of the releases on offer),
-      # +latest+, +sort+ and +order+. Each is a Hash of +type+, +description+
-      # and +values+ (+aqlKey+ and +name+).
-      def presets
-        rows = all_rows
-        [
-          preset("repo", "Repository", [ [ repo, repo_name ] ]),
-          preset("category", "Category", rows.map { |row| row[:aql_category] }.uniq.sort.map { |aql| [ aql, CATEGORY_NAMES[aql] ] }),
-          preset("type", "Type", rows.flat_map { |row| row[:types] }.uniq.sort.map { |type| [ type, nil ] }),
-          preset("date", "Date", rows.map { |row| row[:year] }.uniq.sort.map { |year| [ year.to_s, nil ] }),
-          preset("latest", "Latest", LATEST.to_a),
-          preset("sort", "Sort by", SORTS.to_a),
-          preset("order", "Sort Order", [ %w[asc Ascending], %w[desc Descending] ])
-        ]
-      end
+      # Returns the Assembly64::Catalog of the outlet: what its endpoints answer.
+      def catalog = Catalog.new(self)
 
-      # Runs the AQL search +text+ and returns the results as Hashes of +id+
-      # (a String), +name+, +group+, +year+, +category+ (an Integer), +updated+
-      # and +type+, one a title.
-      #
-      # [text]  the AQL query (see WarpEngine::Outlets::Assembly64::Query)
-      # [start] the offset of a page, or +nil+ for an unpaged search
-      # [count] the size of a page, capped at #max_results
-      #
-      # An unpaged search returns at most #max_results results and is cut so
-      # that its JSON stays under LEGACY_BODY_LIMIT bytes.
-      def search(text, start: nil, count: nil)
-        query = Query.parse(text)
-        rows = order(all_rows.select { |row| match?(row, query) }, query)
+      # Returns the Assembly64 category (a key of CATEGORY_IDS) of the catalog
+      # category +category+: the one +categories+ names, else the category as
+      # is or with an +s+ added when Assembly64 has it, else +default_category+.
+      def aql_category(category)
+        name = category.to_s.downcase
+        return default_category if name.empty?
 
-        if start.nil?
-          results = rows.first(max_results).map { |row| result(row) }
-          results.pop while results.any? && results.to_json.bytesize > LEGACY_BODY_LIMIT
-          results
-        else
-          rows.drop(start.to_i).first([ count.to_i, max_results ].min).map { |row| result(row) }
-        end
-      end
-
-      # Returns the files of the title +id+ as the +entries+ endpoint answers:
-      # a Hash with +contentEntry+, one Hash a file (+path+, the file name;
-      # +id+, its index; +size+; +date+, the release time in milliseconds), or
-      # +nil+ when the title is not on offer.
-      def entries(id)
-        items = items_of(id)
-        return nil if items.empty?
-
-        {
-          contentEntry: items.each_with_index.map do |item, index|
-            { path: file_name(item), id: index, size: item.size, date: (item.release.created_at.to_f * 1000).to_i }
-          end
-        }
-      end
-
-      # Returns the WarpEngine::Catalog::Offer::Item of the title +id+ whose file
-      # name (#file_name) is +file+, ignoring case, or +nil+.
-      def item(id, file) = items_of(id).find { |candidate| file_name(candidate).casecmp?(file.to_s) }
-
-      # Returns the file name of +item+ in the listing: the software's
-      # +shelf_name+ or +name+, normalized as on a shelf
-      # (WarpEngine::Shelves.normalize_name), cut to fit #name_length with the
-      # extension, plus the extension in capitals (<tt>ARIADNE.PRG</tt>).
-      def file_name(item)
-        extension = item.extension.empty? ? "" : ".#{item.extension.upcase}"
-        base = WarpEngine::Shelves.normalize_name(item.software.shelf_name.presence || item.software.name)
-        base = base[0, name_length - extension.length].sub(/-+\z/, "")
-        "#{base.presence || item.software.id}#{extension}"
+        category_map[name] || ([ name, "#{name}s" ] & CATEGORY_IDS.keys).first || default_category
       end
 
       private
 
-      def items_of(id)
-        id.to_s.match?(/\A\d+\z/) ? offer.items_of(id.to_i) : []
-      end
-
-      def all_rows
-        offer.items.group_by(&:software).map do |software, items|
-          release = items.map(&:release).max_by { |candidate| [ candidate.created_at || Time.at(0), candidate.id ] }
-          aql = aql_category(software.category)
-          {
-            software: software, items: items, release: release, year: (release.created_at || Time.current).year,
-            aql_category: aql, types: items.map(&:extension).reject(&:empty?).uniq
-          }
-        end
-      end
-
-      def result(row)
-        software = row[:software]
-        {
-          id: software.id.to_s,
-          name: WarpEngine::ShelfService.clean(software.title),
-          group: WarpEngine::ShelfService.clean(software.author),
-          year: row[:year],
-          category: CATEGORY_IDS.fetch(row[:aql_category]),
-          updated: (row[:release].created_at || Time.current).utc.strftime("%Y-%m-%d %H:%M:%S"),
-          type: row[:types].first.to_s
-        }
-      end
-
-      def match?(row, query)
-        query.conditions.all? do |name, value|
-          next true if ORDER_KEYS.include?(name)
-          next false unless FILTER_KEYS.include?(name)
-
-          matches?(row, name, value.downcase)
-        end
-      end
-
-      def matches?(row, name, value)
-        software = row[:software]
-        case name
-        when "name"              then [ software.title, software.name, software.shelf_name ].compact.any? { |text| text.downcase.include?(value) }
-        when "group"             then software.author.to_s.downcase.include?(value)
-        when "repo"              then value == repo
-        when "category", "subcat" then value == row[:aql_category]
-        when "type"              then row[:types].include?(value)
-        when "date", "year"      then value == row[:year].to_s
-        else latest?(row[:release], value)
-        end
-      end
-
-      def latest?(release, value)
-        amount, unit = value.match(/\A(\d+)(day|week|month|year)s?\z/)&.captures
-        return false if amount.nil? || release.created_at.nil?
-
-        release.created_at >= amount.to_i.public_send(unit).ago
-      end
-
-      def order(rows, query)
-        sorted = case query["sort"]
-        when "group" then rows.sort_by { |row| [ row[:software].author.to_s.downcase, row[:software].title.downcase ] }
-        when "year"  then rows.sort_by { |row| [ row[:year], row[:software].title.downcase ] }
-        else rows.sort_by { |row| [ row[:software].title.downcase, row[:software].id ] }
-        end
-        query["order"].to_s.downcase == "desc" ? sorted.reverse : sorted
-      end
-
-      def preset(type, description, values)
-        { type: type, description: description, values: values.map { |aql, name| name ? { aqlKey: aql, name: name } : { aqlKey: aql } } }
-      end
-
       def category_map = options[:categories].to_h.to_h { |from, to| [ from.to_s, to.to_s ] }
 
       def default_category = (options[:default_category].presence || "games").to_s
-
-      def aql_category(category)
-        key = category.to_s.downcase
-        return default_category if key.empty?
-
-        category_map[key] || ([ key, "#{key}s" ] & CATEGORY_IDS.keys).first || default_category
-      end
     end
   end
 end
 
 require "warp_engine/outlets/assembly64/query"
+require "warp_engine/outlets/assembly64/catalog"

@@ -33,9 +33,8 @@ module WarpEngine
     # [catalog_page_size]             catalog page size when the client names none (default 48)
     # [catalog_max_page_size]         the largest catalog page a client may ask for (default 200)
     # [additional_resources]          the WarpEngine::AdditionalResource list (default empty)
-    # [shelves]                       the shelf definitions as hashes (see WarpEngine::Shelves; default empty)
-    # [outlets]                       the other outlet definitions as hashes with +key+ and +type+ (see
-    #                                 WarpEngine::Outlets; default empty)
+    # [outlets]                       the outlet definitions, shelves among them, as hashes with +key+,
+    #                                 +type+ and the type's options (see WarpEngine::Outlets; default empty)
     # [outlet_types]                  the outlet types the host registered: a Hash of type name to class name
     #                                 (default empty)
     attr_accessor :site_url,
@@ -59,7 +58,6 @@ module WarpEngine
                   :catalog_page_size,
                   :catalog_max_page_size,
                   :additional_resources,
-                  :shelves,
                   :outlets,
                   :outlet_types
 
@@ -93,7 +91,6 @@ module WarpEngine
       @catalog_page_size             = 48
       @catalog_max_page_size         = 200
       @additional_resources          = []
-      @shelves                       = []
       @outlets                       = []
       @outlet_types                  = {}
       @platforms                     = {}

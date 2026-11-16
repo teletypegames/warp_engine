@@ -42,10 +42,10 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 - **Pluggable storage**: artifacts are served through a storage adapter
   (`:local` by default); a host can serve them from an object store without
   patching the engine.
-- **Outlets (1.11)**: the formats the catalog leaves the engine in, side by side —
-  the JSON API, shelves and an Assembly64 server — over one shared decision of what
-  is on offer (`WarpEngine::Catalog::Offer`), with room for types of the host's own.
-  See *Outlets*.
+- **Outlets (1.11, one shape since 2.0)**: the formats the catalog leaves the engine
+  in, side by side — the JSON API, shelves and an Assembly64 server — each built the
+  same way, the last two over one shared decision of what is on offer
+  (`WarpEngine::Catalog::Offer`), with room for types of the host's own. See *Outlets*.
 - **Shelves (optional, 1.2)**: a platform's latest public builds as a flat,
   versionless folder with a plain-text `INDEX.TXT`, kept up to date by the engine
   itself — for clients too small to speak JSON over HTTPS (a C64 reading it over
@@ -289,17 +289,19 @@ Rails.application.config.to_prepare do
     # catalog_page_size     48
     # catalog_max_page_size 200
 
-    # Flat, versionless copies of a platform's latest builds (see "Shelves").
-    # None by default.
+    # Flat, versionless copies of a platform's latest builds (see "Shelves"),
+    # and the other outlets (see "Outlets"). None by default.
     # shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16
+    # outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
   end
 end
 ```
 
-An unknown setting stops the boot with a `NoMethodError`, an unknown shelf, CI or
-platform key with an `ArgumentError`. `to_prepare` runs the block again on every
-code reload; a shelf (by path), an additional resource (by subject and association)
-and a platform (by name) replace their earlier selves instead of adding up.
+An unknown setting stops the boot with a `NoMethodError`, an unknown CI or platform
+key with an `ArgumentError`, an outlet (a shelf among them) that does not check out with
+a `WarpEngine::ConfigurationError`. `to_prepare` runs the block again on every code
+reload; an outlet (by key), an additional resource (by subject and association) and a
+platform (by name) replace their earlier selves instead of adding up.
 
 The block may also take the configuration as a parameter and set its attributes
 — `WarpEngine.configure { |c| c.site_url = ENV["SITE_URL"] }`, the form before 1.8.
@@ -503,7 +505,7 @@ Options are environment variables, so the task composes in a shell:
 The newest release is the newest non-`dev-` version, the same rule the catalog
 API uses when it names a title's latest release.
 
-The same numbers are available as objects: `WarpEngine::AssetCoverage.new(...)`
+The same numbers are available as objects: `WarpEngine::AssetCoverageService.new(...)`
 answers `#rows`, `#missing_rows` and `#totals`, and
 `WarpEngine::AssetCoverageChecklist` is what renders them.
 
@@ -886,17 +888,28 @@ needs its own upload path today.
 ## Outlets
 
 An outlet is a format the catalog leaves the engine in. Three layers make up the way
-out, and every outlet sits on the same two below it:
+out:
 
 ```
-outlets      wecp (/api, always on)   shelf (folders, materialized)   assembly64 (/leet/search, served)
-offer        WarpEngine::Catalog::Offer — which titles, which release, which file
+outlets      wecp (/api, always on, served)   shelf (folders, materialized)   assembly64 (/leet/search, served)
+offer          — (per caller: SoftwareService)  WarpEngine::Catalog::Offer — which titles, which release, which file
 models/seams Software, Release, ReleaseAsset · Storage, AccessPolicy, Images, DownloadService
 ```
 
+Every type has the same shape. `lib/warp_engine/outlets/TYPE.rb` holds the outlet
+class: it reads and checks its options, describes itself for `GET /api/service`, and
+draws its routes (served) or syncs (materialized). The objects that do the work live in
+the folder beside it and take the outlet: `Shelf::Builder` (with `Shelf::IndexFile`,
+`Shelf::Layouts`, `Shelf::Preview`) and `Assembly64::Catalog` (with `Assembly64::Query`).
+A served type's controller lives in `app/controllers/warp_engine` — the catalog API's
+under `api/`, the others' under `outlets/`. Names and texts written for small machines
+(`WarpEngine::Names`) are shared, so a title reads the same on a shelf and on Assembly64.
+
 - **`wecp`**, the WarpEngine Catalog Protocol: the JSON API under `/api` and the files
-  under `/file`. Always on, never configured, and the only outlet that knows a caller:
-  sign-in, entitlements and gated titles live here.
+  under `/file`, drawn by `WarpEngine::Outlets::Wecp.draw_routes`. Always on, never
+  configured, and the only outlet that knows a caller — sign-in, entitlements and gated
+  titles live here —, so it alone has no `Catalog::Offer`. (The build and CI endpoints
+  under `/build` and `/api/builds`, `/api/ci` are the way in, not an outlet.)
 - **`shelf`**: a folder with an `INDEX.TXT` (below). *Materialized*: rewritten whenever
   the catalog changes.
 - **`assembly64`**: the Assembly64 search API (below). *Served*: answers requests.
@@ -907,14 +920,16 @@ has the asset (`WarpEngine::Catalog::Offer`). So a shelf and an Assembly64 serve
 the same titles, and a change to that rule changes both.
 
 ```ruby
-shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG"   # same as outlet ..., type: :shelf
+shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG"   # = outlet :c64, type: :shelf, platform: "c64", ...
 outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org],
                     repo: "acme", repo_name: "Acme Games"
 ```
 
-`GET /api/service` lists every outlet under `outlets` (`key`, `type`, `platforms` and
-what the type adds). The configuration is checked at boot like the shelves: an unknown
-type, platform or kind, or two outlets with one key, stops the application.
+Every outlet, shelves included, is kept in `config.outlets` under its key. `GET
+/api/service` lists them under `outlets` (`key`, `type`, `platforms` and what the type
+adds). The configuration is checked at boot: an unknown type, option, platform or kind,
+two outlets with one key, or what the outlets of a type must agree on (two shelves in one
+folder) stops the application.
 
 ```sh
 bin/rails warp_engine:outlets:check   # every outlet and what it offers (STRICT=1 fails on anything left out)
@@ -933,7 +948,8 @@ outlet :feed, type: :feed, platforms: %w[tic80]
 
 A materialized outlet is synced after every change that can alter its offer (publish,
 software, release, asset or status saved or soft-deleted), for the outlets carrying the
-platform; one that fails is logged and does not fail the save.
+platform, by a `WarpEngine::OutletRefreshJob` in the host's ActiveJob queue; one that
+fails is logged and does not fail the save.
 
 ## Assembly64
 
@@ -1000,9 +1016,12 @@ folders over FTP — and it is off unless the host asks for one:
 ```ruby
 shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16, preview: "c64",
             urls: [ "ftp://ftp.example.org/C64", "http://archive.example.org/C64" ]
-shelf :dos, kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
+shelf :dos, key: :apps, kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
             urls: [ "ftp://ftp.example.org/APPS" ]
 ```
+
+A shelf is an outlet of the type `shelf` (`WarpEngine::Outlets::Shelf`), keyed by its
+platform unless `key:` names another.
 
 | Key | |
 |---|---|
@@ -1022,8 +1041,8 @@ adapter other than `:local` stops the application rather than leaving a shelf em
 
 **Serving it is the host's.** The engine writes the folder; it runs no FTP or HTTP server
 of its own. A host points its servers at the folder and names their addresses in `urls`,
-which `GET /api/service` lists under `shelves` — so a page or a client can say where a
-shelf is. A machine that cannot speak HTTPS cannot ask the API, so a client for one keeps
+which `GET /api/service` lists with the shelf's outlet under `outlets` — so a page or a
+client can say where a shelf is. A machine that cannot speak HTTPS cannot ask the API, so a client for one keeps
 its own default address and lets its user change it.
 
 **What goes on a shelf.** Every kept software of the platform whose status is listed and
@@ -1058,7 +1077,7 @@ version 2 line right.
 
 **Previews.** A flat shelf with `preview: "c64"` also holds `NAME.PVW` beside `NAME.PRG`
 for every title with an image in its gallery (the default one, else the first): a C64
-bitmap a client can put on the screen as it comes (`WarpEngine::ShelfPreview::C64`),
+bitmap a client can put on the screen as it comes (`WarpEngine::Outlets::Shelf::Preview::C64`),
 9003 bytes in hires, 10003 in multicolor:
 
 | Bytes | |
@@ -1117,9 +1136,9 @@ A change the engine cannot see — an access policy that starts gating a title f
 reasons of its own — needs a rebuild by hand:
 
 ```sh
-bin/rails warp_engine:shelves:check            # what each shelf holds and leaves out (STRICT=1 fails on the latter)
-bin/rails warp_engine:shelves:sync             # rebuild every shelf
-DRY_RUN=1 bin/rails warp_engine:shelves:sync   # only say what would change
+bin/rails warp_engine:outlets:check            # what each shelf holds and leaves out (STRICT=1 fails on the latter)
+bin/rails warp_engine:outlets:sync             # rebuild every shelf (every materialized outlet)
+DRY_RUN=1 bin/rails warp_engine:outlets:sync   # only say what would change
 ```
 
 ## Images
@@ -1289,7 +1308,7 @@ its own account of who fetched what without reaching into `DownloadService`.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/service` | What this deployment is: version, whether the catalog gates, how to sign in (or that you cannot), and its shelves with their addresses |
+| `GET /api/service` | What this deployment is: version, whether the catalog gates, how to sign in (or that you cannot), and its outlets (shelves with their addresses among them) |
 | `GET /api/software` | The catalog with releases, assets, links, download counts, an optional `category` and an `access` block — whole, or one page at a time; see *Paging and filters* |
 | `GET /api/software/facets` | How many softwares each status, platform and category would show under the other filters |
 | `GET /api/software/vocabulary` | The statuses and categories this catalog uses, with labels and display order |
@@ -1422,6 +1441,37 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 2.0
+
+The layers were made to agree with each other; a host that only uses the `shelf` and
+`outlet` DSL and the public API changes nothing but its rake calls.
+
+- **Shelves are outlets in full.** `config.shelves`, `WarpEngine::Shelves`,
+  `WarpEngine::ShelfService`, `WarpEngine::ShelfPreview` and `rake warp_engine:shelves:*`
+  are gone. `shelf :c64, ...` still works and stores an outlet of the type `shelf` in
+  `config.outlets`, keyed by its platform (`key:` names another); a `|c|` block sets
+  `c.outlets = [{ key: "c64", type: "shelf", platform: "c64", ... }]`. Use
+  `rake warp_engine:outlets:{check,sync}`, `WarpEngine::Outlets::Shelf::Builder` and
+  `WarpEngine::Outlets::Shelf::Preview`.
+- **`GET /api/service` has no `shelves` field**: a shelf's `kinds`, `layout`, `index` and
+  `urls` are in its entry under `outlets`, whose `key` is now the shelf key (`c64`), not
+  its path.
+- **Every outlet type has one shape** (see *Outlets*): the catalog API draws its own
+  routes (`Outlets::Wecp.draw_routes`), the Assembly64 search moved to
+  `Outlets::Assembly64::Catalog`, and an outlet with an unknown option fails the boot.
+- **Deleting is a soft delete everywhere**: the Admin API, the admin screens (also the
+  batch action) and a nested `_destroy` set `deleted_at` on a software, release, asset,
+  external or platform link instead of removing the row.
+- **Outlets refresh in a job**, `WarpEngine::OutletRefreshJob`, on the host's ActiveJob
+  queue, instead of inside the save or the publish request.
+- **Gone aliases**: `Outlets::ConfigurationError`, `DownloadService::Denied` — rescue
+  `WarpEngine::ConfigurationError` and `WarpEngine::AccessDenied`.
+- **Renamed**: `AssetCoverage` is `AssetCoverageService`,
+  `SoftwareHighlightedService#index` is `#show`, `FileService#show` takes `path:` (the
+  `FileShowInputDto` is gone) and names a folder's index page instead of a URL,
+  `Platforms::MissingAssetsError` lives beside the platform concerns, `AccessPolicy` in
+  `access_policy.rb`.
 
 ## Upgrading to 1.12
 

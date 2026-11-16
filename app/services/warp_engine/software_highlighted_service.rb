@@ -7,7 +7,7 @@ module WarpEngine
     # access policy shows +subject+ (+nil+ for anonymous), built like a
     # WarpEngine::SoftwareDetailSerializer entry of the catalog, or +nil+ when
     # there is none.
-    def index(subject: nil)
+    def show(subject: nil)
       software = visible_scope(subject)
         .includes(releases: :release_assets)
         .includes(:external_links, :software_images)

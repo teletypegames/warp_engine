@@ -1,12 +1,7 @@
-require "warp_engine/access_denied"
-
 module WarpEngine
   # Serves a download from the file container: checks the access policy, logs a
   # WarpEngine::Download and locates the file in the storage adapter.
   class DownloadService
-    # Alias of WarpEngine::AccessDenied, the error a refused download raises.
-    Denied = WarpEngine::AccessDenied
-
     include AccessPolicyGuard
 
     # Locates the file at +path+ (relative to the storage) for download.
@@ -22,7 +17,7 @@ module WarpEngine
     # redirect URL, named and expiring as the policy's grant says), or +nil+ when
     # there is no such file. Writes a WarpEngine::Download and instruments
     # <tt>warp_engine.download</tt> unless the user agent is ignored
-    # (<tt>WarpEngine.config.ignored_user_agent?</tt>). Raises Denied when the
+    # (<tt>WarpEngine.config.ignored_user_agent?</tt>). Raises WarpEngine::AccessDenied when the
     # access policy refuses.
     def locate(path:, ip:, user_agent:, referer:, subject: nil, request: nil)
       relative = path.to_s

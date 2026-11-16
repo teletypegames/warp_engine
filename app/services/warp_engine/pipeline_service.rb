@@ -6,6 +6,14 @@ module WarpEngine
       @ci = ci
     end
 
+    # Returns the active pipelines with their softwares, as
+    # <tt>GET /api/ci/pipelines</tt> lists them.
+    def active = WarpEngine::Pipeline.active.includes(:software)
+
+    # Returns the kept pipeline with the id +id+. Raises
+    # ActiveRecord::RecordNotFound when there is none.
+    def find(id) = WarpEngine::Pipeline.kept.find(id)
+
     # Starts a run of +pipeline+ on +branch+. Returns what the CI adapter answers.
     def trigger(pipeline, branch: "main")
       @ci.trigger(pipeline.remote_repo_id, branch: branch)

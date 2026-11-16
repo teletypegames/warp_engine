@@ -119,7 +119,7 @@ RSpec.describe "The access policy" do
         WarpEngine::DownloadService.new.create(
           path: "paid-game-1.0.zip", ip: "127.0.0.1", user_agent: "rspec", referer: nil
         )
-      }.to raise_error(WarpEngine::DownloadService::Denied)
+      }.to raise_error(WarpEngine::AccessDenied)
     end
 
     it "hands the same artifact over to a subject the policy accepts" do
@@ -161,7 +161,7 @@ RSpec.describe "The access policy" do
         WarpEngine::DownloadService.new.create(
           path: "game-1.0.zip", ip: "127.0.0.1", user_agent: "rspec", referer: nil
         )
-      }.to raise_error(WarpEngine::DownloadService::Denied)
+      }.to raise_error(WarpEngine::AccessDenied)
     end
   end
 end

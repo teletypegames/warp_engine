@@ -165,6 +165,11 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     end
   end
 
+  batch_action :destroy, confirm: "Delete the selected records?" do |ids|
+    scoped_collection.where(id: ids).find_each(&:soft_delete!)
+    redirect_to collection_path, notice: "Deleted."
+  end
+
   controller do
     def scoped_collection
       super.kept.includes({ releases: :release_assets }, software_images: :image)
@@ -172,6 +177,11 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
 
     def find_resource
       scoped_collection.find(params[:id])
+    end
+
+    def destroy
+      resource.soft_delete!
+      redirect_to collection_path, notice: "Deleted."
     end
   end
 end

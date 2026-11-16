@@ -8,7 +8,7 @@ module WarpEngine
     # The block form of WarpEngine.configure: <tt>WarpEngine.configure do ... end</tt>
     # without a block parameter runs here. Every call writes the same settings
     # the <tt>c.setting = value</tt> form does, so the rest of the engine reads one
-    # Configuration either way. The collections (shelves, extras, platforms,
+    # Configuration either way. The collections (outlets, extras, platforms,
     # ignored user agents) are keyed, so a block that runs again on a reload
     # replaces its entries instead of adding them twice.
     class DSL
@@ -61,28 +61,22 @@ module WarpEngine
         @config.ignored_user_agents = (Array(@config.ignored_user_agents) + patterns.flatten).uniq
       end
 
-      # Defines a shelf for +platform+ (see WarpEngine::Outlets::Shelf::Definitions for the options).
-      # A shelf with the same +path+ is replaced. Raises ArgumentError on an
-      # unknown option key.
-      def shelf(platform, **options)
-        unknown = options.keys - (Shelves::KEYS - [ :platform ])
-        raise ArgumentError, "unknown shelf keys for #{platform}: #{unknown.join(', ')}" if unknown.any?
-
-        definition = { platform: platform.to_s, **options }
-        @config.shelves = Array(@config.shelves).reject { |other| other.to_h.symbolize_keys[:path] == definition[:path] } + [ definition ]
+      # Defines a shelf (an outlet of the type +shelf+, see
+      # WarpEngine::Outlets::Shelf for the options) for +platform+, under
+      # +key+ (the platform name by default). An outlet with the same key is
+      # replaced.
+      #
+      #   shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG"
+      #   shelf :dos, key: :apps, kinds: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS"
+      def shelf(platform, key: platform, **options)
+        outlet(key, type: :shelf, platform: platform.to_s, **options)
       end
 
       # Defines an outlet under +key+ of the type +type+ (see WarpEngine::Outlets),
-      # its options as keywords. An outlet with the same key is replaced. A
-      # +shelf+ outlet is the #shelf of its +platform+ option.
+      # its options as keywords. An outlet with the same key is replaced.
       #
       #   outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
       def outlet(key, type:, **options)
-        if type.to_s == "shelf"
-          platform = options.delete(:platform) { raise ArgumentError, "a shelf outlet needs a platform" }
-          return shelf(platform, **options)
-        end
-
         definition = { key: key.to_s, type: type.to_s, **options }
         @config.outlets = Array(@config.outlets).reject { |other| other.to_h.symbolize_keys[:key].to_s == key.to_s } + [ definition ]
       end

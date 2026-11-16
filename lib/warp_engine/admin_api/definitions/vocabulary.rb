@@ -98,8 +98,8 @@ module WarpEngine
               ctx.ok(Admin::PlatformLinkSerializer.render_as_hash(ctx.save!(link)))
             end
 
-            r.delete "/platform_links/:id", summary: "Delete a platform link" do |ctx|
-              WarpEngine::PlatformLink.kept.find(ctx.id).destroy!
+            r.delete "/platform_links/:id", summary: "Delete a platform link (soft)" do |ctx|
+              WarpEngine::PlatformLink.kept.find(ctx.id).soft_delete!
               ctx.no_content
             end
           end

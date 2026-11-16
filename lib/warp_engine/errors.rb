@@ -10,21 +10,10 @@ module WarpEngine
 
   # Raised when the access policy denies a download or a file; the API
   # controllers render it as 403.
+  #
+  # These three are shared by every part of the engine; an error that belongs
+  # to one part lives beside it (WarpEngine::PublishService::StaleVersionError,
+  # WarpEngine::Platforms::MissingAssetsError, WarpEngine::CI::Error,
+  # WarpEngine::AdminApi::Error).
   class AccessDenied < Error; end
-
-  # Platform support; see WarpEngine::Platform.
-  module Platforms
-    # Raised by a publish when the upload lacks a kind the platform requires.
-    class MissingAssetsError < WarpEngine::Error
-      # The missing kinds, as strings.
-      attr_reader :kinds
-
-      # Creates the error for the upload +versioned+ (<tt>name-version</tt>)
-      # missing +kinds+.
-      def initialize(versioned, kinds)
-        @kinds = kinds
-        super("#{versioned}: no #{kinds.join(', ')} uploaded, which the platform requires")
-      end
-    end
-  end
 end

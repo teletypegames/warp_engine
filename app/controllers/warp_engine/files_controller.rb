@@ -16,14 +16,13 @@ module WarpEngine
     #
     # Resolves the path through WarpEngine::FileService, which applies the
     # access policy. Sends the file inline; redirects (301) a folder to its
-    # <tt>index.html</tt> and a file of a non-local storage adapter to its
+    # <tt>index.html</tt> (under the engine's mount) and a file of a non-local storage adapter to its
     # storage URL; responds 404 when there is no such file or folder index.
     # A refused caller gets 403.
     def show
-      result = WarpEngine::FileService.new.show(
-        WarpEngine::FileShowInputDto.new(path: params[:path]), subject: current_subject
-      )
+      result = WarpEngine::FileService.new.show(path: params[:path], subject: current_subject)
       case result.type
+      when :index     then redirect_to file_path(path: result.path), status: :moved_permanently
       when :redirect  then redirect_to result.url, status: :moved_permanently
       when :file      then send_file result.path, disposition: "inline", type: resolve_mime(result.path)
       when :not_found then head :not_found

@@ -1,26 +1,25 @@
-require "warp_engine/access_denied"
-
 module WarpEngine
   # Serves the file container under <tt>/file/</tt>: a file through the access
-  # policy, a directory as a redirect to its <tt>index.html</tt>.
+  # policy, a directory as its <tt>index.html</tt> page.
   class FileService
     include AccessPolicyGuard
 
-    # Answers the path of +input+ (an object with +path+, relative to the storage)
-    # for +subject+ (+nil+ when anonymous).
+    # Answers +path+ (relative to the storage) for +subject+ (+nil+ when
+    # anonymous).
     #
-    # Returns a WarpEngine::FileResultDto: a redirect to
-    # <tt>/file/<dir>/index.html</tt> for a directory that has one, the file (a
-    # local path or a storage redirect) for a file, not found otherwise. Raises
-    # WarpEngine::AccessDenied when the access policy refuses the file.
-    def show(input, subject: nil)
-      relative = input.path.to_s
+    # Returns a WarpEngine::FileResultDto: an <tt>:index</tt> result naming
+    # <tt>dir/index.html</tt> for a directory that has one (the controller
+    # turns it into a URL), the file (a local path or a storage redirect) for a
+    # file, not found otherwise. Raises WarpEngine::AccessDenied when the
+    # access policy refuses the file.
+    def show(path:, subject: nil)
+      relative = path.to_s
 
       if storage.directory?(relative)
         index = File.join(relative.chomp("/"), "index.html")
         return FileResultDto.not_found unless storage.file?(index)
 
-        return FileResultDto.redirect("/file/#{index}")
+        return FileResultDto.index(index)
       end
 
       return FileResultDto.not_found unless storage.file?(relative)
@@ -35,8 +34,7 @@ module WarpEngine
     def authorize!(relative, subject)
       return WarpEngine::Access::Grant::OPEN if WarpEngine::AccessPolicy.open?
 
-      asset = WarpEngine::ReleaseAsset.for_relative_path(relative)
-      authorize_download!(asset: asset, subject: subject, request: nil)
+      authorize_download!(asset: WarpEngine::ReleaseAsset.for_relative_path(relative), subject: subject)
     end
 
     def storage

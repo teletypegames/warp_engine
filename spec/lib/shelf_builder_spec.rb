@@ -2,14 +2,14 @@ require "rails_helper"
 require "tmpdir"
 require "zlib"
 
-RSpec.describe WarpEngine::ShelfService do
+RSpec.describe WarpEngine::Outlets::Shelf::Builder do
   let(:container) { Dir.mktmpdir }
   let(:shelf_dir) { File.join(container, "shelves/C64") }
-  let(:definition) { { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16 } }
-  let(:shelf) { WarpEngine::Shelves.all.first }
+  let(:definition) { { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16 } }
+  let(:shelf) { WarpEngine::Outlets.all.last }
 
   before do
-    allow(WarpEngine.config).to receive_messages(file_container_path: container, shelves: [ definition ])
+    allow(WarpEngine.config).to receive_messages(file_container_path: container, outlets: [ definition ])
     allow(WarpEngine::Outlets).to receive(:refresh)
     WarpEngine::SoftwareStatus.seed_defaults!
   end
@@ -39,7 +39,7 @@ RSpec.describe WarpEngine::ShelfService do
 
     expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "ARIADNE.PRG", "RABBIT.PRG")
     expect(File.binread(File.join(shelf_dir, "ARIADNE.PRG"))).to eq("newer")
-    expect(index_lines.first).to eq(described_class::HEADER)
+    expect(index_lines.first).to eq(WarpEngine::Outlets::Shelf::IndexFile::HEADER)
     expect(index_lines[1]).to eq("ARIADNE.PRG|1.1.0|5|#{format('%08x', Zlib.crc32('newer'))}|Ariadne|dev|||")
   end
 
@@ -224,6 +224,14 @@ RSpec.describe WarpEngine::ShelfService do
   describe "refreshing on change" do
     before { allow(WarpEngine::Outlets).to receive(:refresh).and_call_original }
 
+    around do |example|
+      adapter = ActiveJob::Base.queue_adapter
+      ActiveJob::Base.queue_adapter = :inline
+      example.run
+    ensure
+      ActiveJob::Base.queue_adapter = adapter
+    end
+
     it "fills the shelf when a release is published" do
       software = create(:software, name: "ariadne", title: "Ariadne", platform: "c64", status: "released")
       FileUtils.mkdir_p(container)
@@ -258,13 +266,13 @@ RSpec.describe WarpEngine::ShelfService do
     end
 
     it "does not let a failing shelf break the save" do
-      allow(WarpEngine::ShelfService).to receive(:new).and_raise(Errno::EACCES)
+      allow(described_class).to receive(:new).and_raise(Errno::EACCES)
 
       expect { publish("ariadne", "1.0.0") }.not_to raise_error
     end
 
     it "writes nothing when no shelf is configured" do
-      allow(WarpEngine.config).to receive(:shelves).and_return([])
+      allow(WarpEngine.config).to receive(:outlets).and_return([])
 
       publish("ariadne", "1.0.0")
 
@@ -273,11 +281,11 @@ RSpec.describe WarpEngine::ShelfService do
   end
 end
 
-RSpec.describe WarpEngine::ShelfService, "on a folders shelf" do
+RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
   let(:container) { Dir.mktmpdir }
   let(:shelf_dir) { File.join(container, "shelves/APPS") }
-  let(:definition) { { platform: "dos", kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS" } }
-  let(:shelf) { WarpEngine::Shelves.all.first }
+  let(:definition) { { key: "apps", type: "shelf", platform: "dos", kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS" } }
+  let(:shelf) { WarpEngine::Outlets.all.last }
   let(:dos_block) do
     { folder: "DOSINST", files: %w[DOSINST.EXE DOSINST.CFG README.md], settings: %w[DOSINST.CFG],
       store_name: "DOSInst Store", store_description: "Installs DOS programs.",
@@ -285,7 +293,7 @@ RSpec.describe WarpEngine::ShelfService, "on a folders shelf" do
   end
 
   before do
-    allow(WarpEngine.config).to receive_messages(file_container_path: container, shelves: [ definition ])
+    allow(WarpEngine.config).to receive_messages(file_container_path: container, outlets: [ definition ])
     allow(WarpEngine::Outlets).to receive(:refresh)
     WarpEngine::SoftwareStatus.seed_defaults!
   end

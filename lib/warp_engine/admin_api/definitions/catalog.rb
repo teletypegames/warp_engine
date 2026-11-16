@@ -39,15 +39,13 @@ module WarpEngine
                      q:           S.string("Matched against title and name")
                    },
                    sort: { title: :title, name: :name, createdAt: :created_at, updatedAt: :updated_at } do |ctx|
-              scope = WarpEngine::Software.kept
+              scope = WarpEngine::Software.kept.with_platform(ctx[:platform]).with_statuses(ctx[:status].presence)
+                                          .with_category(ctx[:category]).search(ctx[:q])
               %i[name title author].each do |column|
                 scope = scope.where("softwares.#{column} LIKE ?", like(ctx[column])) if ctx[column].present?
               end
-              scope = scope.where(platform: ctx[:platform]) if ctx[:platform].present?
-              scope = scope.where(status: ctx[:status]) if ctx[:status].present?
-              scope = scope.where(category: ctx[:category]) if ctx[:category].present?
               scope = scope.where(highlighted: ctx[:highlighted]) if ctx.key?(:highlighted)
-              ctx.list(scope.search(ctx[:q]), Admin::SoftwareSerializer)
+              ctx.list(scope, Admin::SoftwareSerializer)
             end
 
             r.get "/softwares/:id", summary: "One software, optionally with what belongs to it", item: X.software,
@@ -67,8 +65,8 @@ module WarpEngine
               ctx.ok(Admin::SoftwareSerializer.render_as_hash(ctx.save!(software)))
             end
 
-            r.delete "/softwares/:id", summary: "Delete a software with its releases" do |ctx|
-              WarpEngine::Software.kept.find(ctx.id).destroy!
+            r.delete "/softwares/:id", summary: "Delete a software (soft): it and its releases leave every listing" do |ctx|
+              WarpEngine::Software.kept.find(ctx.id).soft_delete!
               ctx.no_content
             end
           end
@@ -100,8 +98,8 @@ module WarpEngine
               ctx.ok(Admin::ReleaseSerializer.render_as_hash(ctx.save!(release)))
             end
 
-            r.delete "/releases/:id", summary: "Delete a release with its assets" do |ctx|
-              release(ctx.id).destroy!
+            r.delete "/releases/:id", summary: "Delete a release (soft) with its assets" do |ctx|
+              release(ctx.id).soft_delete!
               ctx.no_content
             end
           end
@@ -136,8 +134,8 @@ module WarpEngine
               ctx.ok(Admin::ReleaseAssetSerializer.render_as_hash(ctx.save!(asset)))
             end
 
-            r.delete "/assets/:id", summary: "Delete an asset" do |ctx|
-              asset(ctx.id).destroy!
+            r.delete "/assets/:id", summary: "Delete an asset (soft)" do |ctx|
+              asset(ctx.id).soft_delete!
               ctx.no_content
             end
           end
@@ -170,8 +168,8 @@ module WarpEngine
               ctx.ok(Admin::ExternalLinkSerializer.render_as_hash(ctx.save!(link)))
             end
 
-            r.delete "/external_links/:id", summary: "Delete an external link" do |ctx|
-              WarpEngine::ExternalLink.kept.find(ctx.id).destroy!
+            r.delete "/external_links/:id", summary: "Delete an external link (soft)" do |ctx|
+              WarpEngine::ExternalLink.kept.find(ctx.id).soft_delete!
               ctx.no_content
             end
           end

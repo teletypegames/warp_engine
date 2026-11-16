@@ -15,7 +15,7 @@ module WarpEngine
         # Renders the active pipelines as a JSON array through
         # WarpEngine::PipelineSerializer.
         def index
-          pipelines = pipeline_scope.active.includes(:software)
+          pipelines = pipeline_service.active
           render json: WarpEngine::PipelineSerializer.render_as_hash(pipelines)
         end
 
@@ -29,7 +29,7 @@ module WarpEngine
         # its latest run as the CI reports it, +latestRun+ being +null+ when the CI
         # call fails. Responds 404 for an unknown pipeline.
         def show
-          pipeline = pipeline_scope.find(params[:id])
+          pipeline = pipeline_service.find(params[:id])
 
           render json: {
             pipeline:   WarpEngine::PipelineSerializer.render_as_hash(pipeline),
@@ -40,7 +40,7 @@ module WarpEngine
         private
 
         def latest_run(pipeline)
-          WarpEngine::PipelineService.new.run(pipeline, "latest")
+          pipeline_service.run(pipeline, "latest")
         rescue WarpEngine::CI::Error
           nil
         end

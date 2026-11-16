@@ -1,18 +1,22 @@
 module WarpEngine
   module Outlets
-    # Kept for hosts that rescue it by this name: it is WarpEngine::ConfigurationError.
-    ConfigurationError = WarpEngine::ConfigurationError
-
     # A format the catalog leaves the engine in. Every outlet type subclasses
     # Base and names itself with +type_name+; what it can do comes from the
     # capability modules it includes: WarpEngine::Outlets::Materialized (it
     # writes files when the catalog changes) and WarpEngine::Outlets::Served
-    # (it answers requests). What it offers comes from a
-    # WarpEngine::Catalog::Offer.
+    # (it answers requests on routes it draws). What it offers comes from a
+    # WarpEngine::Catalog::Offer, except for the catalog API, which decides
+    # per caller.
+    #
+    # Each type keeps the same shape: the outlet class reads and checks its
+    # options, describes itself and draws its routes or syncs; the work is
+    # done by objects in its own folder that take the outlet
+    # (WarpEngine::Outlets::Shelf::Builder, WarpEngine::Outlets::Assembly64::Catalog).
     #
     #   class AcmeOutlet < WarpEngine::Outlets::Base
     #     include WarpEngine::Outlets::Served
     #     def self.type_name = "acme"
+    #     def self.draw_routes(mapper) = mapper.get("acme", to: "acme#index")
     #   end
     class Base
       class << self
@@ -27,6 +31,12 @@ module WarpEngine
 
         # Returns +true+ when the outlet answers requests (see Served).
         def served? = false
+
+        # Checks what the outlets of this type must agree on together (two
+        # shelves in one folder, say), +outlets+ being every configured
+        # outlet of the type. Raises ConfigurationError when they do not;
+        # returns +outlets+ otherwise. The default checks nothing.
+        def validate_all!(outlets) = outlets
       end
 
       # The key the outlet is configured under, a String unique among the
@@ -48,7 +58,7 @@ module WarpEngine
       def platforms = []
 
       # Returns the WarpEngine::Catalog::Offer the outlet serves, or +nil+ for
-      # an outlet that decides on its own (the catalog API).
+      # an outlet that decides per caller (the catalog API, WarpEngine::Outlets::Wecp).
       def offer = nil
 
       # Checks the definition. Raises ConfigurationError when it is invalid;
@@ -76,6 +86,11 @@ module WarpEngine
 
       def option_list(name) = Array(options[name]).map(&:to_s)
 
+      def check_keys!(allowed)
+        unknown = options.keys - allowed
+        raise ConfigurationError, "#{key}: unknown option #{unknown.first}" if unknown.any?
+      end
+
       def check_platforms!(names)
         unknown = names.reject { |name| WarpEngine::Platform.exists?(name) }
         raise ConfigurationError, "#{key}: unknown platform #{unknown.first.inspect}" if unknown.any?
@@ -99,18 +114,23 @@ module WarpEngine
       end
 
       # Brings the outlet's files in line with the catalog; with +dry_run+ only
-      # computes what would change. Returns a result answering +changed?+.
+      # computes what would change. Returns a result answering +changed?+ and
+      # +lines+ (what was written and removed, for the rake task).
       def sync!(dry_run: false)
         raise NotImplementedError, "#{self.class.name} must define sync!"
       end
     end
 
     # The capability of an outlet that answers requests. The class draws its
-    # routes once (+draw_routes+), each guarded by a constraint that finds the
-    # configured outlet of the type for the request (WarpEngine::Outlets.serving);
-    # an outlet with +hosts+ answers only requests for those host names.
+    # routes once, into the engine's route set (<tt>self.draw_routes(mapper)</tt>,
+    # called by WarpEngine::Outlets.draw_routes); a type that can be configured
+    # more than once guards them with a constraint that finds the configured
+    # outlet for the request (WarpEngine::Outlets.serving). An outlet with
+    # +hosts+ answers only requests for those host names.
     module Served
-      # Marks the including class as served.
+      # Marks the including class as served. The class defines
+      # <tt>self.draw_routes(mapper)</tt>; WarpEngine::Outlets.validate!
+      # refuses a served type without one.
       def self.included(base)
         base.define_singleton_method(:served?) { true }
       end

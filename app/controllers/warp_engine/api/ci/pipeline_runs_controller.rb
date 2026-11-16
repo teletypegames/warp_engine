@@ -31,8 +31,8 @@ module WarpEngine
             return render json: { error: "Unauthorized" }, status: :unauthorized
           end
 
-          pipeline = pipeline_scope.find(params[:id])
-          result = WarpEngine::PipelineService.new.trigger(pipeline, branch: params[:branch].presence || "main")
+          pipeline = pipeline_service.find(params[:id])
+          result = pipeline_service.trigger(pipeline, branch: params[:branch].presence || "main")
 
           render json: { triggered: true, pipeline: result }
         end

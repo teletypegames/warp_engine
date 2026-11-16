@@ -2,7 +2,7 @@ module WarpEngine
   # Compares the assets of the releases in the catalog with what their platform
   # expects, for the <tt>warp_engine:builds:check</tt> task: one Row per release
   # (or per software without a release).
-  class AssetCoverage
+  class AssetCoverageService
     # The coverage of one release: the +software+, the +release+ (+nil+ when the
     # software has none), its WarpEngine::Platform (+nil+ when unknown), the
     # +expected+, +optional+ and +present+ asset kinds, and +ci_kinds+, the kinds

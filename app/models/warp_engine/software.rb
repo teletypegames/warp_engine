@@ -39,7 +39,7 @@ module WarpEngine
     validates :platform, presence: true, inclusion: { in: ->(_) { WarpEngine::Platform.names } }
     validates :status, inclusion: { in: ->(_) { WarpEngine::SoftwareStatus.keys } }, allow_blank: true
     validates :category, length: { maximum: 64 }, allow_nil: true
-    validates :shelf_name, length: { maximum: 32 }, format: { with: WarpEngine::Shelves::NAME_PATTERN },
+    validates :shelf_name, length: { maximum: 32 }, format: { with: WarpEngine::Names::PATTERN },
                            uniqueness: { scope: :platform, conditions: -> { kept } }, allow_nil: true
 
     after_save :register_category

@@ -72,7 +72,10 @@ RSpec.describe "Admin API catalog", type: :request do
 
       api_delete "/softwares/#{id}"
       expect(response).to have_http_status(:no_content)
-      expect(WarpEngine::Software.exists?(id)).to be(false)
+      expect(WarpEngine::Software.find(id)).to be_discarded
+
+      api_get "/softwares/#{id}"
+      expect(response).to have_http_status(:not_found)
     end
 
     it "answers a failed validation with 422 and the fields" do
@@ -143,9 +146,12 @@ RSpec.describe "Admin API catalog", type: :request do
 
       api_delete "/assets/#{asset_id}"
       expect(response).to have_http_status(:no_content)
+      expect(WarpEngine::ReleaseAsset.find(asset_id)).to be_discarded
 
       api_delete "/releases/#{release_id}"
-      expect(WarpEngine::Release.exists?(release_id)).to be(false)
+      expect(WarpEngine::Release.find(release_id)).to be_discarded
+      api_get "/releases/#{release_id}"
+      expect(response).to have_http_status(:not_found)
     end
 
     it "refuses a duplicate version" do
@@ -182,7 +188,7 @@ RSpec.describe "Admin API catalog", type: :request do
       expect(json["data"].size).to eq(1)
 
       api_delete "/external_links/#{id}"
-      expect(WarpEngine::ExternalLink.exists?(id)).to be(false)
+      expect(WarpEngine::ExternalLink.find(id)).to be_discarded
     end
   end
 
@@ -254,6 +260,7 @@ RSpec.describe "Admin API catalog", type: :request do
                 { value: [ { id: link.id, _destroy: true }, { label: "New", url: "https://new.example" } ] }
       expect(response).to have_http_status(:ok)
       expect(json["data"]["value"].map { |l| l["label"] }).to eq(%w[New])
+      expect(link.reload).to be_discarded
 
       api_get "/softwares/#{software.id}/extras/external_links"
       expect(json["data"]).to include("association" => "external_links", "multiple" => true)

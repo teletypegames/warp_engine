@@ -1,4 +1,5 @@
 require "warp_engine/outlets/base"
+require "warp_engine/names"
 require "warp_engine/outlets/wecp"
 require "warp_engine/outlets/shelf"
 require "warp_engine/outlets/assembly64"
@@ -14,19 +15,27 @@ module WarpEngine
   #
   # The builtin types:
   #
-  # [+wecp+]       WarpEngine::Outlets::Wecp, the JSON catalog API; always on
+  # [+wecp+]       WarpEngine::Outlets::Wecp, the JSON catalog API; always on,
+  #                not configured, and not on an offer (served)
   # [+shelf+]      WarpEngine::Outlets::Shelf, a folder with an INDEX.TXT (materialized)
   # [+assembly64+] WarpEngine::Outlets::Assembly64, the Assembly64 search API the
   #                C64 Ultimate browses (served)
   #
-  # A host configures outlets in WarpEngine.configure and may register types of
-  # its own:
+  # Every type has the same shape: lib/warp_engine/outlets/TYPE.rb holds the
+  # outlet class (options, checks, descriptor, routes or sync), the folder
+  # beside it the objects that do the work, and a served type's controller
+  # lives in app/controllers/warp_engine (the catalog API's under +api+, the
+  # others' under +outlets+).
+  #
+  # A host configures outlets in WarpEngine.configure (a shelf is an outlet of
+  # the type +shelf+, +shelf+ the short form) and may register types of its own:
   #
   #   shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG"
   #   outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
   #   register_outlet_type :acme, "Acme::FeedOutlet"
   module Outlets
-    # The builtin outlet types a definition may name, by type name.
+    # The builtin outlet types a definition may name, by type name (the
+    # catalog API, Wecp, is always on and cannot be configured).
     TYPES = {
       "shelf"      => "WarpEngine::Outlets::Shelf",
       "assembly64" => "WarpEngine::Outlets::Assembly64"
@@ -50,11 +59,10 @@ module WarpEngine
       end
 
       # Returns every configured outlet: the WarpEngine::Outlets::Wecp outlet,
-      # one WarpEngine::Outlets::Shelf a shelf, then the +outlet+ definitions.
-      # Raises ConfigurationError (or WarpEngine::Shelves::ConfigurationError)
-      # on an invalid definition.
+      # then the definitions in WarpEngine.config.outlets, in their order.
+      # Raises ConfigurationError on an unknown type or a malformed key.
       def all
-        [ Wecp.new ] + WarpEngine::Shelves.all.map { |shelf| Shelf.new(shelf) } + defined
+        [ Wecp.new ] + Array(WarpEngine.config.outlets).map { |definition| build(definition) }
       end
 
       # Returns the outlet configured under +key+, or +nil+.
@@ -64,17 +72,22 @@ module WarpEngine
       def materialized = all.select { |outlet| outlet.class.materialized? }
 
       # Returns +true+ when any outlet but the catalog API is configured.
-      def any? = WarpEngine::Shelves.any? || Array(WarpEngine.config.outlets).any?
+      def any? = Array(WarpEngine.config.outlets).any?
 
-      # Builds and checks every outlet. Raises ConfigurationError on an invalid
-      # definition or two outlets with one key, and what
-      # WarpEngine::Shelves.validate! raises. Returns the outlets.
+      # Builds and checks every outlet (Base#validate!), then what the outlets
+      # of each type must agree on (Base.validate_all!). Raises
+      # ConfigurationError on an invalid definition, two outlets with one key
+      # or a served type without +draw_routes+. Returns the outlets.
       def validate!
-        WarpEngine::Shelves.validate!
         outlets = all.each(&:validate!)
         duplicate = outlets.map(&:key).tally.find { |_, count| count > 1 }&.first
         raise ConfigurationError, "two outlets share the key #{duplicate}" if duplicate
 
+        outlets.group_by(&:class).each do |klass, group|
+          raise ConfigurationError, "#{klass.name} is served but draws no routes" if klass.served? && !klass.respond_to?(:draw_routes)
+
+          klass.validate_all!(group)
+        end
         outlets
       end
 
@@ -108,25 +121,22 @@ module WarpEngine
       # Returns the first configured outlet of the type +type_name+ that
       # answers +request+ (WarpEngine::Outlets::Served#serves?), or +nil+.
       def serving(type_name, request)
-        defined.find { |outlet| outlet.type == type_name.to_s && outlet.serves?(request) }
+        all.find { |outlet| outlet.type == type_name.to_s && outlet.class.served? && outlet.serves?(request) }
       rescue ConfigurationError
         nil
       end
 
       # Draws the routes of every served outlet type into the engine's route
-      # set (+mapper+), each type once, through its +draw_routes+.
+      # set (+mapper+), each type once, through its +draw_routes+: the catalog
+      # API (Wecp) first, then the builtin and registered types.
       def draw_routes(mapper)
-        types.each_value do |class_name|
-          klass = class_name.safe_constantize
-          klass.draw_routes(mapper) if klass&.served? && klass.respond_to?(:draw_routes)
+        classes = [ Wecp ] + types.values.filter_map(&:safe_constantize)
+        classes.uniq.each do |klass|
+          klass.draw_routes(mapper) if klass.served? && klass.respond_to?(:draw_routes)
         end
       end
 
       private
-
-      def defined
-        Array(WarpEngine.config.outlets).map { |definition| build(definition) }
-      end
 
       def targets(platform)
         outlets = materialized

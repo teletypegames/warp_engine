@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe WarpEngine::AssetCoverage do
+RSpec.describe WarpEngine::AssetCoverageService do
   def release_with(software:, version:, kinds:, created_at: Time.current)
     release = create(:release, software: software, version: version, created_at: created_at)
     kinds.each { |kind| WarpEngine::ReleaseAsset.create!(release: release, kind: kind, path: "/s/#{version}-#{kind}") }

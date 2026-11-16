@@ -12,7 +12,7 @@ RSpec.describe WarpEngine::AssetCoverageChecklist do
     allow(WarpEngine).to receive(:ci).and_return(ci)
   end
 
-  def output(**options) = described_class.new(WarpEngine::AssetCoverage.new(**options)).to_s
+  def output(**options) = described_class.new(WarpEngine::AssetCoverageService.new(**options)).to_s
 
   it "checks off what is there and leaves the rest open" do
     lines = output.lines.map(&:chomp)
@@ -40,14 +40,14 @@ RSpec.describe WarpEngine::AssetCoverageChecklist do
       WarpEngine::ReleaseAsset.create!(release: release, kind: kind, path: "/s/pong-0.1-#{kind}")
     end
 
-    text = described_class.new(WarpEngine::AssetCoverage.new, only_missing: true).to_s
+    text = described_class.new(WarpEngine::AssetCoverageService.new, only_missing: true).to_s
 
     expect(text).to include("rabbitroller")
     expect(text).not_to include("pong")
   end
 
   it "says so when there is nothing to report" do
-    text = described_class.new(WarpEngine::AssetCoverage.new(name: "nothing-here")).to_s
+    text = described_class.new(WarpEngine::AssetCoverageService.new(name: "nothing-here")).to_s
 
     expect(text).to include("Nothing to report.")
   end

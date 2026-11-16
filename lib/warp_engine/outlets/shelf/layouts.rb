@@ -6,32 +6,32 @@ module WarpEngine
       # The two ways a shelf holds its titles. Each layout names an offered
       # item, places its source in the shelf folder, tells whether a placed
       # copy is still there and lists what an old sync left behind.
-      # WarpEngine::ShelfService asks the one of its shelf (Layouts.for).
+      # Shelf::Builder asks the one of its shelf (Layouts.for).
       module Layouts
-        # Returns the layout object of the Shelf::Definition +definition+.
-        def self.for(definition) = definition.folders? ? Folders.new(definition) : Flat.new(definition)
+        # Returns the layout object of the WarpEngine::Outlets::Shelf +shelf+.
+        def self.for(shelf) = shelf.folders? ? Folders.new(shelf) : Flat.new(shelf)
 
         # The +flat+ layout: one file a title, named after the software, with an
         # optional preview picture beside it.
         class Flat
-          # The Shelf::Definition the layout belongs to.
-          attr_reader :definition
+          # The WarpEngine::Outlets::Shelf the layout belongs to.
+          attr_reader :shelf
 
-          # [definition] the Shelf::Definition
-          def initialize(definition)
-            @definition = definition
+          # [shelf] the WarpEngine::Outlets::Shelf
+          def initialize(shelf)
+            @shelf = shelf
           end
 
           # Returns <tt>[nil, file name, nil]</tt> for the offered +item+ (a
           # WarpEngine::Catalog::Offer item), or <tt>[reason]</tt> when the
           # software has no usable shelf name.
           def name_for(item)
-            file = definition.file_name_for(item.software)
+            file = shelf.file_name_for(item.software)
             file ? [ nil, file, nil ] : [ "no usable shelf name" ]
           end
 
           # Returns +true+: a flat shelf may hold previews.
-          def previews? = definition.preview.present?
+          def previews? = shelf.preview.present?
 
           # Copies the source of +entry+ to +target+ through
           # WarpEngine::Files.copy_with_crc and sets the entry's +crc32+.
@@ -59,12 +59,12 @@ module WarpEngine
           # The file list (<tt>crc32 size path</tt> per file) written into each folder.
           MANIFEST_FILE = "FILES.LST".freeze
 
-          # The Shelf::Definition the layout belongs to.
-          attr_reader :definition
+          # The WarpEngine::Outlets::Shelf the layout belongs to.
+          attr_reader :shelf
 
-          # [definition] the Shelf::Definition
-          def initialize(definition)
-            @definition = definition
+          # [shelf] the WarpEngine::Outlets::Shelf
+          def initialize(shelf)
+            @shelf = shelf
           end
 
           # Returns <tt>[nil, folder name, folder spec]</tt> for the offered
@@ -73,7 +73,7 @@ module WarpEngine
           def name_for(item)
             folder = folder_for(item)
             return [ "no #{item.kind} folder in the metadata of #{item.release.version}" ] if folder.nil?
-            return [ "#{folder[:folder].inspect} is not a usable folder name" ] unless definition.folder_name_valid?(folder[:folder])
+            return [ "#{folder[:folder].inspect} is not a usable folder name" ] unless shelf.folder_name_valid?(folder[:folder])
 
             [ nil, folder[:folder], folder ]
           end
@@ -119,7 +119,7 @@ module WarpEngine
             metadata = item.metadata
             return nil if metadata.nil?
 
-            WarpEngine::Platform.find(definition.platform)&.shelf_folder(metadata, item.kind)&.to_h&.symbolize_keys
+            WarpEngine::Platform.find(shelf.platform)&.shelf_folder(metadata, item.kind)&.to_h&.symbolize_keys
           end
 
           def unpack(entry, staging)
@@ -143,7 +143,7 @@ module WarpEngine
 
           def info_text(entry)
             folder = entry.folder
-            clean = WarpEngine::ShelfService.method(:clean)
+            clean = Names.method(:clean)
             [ "[program]",
               "name=#{clean.call(folder[:name].presence || folder[:folder])}",
               "description=#{clean.call(folder[:description])}",

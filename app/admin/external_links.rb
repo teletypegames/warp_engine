@@ -5,9 +5,19 @@ ActiveAdmin.register WarpEngine::ExternalLink, as: "External Link" do
 
   belongs_to :software
 
+  batch_action :destroy, confirm: "Delete the selected records?" do |ids|
+    scoped_collection.where(id: ids).find_each(&:soft_delete!)
+    redirect_to collection_path, notice: "Deleted."
+  end
+
   controller do
     def scoped_collection
       super.kept
+    end
+
+    def destroy
+      resource.soft_delete!
+      redirect_to collection_path, notice: "Deleted."
     end
   end
 

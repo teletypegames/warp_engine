@@ -46,7 +46,7 @@ RSpec.describe WarpEngine::Configuration::DSL do
   end
 
   describe "shelf" do
-    it "writes the same definition as the hash form, once per path" do
+    it "writes a shelf outlet keyed by its platform, once per key" do
       2.times do
         apply do
           shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16,
@@ -54,13 +54,15 @@ RSpec.describe WarpEngine::Configuration::DSL do
         end
       end
 
-      expect(config.shelves).to eq([ { platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG",
-                                       name_length: 16, urls: %w[ftp://ftp.example.org/C64] } ])
+      expect(config.outlets).to eq([ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64",
+                                       extension: ".PRG", name_length: 16, urls: %w[ftp://ftp.example.org/C64] } ])
     end
 
-    it "refuses an unknown key" do
-      expect { apply { shelf :c64, kind: "cartridge", path: "shelves/C64", folder: "x" } }
-        .to raise_error(ArgumentError, /folder/)
+    it "leaves an unknown key to the boot check" do
+      apply { shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", folder: "x" }
+      allow(WarpEngine.config).to receive(:outlets).and_return(config.outlets)
+
+      expect { WarpEngine::Outlets.validate! }.to raise_error(WarpEngine::ConfigurationError, /unknown option folder/)
     end
   end
 
