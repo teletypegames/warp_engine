@@ -7,9 +7,10 @@ Rails.application.config.to_prepare do
     image_class "Image"
 
     ci :woodpecker do
-      url        ENV["WOODPECKER_URL"]
-      api_token  ENV["WOODPECKER_API_TOKEN"]
-      repo_owner ENV["WOODPECKER_REPO_OWNER"]
+      url            ENV["WOODPECKER_URL"]
+      api_token      ENV["WOODPECKER_API_TOKEN"]
+      repo_owner     ENV["WOODPECKER_REPO_OWNER"]
+      public_key_url ENV["WOODPECKER_PUBLIC_KEY_URL"]
     end
   end
 end

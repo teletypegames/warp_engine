@@ -42,6 +42,7 @@ services:
       WOODPECKER_URL: ${WOODPECKER_URL:-}
       WOODPECKER_API_TOKEN: ${WOODPECKER_API_TOKEN:-}
       WOODPECKER_REPO_OWNER: ${WOODPECKER_REPO_OWNER:-}
+      WOODPECKER_PUBLIC_KEY_URL: ${WOODPECKER_PUBLIC_KEY_URL:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -60,7 +61,7 @@ services:
   # gitea:    http://gitea:3000       woodpecker: http://woodpecker:8000
 
   gitea:
-    image: gitea/gitea:1.27.0
+    image: gitea/gitea:1.27.3
     profiles: ["ci"]
     environment:
       DISABLE_REGISTRATION: "true"
@@ -72,7 +73,7 @@ services:
       - gitea-data:/data
 
   woodpecker:
-    image: woodpeckerci/woodpecker-server:v3.16.0
+    image: woodpeckerci/woodpecker-server:v3.20.1
     profiles: ["ci"]
     environment:
       WOODPECKER_HOST: "http://woodpecker:8000"
@@ -90,7 +91,7 @@ services:
       - woodpecker-data:/var/lib/woodpecker
 
   woodpecker-agent:
-    image: woodpeckerci/woodpecker-agent:v3.16.0
+    image: woodpeckerci/woodpecker-agent:v3.20.1
     profiles: ["ci"]
     environment:
       WOODPECKER_SERVER: "woodpecker:9000"

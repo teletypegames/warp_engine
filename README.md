@@ -71,7 +71,7 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 
 ## Requirements
 
-- Rails >= 8.0
+- Rails >= 8.1
 - A relational database (developed and tested against MySQL 8)
 - Optional: ActiveAdmin + Devise in the host app for the admin UI
 
@@ -120,7 +120,7 @@ echo '<h1>demo</h1>' > index.html && zip demo-0.1.0.html.zip index.html
 echo hello > game.bin && zip demo-0.1.0-win-x64.zip game.bin
 
 # 2. Upload them (one request per file)
-for f in demo-0.1.0.*; do
+for f in demo-0.1.0*; do
   curl -fs -H "X-Update-Secret: example-update-secret" \
     -F "file=@$f" "http://localhost:8080/build/upload?name=demo&version=0.1.0"
 done
@@ -167,7 +167,7 @@ steps:
     commands:
       - apk add --no-cache curl zip
       - # ... build your game, produce mygame-1.0.0.metadata.json + artifacts ...
-      - for f in mygame-1.0.0.*; do curl -fs -H "X-Update-Secret: $UPDATE_SECRET" -F "file=@$f" "http://app:3000/build/upload?name=mygame&version=1.0.0"; done
+      - for f in mygame-1.0.0*; do curl -fs -H "X-Update-Secret: $UPDATE_SECRET" -F "file=@$f" "http://app:3000/build/upload?name=mygame&version=1.0.0"; done
       - curl -fs -X POST -H "X-Update-Secret: $UPDATE_SECRET" "http://app:3000/build/publish?platform=love&name=mygame&version=1.0.0"
 ```
 
@@ -1460,6 +1460,13 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.0.1
+
+Nothing for a host that is already running. A new one can be installed again:
+`rails g warp_engine:install` writes the base tables as
+`20260805000000_create_warp_engine_tables.rb`, before the engine's own migrations, and
+those add the rest. Rails 8.1 is required (the engine's migrations always were 8.1).
 
 ## Upgrading to 3.0
 

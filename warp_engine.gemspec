@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir["{app,config,db,lib}/**/*", "README.md", "LICENSE"]
 
-  spec.add_dependency "rails", ">= 8.0"
+  spec.add_dependency "rails", ">= 8.1"
   spec.add_dependency "blueprinter"
   spec.add_dependency "rubyzip", "~> 2.3"
   spec.add_dependency "chunky_png", "~> 1.4"

@@ -31,9 +31,20 @@ module WarpEngine
         migration_template "create_images.rb", "db/migrate/create_images.rb"
       end
 
-      # Writes the migration creating the engine's tables.
+      # The version of the migration creating the engine's base tables: before
+      # every migration in the engine's own <tt>db/migrate</tt>, which build on it.
+      BASE_MIGRATION_VERSION = "20260805000000".freeze
+
+      # Writes <tt>db/migrate/20260805000000_create_warp_engine_tables.rb</tt>,
+      # the tables as they were before the engine's own migrations, unless the
+      # host already has a +create_warp_engine_tables+ migration.
       def copy_migration
-        migration_template "create_warp_engine_tables.rb", "db/migrate/create_warp_engine_tables.rb"
+        if Dir.glob(File.join(destination_root, "db/migrate/*_create_warp_engine_tables.rb")).any?
+          say_status :skip, "db/migrate/*_create_warp_engine_tables.rb", :yellow
+          return
+        end
+
+        template "create_warp_engine_tables.rb", "db/migrate/#{BASE_MIGRATION_VERSION}_create_warp_engine_tables.rb"
       end
 
       # Prints the next steps of the installation.
