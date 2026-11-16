@@ -1387,11 +1387,22 @@ are under the menu parent `WarpEngine`, use no emoji (icons are inline SVG from
 `WarpEngine::AdminIcons`) and take their colors from the host theme's
 `--c-*` custom properties (RGB triplets, as `--c-accent: 21 128 61`), with light
 defaults when the host defines none — a host theme that switches those for dark
-mode switches the engine's pages too. One thing to copy into a new host:
+mode switches the engine's pages too. What to copy into a new host:
 
 - if you generate apipie docs, add
   `"#{WarpEngine::Engine.root}/app/controllers/**/*.rb"` to your
-  `api_controllers_matcher`.
+  `api_controllers_matcher`;
+- on **ActiveAdmin 4**, which has no stylesheet and script registry, link the two
+  files yourself: copy ActiveAdmin's `app/views/active_admin/_html_head.html.erb`
+  into the host and add
+
+  ```erb
+  <%= stylesheet_link_tag "warp_engine/admin" %>
+  <%= javascript_include_tag "warp_engine/admin", defer: true %>
+  ```
+
+  after its `active_admin` stylesheet. Without them the pages work, but the file
+  manager and the asset path picker are unstyled and without their script.
 
 **SysInfo (1.13, a tree since 2.1).** The *WarpEngine → ℹ️ SysInfo* page shows the
 engine as it runs, as one tree: engine, publishing, adapters, client sign-in, CI, platforms,
@@ -1474,6 +1485,14 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.0.3
+
+- **ActiveAdmin 4 hosts boot again.** The engine registers its admin stylesheet and
+  script only where ActiveAdmin has a registry (3.x); on 4.x the host links them in
+  its `_html_head` (see *Admin integration*).
+- **SysInfo without CI settings.** An adapter with no URL or API token answers the
+  live check as not configured instead of failing the page.
 
 ## Upgrading to 3.0.1
 

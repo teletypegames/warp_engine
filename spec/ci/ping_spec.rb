@@ -23,6 +23,21 @@ RSpec.describe "CI adapter ping" do
     expect(ping.detail).to include("401")
   end
 
+  it "answers not configured without asking when the URL is missing" do
+    adapter = WarpEngine::CI::Woodpecker::Adapter.new(url: "", api_token: "tok", repo_owner: "games")
+
+    ping = adapter.ping
+
+    expect(ping).not_to be_ok
+    expect(ping.detail).to include("not configured")
+  end
+
+  it "reports a URL that is no HTTP address without raising" do
+    adapter = WarpEngine::CI::Gitlab::Adapter.new(url: "gitlab.example", api_token: "tok")
+
+    expect(adapter.ping).not_to be_ok
+  end
+
   it "has nothing to ask without CI" do
     expect(WarpEngine::CI::Null.new.ping).to be_nil
   end
