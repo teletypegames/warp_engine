@@ -217,6 +217,7 @@ cannot say which gem came from where.
 Then:
 
 ```sh
+bundle install
 rails g warp_engine:install   # initializer, image library (model + endpoint), migrations
 rails db:migrate
 ```
