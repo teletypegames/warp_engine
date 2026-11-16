@@ -64,7 +64,7 @@ RSpec.describe WarpEngine::RuntimeMaintenanceService do
 
   it "removes the html folder and zip of a release once it plays in a runtime" do
     release = old_release("1.0", runtime_files)
-    release.update!(runtime_version: installed, web_binding: "emulatorjs")
+    release.update_columns(runtime_version_id: installed.id, web_binding: "emulatorjs")
 
     expect(service.prune_html(dry_run: true).count).to eq(1)
     expect(File.directory?(File.join(tmpdir, "rabbit-1.0"))).to be(true)

@@ -9,7 +9,8 @@ module WarpEngine
   # from a zip a build sends to <tt>POST /build/runtime</tt>. The files the
   # runtime declares are taken from the zip (any other entry is ignored),
   # their SHA-256 digests recorded on the WarpEngine::RuntimeVersion, and the
-  # files written under <tt>_runtimes/<name>-<version>/</tt>. A version is
+  # files written under <tt>_runtimes/<name>-<version>/</tt>, with the
+  # runtime's licence notice beside them. A version is
   # immutable: sending it again with the same files changes nothing, with
   # other files it is refused.
   class RuntimeUploadService
@@ -41,12 +42,12 @@ module WarpEngine
         digests = extract(zip_path, dir, definition)
         existing = WarpEngine::RuntimeVersion.kept.find_by(name: name.to_s, version: version)
         if existing
-          raise Conflict, "#{name} #{version} is installed with other files" unless existing.file_digests == digests
+          raise Conflict, "#{name} #{version} is installed with other files" unless existing.file_digests.except(WarpEngine::Runtime::NOTICE) == digests
 
           return Result.new(existing, false)
         end
 
-        Result.new(install(name.to_s, version, dir, digests), true)
+        Result.new(WarpEngine::RuntimeInstallService.new.notice!(install(name.to_s, version, dir, digests)), true)
       end
     end
 

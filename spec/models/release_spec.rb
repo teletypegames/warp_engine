@@ -37,7 +37,7 @@ RSpec.describe WarpEngine::Release, type: :model do
     end
 
     it "accepts an html asset where the platform expects one" do
-      %w[tic80 c64 plus4].each do |platform|
+      %w[tic80 godot phaser].each do |platform|
         expect(release_with_html(platform)).to be_valid
       end
     end

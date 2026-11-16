@@ -37,7 +37,7 @@ module WarpEngine
       define machine do
         label name
         kind :cartridge, ext: ".prg", required: true
-        kinds :html, :win_x64, :linux_x64, :mac_arm64
+        kinds :win_x64, :linux_x64, :mac_arm64
         web :emulatorjs, core: core, options: { "keyboardInput" => "enabled" }
         ci template: "commodore", machine: machine.to_s
       end

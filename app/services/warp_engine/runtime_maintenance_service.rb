@@ -154,7 +154,7 @@ module WarpEngine
         param.component.nil? || key.blank? ? [] : definition.components.fetch(param.component).files(key, digests)
       end
       base = definition.upload? ? digests.keys : definition.base_files(version.version) & digests.keys
-      [ base - components, components ]
+      [ base - components - [ WarpEngine::Runtime::NOTICE ], components ]
     end
 
     def playable?(release)

@@ -72,4 +72,16 @@ RSpec.describe WarpEngine::RuntimeInstallService do
 
     expect(service.verify(version)).to contain_exactly("loader.js", "cores/reports/vice.json")
   end
+
+  it "puts the runtime's licence notice beside its files and records it" do
+    version = install_runtime_version(name: "tic80", version: "1.1", files: { "tic80.js" => "js" }, source: "upload")
+
+    described_class.new.notice!(version)
+
+    notice = File.join(tmpdir, "_runtimes/tic80-1.1", WarpEngine::Runtime::NOTICE)
+    expect(File.read(notice)).to include("TIC-80", "MIT License")
+    expect(version.reload.file_digests.keys).to contain_exactly("tic80.js", WarpEngine::Runtime::NOTICE)
+    expect(version.size_bytes).to eq(2 + File.size(notice))
+    expect(service.verify(version)).to be_empty
+  end
 end

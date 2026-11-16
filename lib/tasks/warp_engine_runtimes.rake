@@ -38,6 +38,9 @@ namespace :warp_engine do
         puts "#{name} #{result.version}#{' (dry run)' if result.dry_run}: #{result.fetched.size} to fetch, #{result.kept.size} in place"
         result.fetched.each { |file| puts "  + #{file}" }
       end
+      next if dry_run.call || ENV["NAME"].present?
+
+      WarpEngine::RuntimeVersion.kept.each { |version| service.notice!(version) }
     end
 
     desc "Check every installed runtime file against its recorded SHA-256 (fails when one differs)"

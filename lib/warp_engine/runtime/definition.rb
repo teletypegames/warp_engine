@@ -49,7 +49,10 @@ module WarpEngine
     # [components] the Component list, keyed by kind
     # [params]     the Param list, keyed by name
     # [template]   the path of the page template
-    Definition = ::Data.define(:name, :label, :license, :source, :versions, :files, :components, :params, :template) do
+    # [notice]     the path of the licence notice installed beside the files
+    #              as WarpEngine::Runtime::NOTICE, or +nil+
+    Definition = ::Data.define(:name, :label, :license, :source, :versions, :files, :components, :params, :template,
+                               :notice) do
       # Returns +true+ when the files are downloaded from a pinned source.
       def download? = source == :download
 
@@ -124,6 +127,9 @@ module WarpEngine
       # The directory of the builtin checksum files.
       CHECKSUMS = File.expand_path("checksums", __dir__)
 
+      # The directory of the builtin licence notices.
+      NOTICES = File.expand_path("notices", __dir__)
+
       # [name] the runtime name; must match WarpEngine::Runtime::FORMAT.
       # Raises ArgumentError when it does not.
       def initialize(name)
@@ -137,6 +143,8 @@ module WarpEngine
         @components = {}
         @params = {}
         @template = File.join(TEMPLATES, "#{@name}.html")
+        builtin_notice = File.join(NOTICES, "#{@name}.txt")
+        @notice = builtin_notice if File.file?(builtin_notice)
       end
 
       # Sets the human-readable name (default: the titleized name).
@@ -180,6 +188,13 @@ module WarpEngine
                                          component: component&.to_s, default: default.freeze)
       end
 
+      # Sets the licence notice installed beside the files: a builtin notice
+      # name or a path (default: the builtin <tt><name>.txt</tt> when there is one).
+      def notice(value)
+        value = value.to_s
+        @notice = File.exist?(value) ? value : File.join(NOTICES, value)
+      end
+
       # Sets the page template: a builtin template name or a path.
       def template(value)
         value = value.to_s
@@ -191,10 +206,11 @@ module WarpEngine
       def build
         raise ArgumentError, "runtime #{@name}: no template at #{@template}" unless File.file?(@template)
         raise ArgumentError, "runtime #{@name}: a downloaded runtime needs a version" if @source == :download && @versions.empty?
+        raise ArgumentError, "runtime #{@name}: no notice at #{@notice}" if @notice && !File.file?(@notice)
 
         Definition.new(name: @name, label: @label, license: @license, source: @source, versions: @versions.freeze,
                        files: @files.freeze, components: @components.freeze, params: @params.freeze,
-                       template: @template)
+                       template: @template, notice: @notice)
       end
 
       # Returns the checksum file +path+ (lines of <tt>digest  file</tt>) as a

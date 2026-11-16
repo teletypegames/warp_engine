@@ -24,6 +24,9 @@ module WarpEngine
     # The directory of the file container the installed runtimes live under.
     ROOT = "_runtimes".freeze
 
+    # The name the licence notice of a runtime has in its installed folder.
+    NOTICE = "LICENSES.txt".freeze
+
     class << self
       # Declares the builtin runtime +name+ with the Builder DSL. Returns its
       # Definition.

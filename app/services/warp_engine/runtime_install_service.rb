@@ -7,7 +7,8 @@ module WarpEngine
   # the base files and the components of a version from its pinned source,
   # checks every file against the SHA-256 the runtime's checksum list gives,
   # writes it under <tt>_runtimes/<name>-<version>/</tt> and records the
-  # WarpEngine::RuntimeVersion with its components. A file already there with
+  # WarpEngine::RuntimeVersion with its components, with the runtime's licence
+  # notice beside them (#notice!). A file already there with
   # the right digest is kept; existing files are never changed, so installing
   # again only adds what is missing.
   class RuntimeInstallService
@@ -77,8 +78,28 @@ module WarpEngine
       return Result.new(nil, name, version, fetched, kept, wanted, true) if dry_run
 
       fetched.each { |file| fetch(spec, file, root.join(file)) }
-      record = save(record, name, version, directory, root, spec.checksums.slice(*files), wanted)
+      record = notice!(save(record, name, version, directory, root, spec.checksums.slice(*files), wanted))
       Result.new(record, name, version, fetched, kept, wanted, false)
+    end
+
+    # Writes the runtime's licence notice into the folder of
+    # +runtime_version+ (a WarpEngine::RuntimeVersion) as
+    # WarpEngine::Runtime::NOTICE, when it is missing or differs, and records
+    # its digest. Returns +runtime_version+; a runtime without a notice, or one
+    # no longer defined, is left as it is.
+    def notice!(runtime_version)
+      source = runtime_version.runtime&.definition&.notice
+      return runtime_version if source.nil?
+
+      digest = Digest::SHA256.file(source).hexdigest
+      target = Pathname.new(WarpEngine.config.file_container_path).join(runtime_version.path, WarpEngine::Runtime::NOTICE)
+      WarpEngine::Files.atomic(target.to_s) { |temporary| FileUtils.cp(source, temporary) } unless digest_of(target) == digest
+      return runtime_version if runtime_version.file_digests[WarpEngine::Runtime::NOTICE] == digest
+
+      files = runtime_version.file_digests.merge(WarpEngine::Runtime::NOTICE => digest)
+      root = target.dirname
+      runtime_version.update!(files: files, size_bytes: files.keys.sum { |file| File.file?(root.join(file)) ? File.size(root.join(file)) : 0 })
+      runtime_version
     end
 
     # Returns the files of the WarpEngine::RuntimeVersion +runtime_version+

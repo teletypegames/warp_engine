@@ -759,11 +759,12 @@ build: make
 
 The `exporter` image packages the players. Its contract is one command,
 `commodore-pack <c64|plus4> <name> <version>`, run in the workspace next to
-`<name>-<version>.prg` and `metadata.json`, which writes `<name>-<version>.html.zip`
-and the `-linux-x64.zip`, `-win-x64.zip` and `-mac-arm64.zip` players (the
-`build/c64-tools` `player.Dockerfile` is one such image). Only the PRG is required:
-a program without the players still publishes, and only the players that were
-built are uploaded.
+`<name>-<version>.prg` and `metadata.json`, which writes the `-linux-x64.zip`,
+`-win-x64.zip` and `-mac-arm64.zip` players (the `build/c64-tools`
+`player.Dockerfile` is one such image). Only the PRG is required: a program without
+the players still publishes, and only the players that were built are uploaded. On
+the web a C64 or Plus/4 release plays in the EmulatorJS runtime (see *Runtimes*),
+so the platforms take no `html` build.
 
 #### The `dos` platform
 
@@ -1601,6 +1602,16 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.3
+
+- **C64 and Plus/4 take no `html` build**: they play in the EmulatorJS runtime. A
+  publish soft-deletes a leftover `html` asset of theirs; run `runtimes:migrate` and
+  `runtimes:prune_html` first if their releases still play from html folders.
+- **A licence notice beside every runtime**: `runtimes:install` writes the
+  runtime's `LICENSES.txt` into each installed version (an uploaded one too), and the
+  player page links it (`<link rel="license">`). A runtime of your own names its
+  notice with `notice`.
 
 ## Upgrading to 3.2
 

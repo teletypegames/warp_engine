@@ -1,0 +1,20 @@
+This folder holds a web runtime the catalog plays its releases in. The
+releases themselves are licensed by their authors; see each catalog page.
+
+EmulatorJS
+  Copyright (C) Ethan O'Brien and contributors. GNU General Public License v3.
+  Source: https://github.com/EmulatorJS/EmulatorJS
+  License: https://www.gnu.org/licenses/gpl-3.0.html
+
+VICE libretro cores (vice_x64sc, vice_x64, vice_xplus4)
+  The VICE team. GNU General Public License v2.
+  Source: https://github.com/libretro/vice-libretro
+  VICE: https://vice-emu.sourceforge.io/
+  License: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+DOSBox Pure libretro core (dosbox_pure)
+  Copyright (C) Bernhard Schelling, based on DOSBox. GNU General Public License v2.
+  Source: https://github.com/EmulatorJS/dosbox-pure (from https://github.com/schellingb/dosbox-pure)
+  License: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+The emulators include the system ROMs they need to run.

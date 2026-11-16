@@ -15,9 +15,10 @@ RSpec.describe WarpEngine::RuntimeUploadService do
     result = service.upload(name: "tic80", version: "1.1.2837", zip_path: zip)
 
     expect(result.created).to be(true)
-    expect(result.runtime_version).to have_attributes(source: "upload", path: "_runtimes/tic80-1.1.2837", size_bytes: 6)
-    expect(result.runtime_version.file_digests.keys).to eq(%w[tic80.js tic80.wasm])
-    expect(Dir.children(File.join(tmpdir, "_runtimes/tic80-1.1.2837"))).to contain_exactly("tic80.js", "tic80.wasm")
+    notice = File.size(File.join(tmpdir, "_runtimes/tic80-1.1.2837/LICENSES.txt"))
+    expect(result.runtime_version).to have_attributes(source: "upload", path: "_runtimes/tic80-1.1.2837", size_bytes: 6 + notice)
+    expect(result.runtime_version.file_digests.keys).to eq(%w[tic80.js tic80.wasm LICENSES.txt])
+    expect(Dir.children(File.join(tmpdir, "_runtimes/tic80-1.1.2837"))).to contain_exactly("tic80.js", "tic80.wasm", "LICENSES.txt")
   end
 
   it "takes the same files again without a change, and refuses other files for the version" do

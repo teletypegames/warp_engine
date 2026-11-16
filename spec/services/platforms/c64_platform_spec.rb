@@ -28,14 +28,14 @@ RSpec.describe "the c64 platform" do
     expect(WarpEngine::Software.find_by(name: "warp64u")).to be_nil
   end
 
-  it "unpacks the browser player when there is one" do
+  it "leaves a browser player upload alone: the release plays in the EmulatorJS runtime" do
     Zip::File.open(File.join(tmpdir, "warp64u-0.1.1.html.zip"), create: true) do |zip|
       zip.get_output_stream("index.html") { |io| io.write("<html></html>") }
     end
 
     release = platform.publish("warp64u", "0.1.1").reload
 
-    expect(release.release_assets.map(&:kind)).to contain_exactly("cartridge", "html")
-    expect(File.read(File.join(tmpdir, "warp64u-0.1.1", "index.html"))).to eq("<html></html>")
+    expect(release.release_assets.map(&:kind)).to eq([ "cartridge" ])
+    expect(File.exist?(File.join(tmpdir, "warp64u-0.1.1"))).to be(false)
   end
 end

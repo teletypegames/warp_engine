@@ -10,8 +10,8 @@ RSpec.describe WarpEngine::BuildsService do
       expect(result[:platforms]["tic80"][:kinds]).to include("cartridge", "html")
     end
 
-    it "returns c64 with the cartridge, the browser player and the native players" do
-      expect(result[:platforms]["c64"][:kinds]).to eq(%w[cartridge html win_x64 linux_x64 mac_arm64])
+    it "returns c64 with the cartridge and the native players; it plays on the web in a runtime" do
+      expect(result[:platforms]["c64"][:kinds]).to eq(%w[cartridge win_x64 linux_x64 mac_arm64])
     end
 
     it "returns plus4 with the same kinds as c64" do

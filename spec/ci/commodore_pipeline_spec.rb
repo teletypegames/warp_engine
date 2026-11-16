@@ -36,7 +36,7 @@ RSpec.describe "Commodore pipelines" do
 
         calls, = run_with_fake_curl(script, files: program.merge("warp64u-1.0.html.zip" => "z", "warp64u-1.0-win-x64.zip" => "z"))
         expect(uploaded_files(calls)).to contain_exactly("warp64u-1.0.prg", "warp64u-1.0.metadata.json",
-                                                         "warp64u-1.0.html.zip", "warp64u-1.0-win-x64.zip")
+                                                         "warp64u-1.0-win-x64.zip")
       end
 
       it "fails the upload without the program, the kind the platform requires" do
