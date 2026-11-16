@@ -31,7 +31,7 @@ module WarpEngine
             restore(WarpEngine::ExternalLink.find_or_initialize_by(software_id: software.id, label: label), url: url)
           end
 
-          release = WarpEngine::Release.find_or_create_by!(software_id: software.id, version: version)
+          release = restore(WarpEngine::Release.find_or_initialize_by(software_id: software.id, version: version), {})
           assets.each do |kind, path|
             restore(WarpEngine::ReleaseAsset.find_or_initialize_by(release_id: release.id, kind: kind), path: path)
           end

@@ -53,9 +53,9 @@ module WarpEngine
               ctx.ok(software_payload(WarpEngine::Software.kept.find(ctx.id), ctx[:include]))
             end
 
-            r.create "/softwares", summary: "Create a software", body: X.software_body,
+            r.create "/softwares", summary: "Create a software (a deleted one of the name comes back)", body: X.software_body,
                      required: %i[name title platform], item: X.software do |ctx|
-              software = ctx.save!(WarpEngine::Software.new(ctx.attributes))
+              software = ctx.save!(revived(WarpEngine::Software, ctx.attributes, :name))
               ctx.created(Admin::SoftwareSerializer.render_as_hash(software))
             end
 
@@ -81,10 +81,10 @@ module WarpEngine
               ctx.list(software.releases.includes(:release_assets), Admin::ReleaseSerializer)
             end
 
-            r.create "/softwares/:softwareId/releases", summary: "Add a release", body: X.release_body,
-                     required: %i[version], item: X.release do |ctx|
+            r.create "/softwares/:softwareId/releases", summary: "Add a release (a deleted one of the version comes back)",
+                     body: X.release_body, required: %i[version], item: X.release do |ctx|
               software = WarpEngine::Software.kept.find(ctx[:softwareId])
-              release = ctx.save!(WarpEngine::Release.new(ctx.attributes.merge("software" => software)))
+              release = ctx.save!(revived(WarpEngine::Release, ctx.attributes.merge("software_id" => software.id), :software_id, :version))
               ctx.created(Admin::ReleaseSerializer.render_as_hash(release))
             end
 
@@ -119,7 +119,7 @@ module WarpEngine
                      required: %i[kind path], item: X.release_asset do |ctx|
               release = release(ctx[:releaseId])
               check_web_playable!(release, ctx[:kind])
-              asset = ctx.save!(WarpEngine::ReleaseAsset.new(ctx.attributes.merge("release" => release)))
+              asset = ctx.save!(revived(WarpEngine::ReleaseAsset, ctx.attributes.merge("release_id" => release.id), :release_id, :kind))
               ctx.created(Admin::ReleaseAssetSerializer.render_as_hash(asset))
             end
 
@@ -287,6 +287,12 @@ module WarpEngine
           software = WarpEngine::Software.kept.find(ctx[:softwareId])
           attributes["position"] ||= software.software_images.maximum(:position).to_i + 1
           ctx.save!(WarpEngine::SoftwareImage.new(attributes.merge("software" => software)))
+        end
+
+        # The +model+ record built from +attributes+: the soft-deleted one whose
+        # +keys+ match, brought back (WarpEngine::SoftDeletable.revive), or a new one.
+        def revived(model, attributes, *keys)
+          model.revive(attributes.slice(*keys.map(&:to_s))).tap { |record| record.assign_attributes(attributes) }
         end
 
         # The kept WarpEngine::Release +id+ of a kept software. Raises ActiveRecord::RecordNotFound.

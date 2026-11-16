@@ -179,6 +179,11 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
       scoped_collection.find(params[:id])
     end
 
+    def build_new_resource
+      attributes = resource_params.first || {}
+      WarpEngine::Software.revive(name: attributes[:name]).tap { |software| software.assign_attributes(attributes) }
+    end
+
     def destroy
       resource.soft_delete!
       redirect_to collection_path, notice: "Deleted."

@@ -1462,7 +1462,9 @@ The layers were made to agree with each other; a host that only uses the `shelf`
   `Outlets::Assembly64::Catalog`, and an outlet with an unknown option fails the boot.
 - **Deleting is a soft delete everywhere**: the Admin API, the admin screens (also the
   batch action) and a nested `_destroy` set `deleted_at` on a software, release, asset,
-  external or platform link instead of removing the row.
+  external or platform link instead of removing the row. Creating one again under its unique key
+  (a software's name, a release's version, an asset's kind) — a publish, the Admin API,
+  the admin's new software — brings the deleted row back (2.0.1).
 - **Outlets refresh in a job**, `WarpEngine::OutletRefreshJob`, on the host's ActiveJob
   queue, instead of inside the save or the publish request.
 - **Gone aliases**: `Outlets::ConfigurationError`, `DownloadService::Denied` — rescue

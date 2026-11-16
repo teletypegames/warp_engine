@@ -76,6 +76,11 @@ RSpec.describe "Admin API catalog", type: :request do
 
       api_get "/softwares/#{id}"
       expect(response).to have_http_status(:not_found)
+
+      api_post "/softwares", { name: "newgame", title: "Back", platform: "tic80" }
+      expect(response).to have_http_status(:created)
+      expect(json["data"]).to include("id" => id, "title" => "Back")
+      expect(WarpEngine::Software.find(id)).not_to be_discarded
     end
 
     it "answers a failed validation with 422 and the fields" do
@@ -152,6 +157,10 @@ RSpec.describe "Admin API catalog", type: :request do
       expect(WarpEngine::Release.find(release_id)).to be_discarded
       api_get "/releases/#{release_id}"
       expect(response).to have_http_status(:not_found)
+
+      api_post "/softwares/#{software.id}/releases", { version: "2.0" }
+      expect(response).to have_http_status(:created)
+      expect(json["data"]["id"]).to eq(release_id)
     end
 
     it "refuses a duplicate version" do
