@@ -31,16 +31,20 @@ module WarpEngine
     # that runtime whose files (base files and the binding's components) are
     # all in the folder bit for bit. A release whose folder matches no
     # installed version, or whose page would not resolve, is left alone and
-    # reported. +platforms+ limits it to those platform names. Returns a
-    # Report.
-    def migrate(dry_run: true, platforms: nil)
+    # reported. With +unplayed+ the releases that never played on the web (no
+    # +html+ asset, e.g. the DOS programs) are bound too, to the runtime's
+    # current version. +platforms+ limits it to those platform names, and
+    # +exclude+ leaves those software names out. Returns a Report.
+    def migrate(dry_run: true, platforms: nil, unplayed: false, exclude: [])
       lines = []
       count = 0
-      candidates(platforms).each do |release, binding|
-        version = matching_version(release, binding)
+      candidates(platforms, unplayed).each do |release, binding|
+        next if Array(exclude).map(&:to_s).include?(release.software.name)
+
+        version = release.release_assets.any? { |asset| asset.kind == "html" } ? matching_version(release, binding) : current_version(binding)
         label = "#{release.software.name} #{release.version}"
         if version.nil?
-          lines << "#{label}: skipped, its html folder matches no installed #{binding.runtime} version"
+          lines << "#{label}: skipped, no installed #{binding.runtime} version fits"
           next
         end
 
@@ -102,14 +106,19 @@ module WarpEngine
         raise(ArgumentError, "#{name} #{version} is not installed")
     end
 
-    def candidates(platforms)
+    def current_version(binding)
+      version = binding.runtime_object&.current_version
+      version if version && WarpEngine::Publish::WebBinder.components_installed?(version, binding)
+    end
+
+    def candidates(platforms, unplayed)
       WarpEngine::Release.kept.where(runtime_version_id: nil).includes(:software, :release_assets).filter_map do |release|
         software = release.software
         next if software.nil? || software.deleted_at || (platforms && !Array(platforms).map(&:to_s).include?(software.platform))
 
         binding = WarpEngine::Platform.find(software.platform)&.web_binding
         kinds = release.release_assets.map(&:kind)
-        [ release, binding ] if binding&.valid? && kinds.include?("html") && kinds.include?(binding.payload)
+        [ release, binding ] if binding&.valid? && (unplayed || kinds.include?("html")) && kinds.include?(binding.payload)
       end
     end
 

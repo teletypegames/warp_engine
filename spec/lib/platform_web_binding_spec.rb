@@ -3,13 +3,14 @@ require "rails_helper"
 RSpec.describe WarpEngine::Platform::WebBinding do
   def platform(name) = WarpEngine::Platform.find!(name)
 
-  it "binds C64 and Plus/4 to EmulatorJS with their VICE cores, TIC-80 to its player, and DOS to nothing yet" do
+  it "binds C64 and Plus/4 to EmulatorJS with their VICE cores, DOS to its DOSBox core, TIC-80 to its player" do
     expect(platform("c64").web_binding).to have_attributes(key: "emulatorjs", runtime: "emulatorjs", payload: "cartridge",
                                                            default: true)
     expect(platform("c64").web_binding.params).to include(core: "vice_x64sc")
     expect(platform("plus4").web_binding.params).to include(core: "vice_xplus4")
     expect(platform("tic80").web_binding.runtime).to eq("tic80")
-    expect(platform("dos").web_bindings).to be_empty
+    expect(platform("dos").web_binding).to have_attributes(runtime: "emulatorjs", isolated: true,
+                                                           params: include(core: "dosbox_pure", launcher: "dos"))
     expect(platform("godot").web_bindings).to be_empty
   end
 

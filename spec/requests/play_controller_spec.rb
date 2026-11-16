@@ -26,9 +26,9 @@ RSpec.describe "GET /play/:name/:version", type: :request do
 
     expect(response).to have_http_status(:ok)
     expect(response.media_type).to eq("text/html")
-    expect(response.body).to include("<title>Rabbit &amp; Co</title>", 'EJS_core = "vice_x64sc"',
-                                     'EJS_gameUrl = "/file/rabbit-1.0.0.prg"', 'EJS_pathtodata = "/file/_runtimes/emulatorjs-4.2.3/"',
-                                     '"keyboardInput":"enabled"', '"speed":"2"', "EJS_threads = false")
+    expect(response.body).to include("<title>Rabbit &amp; Co</title>", '"core":"vice_x64sc"',
+                                     'const payloadUrl = "/file/rabbit-1.0.0.prg"', 'const runtimeUrl = "/file/_runtimes/emulatorjs-4.2.3/"',
+                                     '"keyboardInput":"enabled"', '"speed":"2"', "EJS_threads: false")
     expect(response.headers["Cross-Origin-Embedder-Policy"]).to be_nil
   end
 
@@ -41,7 +41,7 @@ RSpec.describe "GET /play/:name/:version", type: :request do
     get "/play/rabbit/1.0.0/fast"
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include('EJS_core = "vice_x64"', "EJS_threads = true")
+    expect(response.body).to include('"core":"vice_x64"', "EJS_threads: true")
     expect(response.headers).to include("Cross-Origin-Opener-Policy" => "same-origin", "Cross-Origin-Embedder-Policy" => "require-corp")
   end
 

@@ -12,18 +12,88 @@
 <body>
 <div id="game"></div>
 <script>
-  EJS_player = "#game";
-  EJS_core = {{ json params.core }};
-  EJS_gameName = {{ json title }};
-  EJS_gameUrl = {{ json payload_url }};
-  EJS_pathtodata = {{ json runtime_url }};
-  EJS_startOnLoaded = true;
-  EJS_backgroundColor = "#000000";
-  EJS_disableAutoLang = false;
-  EJS_threads = {{ json isolated }};
-  EJS_defaultOptions = {{ json params.options }};
-  EJS_defaultControls = {{ json params.controls }};
+  const runtimeUrl = {{ json runtime_url }};
+  const payloadUrl = {{ json payload_url }};
+  const params = {{ json params }};
+  const start = {{ json start }};
+
+  Object.assign(window, {
+    EJS_player: "#game",
+    EJS_core: params.core,
+    EJS_gameName: {{ json title }},
+    EJS_gameUrl: payloadUrl,
+    EJS_pathtodata: runtimeUrl,
+    EJS_startOnLoaded: true,
+    EJS_backgroundColor: "#000000",
+    EJS_disableAutoLang: false,
+    EJS_threads: {{ json isolated }},
+    EJS_defaultOptions: params.options,
+    EJS_defaultControls: params.controls
+  });
+
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc32 = (bytes) => {
+    let c = 0xFFFFFFFF;
+    for (const b of bytes) c = crcTable[(c ^ b) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  };
+  const centralDirectory = (zip) => {
+    const view = new DataView(zip.buffer);
+    let eocd = zip.length - 22;
+    while (eocd >= 0 && view.getUint32(eocd, true) !== 0x06054b50) eocd--;
+    const count = view.getUint16(eocd + 10, true), size = view.getUint32(eocd + 12, true), offset = view.getUint32(eocd + 16, true);
+    const names = [];
+    for (let i = 0, p = offset; i < count; i++) {
+      const n = view.getUint16(p + 28, true), e = view.getUint16(p + 30, true), c = view.getUint16(p + 32, true);
+      names.push(new TextDecoder().decode(zip.subarray(p + 46, p + 46 + n)));
+      p += 46 + n + e + c;
+    }
+    return { count, size, offset, names };
+  };
+  const appendStored = (zip, name, data) => {
+    const dir = centralDirectory(zip), nameBytes = new TextEncoder().encode(name), crc = crc32(data);
+    const local = new Uint8Array(30 + nameBytes.length), lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 10, true); lv.setUint32(14, crc, true);
+    lv.setUint32(18, data.length, true); lv.setUint32(22, data.length, true); lv.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    const central = new Uint8Array(46 + nameBytes.length), cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 10, true); cv.setUint32(16, crc, true);
+    cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true); cv.setUint16(28, nameBytes.length, true);
+    cv.setUint32(42, dir.offset, true);
+    central.set(nameBytes, 46);
+    const end = new Uint8Array(22), ev = new DataView(end.buffer);
+    ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, dir.count + 1, true); ev.setUint16(10, dir.count + 1, true);
+    ev.setUint32(12, dir.size + central.length, true); ev.setUint32(16, dir.offset + local.length + data.length, true);
+    return new Blob([zip.subarray(0, dir.offset), local, data, zip.subarray(dir.offset, dir.offset + dir.size), central, end]);
+  };
+  const program = (names) => {
+    const files = names.filter((name) => !name.endsWith("/"));
+    if (start) return files.find((name) => name.toUpperCase() === start.toUpperCase() || name.toUpperCase().endsWith("/" + start.toUpperCase()));
+    const rank = (name) => name.split("/").length * 10 + ({ BAT: 0, COM: 1, EXE: 2 }[name.split(".").pop().toUpperCase()] ?? 9);
+    return files.filter((name) => /\.(bat|com|exe)$/i.test(name)).sort((a, b) => rank(a) - rank(b))[0];
+  };
+  const dos = async () => {
+    const zip = new Uint8Array(await (await fetch(payloadUrl)).arrayBuffer());
+    const path = program(centralDirectory(zip).names);
+    if (!path) throw new Error("no program to start");
+    const parts = path.split("/"), exe = parts.pop(), top = parts[0], root = params.dos_root;
+    const conf = [
+      "[autoexec]", "@echo off", "mount e /", "mount c /tmp", "c:", "md \\" + root,
+      top ? "xcopy e:\\" + top + " c:\\" + root + "\\" + top + "\\ /s /e /i /q" : "xcopy e:\\*.* c:\\" + root + "\\ /s /e /i /q",
+      "cd \\" + [root, ...parts].join("\\"), "cls", /\.bat$/i.test(exe) ? "call " + exe : exe, ""
+    ].join("\r\n");
+    window.EJS_gameUrl = new File([appendStored(zip, "start.conf", new TextEncoder().encode(conf))], "game.zip");
+  };
+
+  (params.launcher === "dos" ? dos() : Promise.resolve()).then(() => {
+    const loader = document.createElement("script");
+    loader.src = runtimeUrl + "loader.js";
+    document.body.appendChild(loader);
+  });
 </script>
-<script src="{{ runtime_url }}loader.js"></script>
 </body>
 </html>

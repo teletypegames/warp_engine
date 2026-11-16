@@ -13,4 +13,5 @@ group :development, :test do
   gem "debug", platforms: %i[mri windows]
   gem "rubocop-rails-omakase", require: false
   gem "mcp", "~> 1.6"
+  gem "regexp_parser", "< 2.13"
 end

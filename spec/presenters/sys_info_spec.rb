@@ -149,7 +149,7 @@ RSpec.describe WarpEngine::SysInfo do
 
     it "calls a bound runtime that is not installed an error and an uploaded one not sent yet a warning" do
       expect(find("runtimes.emulatorjs.version")).to have_attributes(status: "error", value: "4.2.3 not installed")
-      expect(find("runtimes.emulatorjs.platforms").chips).to contain_exactly("c64", "plus4")
+      expect(find("runtimes.emulatorjs.platforms").chips).to contain_exactly("c64", "plus4", "dos")
       expect(find("runtimes.tic80.version")).to have_attributes(status: "warn", value: "none uploaded")
     end
 
@@ -160,7 +160,7 @@ RSpec.describe WarpEngine::SysInfo do
 
       expect(find("runtimes.emulatorjs.version")).to have_attributes(status: "ok", value: "4.2.3")
       expect(find("runtimes.emulatorjs.components"))
-        .to have_attributes(status: "error", chips: [ "core vice_x64sc", "core vice_xplus4 (missing)" ])
+        .to have_attributes(status: "error", chips: [ "core vice_x64sc", "core vice_xplus4 (missing)", "core dosbox_pure (missing)" ])
       expect(info.stats.find { |stat| stat.label == "Runtimes" }.value).to eq(1)
     end
 

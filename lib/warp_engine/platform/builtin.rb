@@ -64,6 +64,7 @@ module WarpEngine
       label "DOS"
       kind :cartridge, ext: ".zip", required: true
       kind :win_x86, optional: true
+      web :emulatorjs, core: "dosbox_pure", launcher: "dos", isolated: true
       release_rule :tag
       shelf_folder DosShelfFolder
     end

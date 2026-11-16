@@ -922,7 +922,7 @@ more than one runtime, one of them the default.
 
 | Builtin runtime | Files come from | Bound by |
 |---|---|---|
-| `emulatorjs` | downloaded from `cdn.emulatorjs.org`, SHA-256 checked per file (`lib/warp_engine/runtime/checksums/`), cores as components | `c64` (`vice_x64sc`), `plus4` (`vice_xplus4`) |
+| `emulatorjs` | downloaded from `cdn.emulatorjs.org`, SHA-256 checked per file (`lib/warp_engine/runtime/checksums/`), cores as components | `c64` (`vice_x64sc`), `plus4` (`vice_xplus4`), `dos` (`dosbox_pure`, isolated) |
 | `tic80` | uploaded by a build (`POST /build/runtime`): the player of a TIC-80 Pro build | `tic80` |
 
 ### Installing
@@ -969,6 +969,12 @@ WarpEngine.configure do
 end
 ```
 
+A DOS program plays from its cartridge zip as it is: the page appends a
+`start.conf` to the zip in the browser (DOSBox Pure takes a `.conf`), copies the
+program folder to `C:\APPS\` (where DOSINST installs it; the binding's
+`dos_root`) and starts `web.start` from `metadata.json`, or else the folder's
+`.BAT`, `.COM` or `.EXE`, in that order.
+
 A binding may say `isolated: true` when its runtime needs `SharedArrayBuffer` (a
 threaded core): the page is then served with `Cross-Origin-Opener-Policy` and
 `Cross-Origin-Embedder-Policy`. A template is plain HTML with `{{ title }}`
@@ -995,6 +1001,7 @@ it can play in now, with its URL: `/play/<name>/<version>/<binding>`).
 
 ```sh
 bin/rails warp_engine:runtimes:migrate DRY_RUN=1       # bind releases that play from an html folder holding the runtime bit for bit
+bin/rails warp_engine:runtimes:migrate UNPLAYED=1 PLATFORMS=dos EXCLUDE=dosinst,ttgwiki   # and the ones that never played on the web
 bin/rails warp_engine:runtimes:prune_html DRY_RUN=1    # then drop those html folders and zips
 bin/rails warp_engine:runtimes:rebind NAME=emulatorjs FROM=4.2.3 TO=4.2.4
 bin/rails warp_engine:runtimes:gc DRY_RUN=1            # versions no release uses
@@ -1594,6 +1601,14 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.2
+
+- **DOS plays on the web**: the `dos` platform binds to EmulatorJS with the
+  `dosbox_pure` core (cross-origin isolated). Run `runtimes:install` for the core
+  and `compression/extractzip.js`; new DOS releases bind on publish, the old ones
+  with `runtimes:migrate UNPLAYED=1 PLATFORMS=dos` (leave out the programs that
+  need a network with `EXCLUDE=`, or give them `"web": { "enabled": false }`).
 
 ## Upgrading to 3.1
 

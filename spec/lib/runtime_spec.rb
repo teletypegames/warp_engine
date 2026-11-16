@@ -13,7 +13,8 @@ RSpec.describe WarpEngine::Runtime do
       checksums = definition.versions.fetch("4.2.3").checksums
 
       expect(definition.base_files("4.2.3")).to contain_exactly("loader.js", "emulator.min.js", "emulator.min.css",
-                                                                 "version.json", "compression/extract7z.js")
+                                                                 "version.json", "compression/extract7z.js",
+                                                                 "compression/extractzip.js")
       expect(definition.components.fetch("core").files("vice_x64sc", checksums))
         .to contain_exactly("cores/vice_x64sc-wasm.data", "cores/vice_x64sc-legacy-wasm.data", "cores/reports/vice_x64sc.json")
       expect(definition.components.fetch("core").files("dosbox_pure", checksums))
@@ -24,8 +25,8 @@ RSpec.describe WarpEngine::Runtime do
     it "knows no platform; the platforms bound to it are read from their bindings" do
       runtime = described_class.find!("emulatorjs")
 
-      expect(runtime.platforms).to contain_exactly("c64", "plus4")
-      expect(runtime.required_components).to eq("core" => %w[vice_x64sc vice_xplus4])
+      expect(runtime.platforms).to contain_exactly("c64", "plus4", "dos")
+      expect(runtime.required_components).to eq("core" => %w[vice_x64sc vice_xplus4 dosbox_pure])
     end
   end
 

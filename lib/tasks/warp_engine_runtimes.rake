@@ -58,10 +58,12 @@ namespace :warp_engine do
       report.call("Releases moved", result, dry_run.call)
     end
 
-    desc "Bind the releases that play from an html folder to the runtime version the folder holds " \
-         "(PLATFORMS=c64,plus4; DRY_RUN=1 only lists)"
+    desc "Bind the releases that play from an html folder to the runtime version the folder holds; UNPLAYED=1 " \
+         "binds the ones without an html folder to the current version (PLATFORMS=c64,plus4; EXCLUDE=dosinst; DRY_RUN=1 only lists)"
     task migrate: :environment do
-      result = WarpEngine::RuntimeMaintenanceService.new.migrate(dry_run: dry_run.call, platforms: platforms.call)
+      result = WarpEngine::RuntimeMaintenanceService.new.migrate(dry_run: dry_run.call, platforms: platforms.call,
+                                                                  unplayed: ENV["UNPLAYED"] == "1",
+                                                                  exclude: ENV["EXCLUDE"].to_s.split(",").map(&:strip))
       report.call("Releases bound", result, dry_run.call)
     end
 

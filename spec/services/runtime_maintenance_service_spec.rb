@@ -79,4 +79,19 @@ RSpec.describe WarpEngine::RuntimeMaintenanceService do
     expect(File.exist?(File.join(tmpdir, "_runtimes/emulatorjs-4.2.2"))).to be(false)
     expect { service.rebind(name: "emulatorjs", from: "4.2.2", to: "4.2.3") }.to raise_error(ArgumentError, /not installed/)
   end
+
+  it "binds releases that never played on the web to the current version when asked, leaving out the excluded ones" do
+    version = installed
+    plain = create(:release, software: software, version: "2.0")
+    plain.release_assets.create!(kind: "cartridge", path: File.join(tmpdir, "rabbit-2.0.prg"))
+    other = create(:release, software: create(:software, name: "net", platform: "c64"), version: "1.0")
+    other.release_assets.create!(kind: "cartridge", path: File.join(tmpdir, "net-1.0.prg"))
+
+    expect(service.migrate(dry_run: false).count).to eq(0)
+    report = service.migrate(dry_run: false, unplayed: true, exclude: %w[net])
+
+    expect(report.count).to eq(1)
+    expect(plain.reload.runtime_version).to eq(version)
+    expect(other.reload.runtime_version).to be_nil
+  end
 end
