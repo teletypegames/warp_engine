@@ -13,6 +13,9 @@ module WarpEngine
     # Moves every root entry of the file container that belongs to a release
     # (deleted ones too) into that release's folder: a file keeps its name, an
     # unpacked folder gets its kind's (WarpEngine::ReleaseLayout.legacy_parts).
+    # An entry belongs to the release whose <tt>name-version</tt> it starts
+    # with, or to the release of an asset in the root whose name it starts
+    # the same way (a renamed software's files).
     # The paths of the WarpEngine::ReleaseAsset and WarpEngine::Download
     # records follow, then the outlets are refreshed. The reserved folders
     # (WarpEngine::ReleaseLayout.reserved), the software folders and the
@@ -26,7 +29,7 @@ module WarpEngine
         entry = path.basename.to_s
         next if entry.start_with?(".") || skipped.include?(entry)
 
-        name, version, new_name = WarpEngine::ReleaseLayout.legacy_parts(entry, releases)
+        name, version, new_name = WarpEngine::ReleaseLayout.legacy_parts(entry, owners)
         if name.nil?
           lines << "#{entry}: left, no release owns it"
           next
@@ -49,17 +52,15 @@ module WarpEngine
     # Returns where the flat-layout path +relative+ (relative to the file
     # container, e.g. <tt>game-1.0.prg</tt> or <tt>game-1.0/index.html</tt>)
     # is now, or +nil+ when it names no release's file or the file is not
-    # there.
+    # there. A file a renamed software's release still names after the old
+    # name is found by its asset record.
     def relocate(relative)
       entry, rest = relative.to_s.delete_prefix("/").split("/", 2)
-      return nil if entry.blank? || !entry.include?("-")
+      return nil if entry.blank?
 
-      name, version, new_name = WarpEngine::ReleaseLayout.legacy_parts(entry, releases_for(entry))
-      return nil if name.nil?
-
-      target = File.join(*[ WarpEngine::ReleaseLayout.directory(name, version), new_name, rest ].compact_blank)
+      target = by_release(entry, rest) || by_asset(entry, rest)
       storage = WarpEngine.storage
-      storage.file?(target) || storage.directory?(target) ? target : nil
+      target && (storage.file?(target) || storage.directory?(target)) ? target : nil
     end
 
     private
@@ -68,14 +69,38 @@ module WarpEngine
 
     def software_names = WarpEngine::Software.where.not(name: nil).pluck(:name)
 
-    def releases
-      @releases ||= WarpEngine::Release.joins(:software).where.not(version: nil).pluck("softwares.name", :version)
+    def owners
+      @owners ||= WarpEngine::ReleaseLayout.owners(release_pairs(WarpEngine::Release.all), root_assets)
     end
 
-    def releases_for(entry)
+    def release_pairs(scope) = scope.joins(:software).where.not(version: nil).pluck("softwares.name", :version)
+
+    def root_assets
+      prefix = "#{root.to_s.chomp('/')}/"
+      WarpEngine::ReleaseAsset.where("path LIKE ?", "#{WarpEngine::ReleaseAsset.sanitize_sql_like(prefix)}%")
+                              .includes(release: :software).each_with_object({}) do |asset, found|
+        entry = asset.path.to_s.delete_prefix(prefix).chomp("/")
+        next if entry.include?("/") || asset.release&.software&.name.blank? || asset.release.version.blank?
+
+        found[entry] = [ asset.release.software.name, asset.release.version ]
+      end
+    end
+
+    def by_release(entry, rest)
+      return nil unless entry.include?("-")
+
       names = WarpEngine::Software.where.not(name: nil).pluck(:name).select { |name| entry.start_with?("#{name}-") }
-      WarpEngine::Release.joins(:software).where(softwares: { name: names }).where.not(version: nil)
-                         .pluck("softwares.name", :version)
+      pairs = release_pairs(WarpEngine::Release.where(software_id: WarpEngine::Software.where(name: names).select(:id)))
+      name, version, new_name = WarpEngine::ReleaseLayout.legacy_parts(entry, WarpEngine::ReleaseLayout.owners(pairs))
+      name && File.join(*[ WarpEngine::ReleaseLayout.directory(name, version), new_name, rest ].compact_blank)
+    end
+
+    def by_asset(entry, rest)
+      asset = WarpEngine::ReleaseAsset.where("path LIKE ?", "%/#{WarpEngine::ReleaseAsset.sanitize_sql_like(entry)}").first
+      return nil if asset.nil?
+
+      relative = asset.path.to_s.delete_prefix("#{root.to_s.chomp('/')}/")
+      File.join(*[ relative, rest ].compact_blank)
     end
 
     def move(entry, target)

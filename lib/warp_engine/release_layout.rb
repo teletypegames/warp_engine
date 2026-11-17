@@ -35,23 +35,50 @@ module WarpEngine
     # Splits +entry+, a name of the flat layout, into the release it belonged
     # to and its name in that release's folder.
     #
-    # [entry]    a root entry of the old layout, e.g. <tt>game-1.0.prg</tt>
-    # [releases] the candidate <tt>[name, version]</tt> pairs; the longest
-    #            <tt>name-version</tt> that +entry+ starts with wins
+    # [entry]  a root entry of the old layout, e.g. <tt>game-1.0.prg</tt>
+    # [owners] a Hash of <tt>name-version</tt> prefix to the
+    #          <tt>[name, version]</tt> it stands for (#owners); the longest
+    #          prefix that +entry+ starts with wins
     #
     # Returns <tt>[name, version, new_name]</tt>, or +nil+ when +entry+ is no
     # release's. An unpacked folder (<tt>game-1.0</tt>, <tt>game-1.0-docs</tt>)
     # gets its kind's name, a file keeps its own.
-    def legacy_parts(entry, releases)
+    def legacy_parts(entry, owners)
       entry = entry.to_s
-      match = releases.select { |name, version| owns?(entry, "#{name}-#{version}") }
-                      .max_by { |name, version| "#{name}-#{version}".length }
-      return nil if match.nil?
+      prefix = owners.keys.select { |versioned| owns?(entry, versioned) }.max_by(&:length)
+      return nil if prefix.nil?
 
-      name, version = match
-      rest = entry.delete_prefix("#{name}-#{version}")
+      name, version = owners.fetch(prefix)
+      rest = entry.delete_prefix(prefix)
       unpacked = WarpEngine::AssetKinds::ALL.each_value.find { |kind| kind.unpacked? && kind.unpack_to == rest }
       [ name, version, unpacked ? unpacked.name : entry ]
+    end
+
+    # Returns the owners #legacy_parts takes: <tt>name-version</tt> of every
+    # <tt>[name, version]</tt> in +releases+, plus the prefix of every
+    # +aliases+ entry (an asset name of the flat layout to its release's
+    # <tt>[name, version]</tt>), so the files of a renamed software, still
+    # named after its old name, go with its release.
+    def owners(releases, aliases = {})
+      found = releases.to_h { |name, version| [ "#{name}-#{version}", [ name, version ] ] }
+      aliases.each do |asset_name, release|
+        prefix = legacy_prefix(asset_name)
+        found[prefix] ||= release if prefix.present?
+      end
+      found
+    end
+
+    # Returns the <tt>name-version</tt> part of +asset_name+, an asset of the
+    # flat layout: without the suffix of its kind (<tt>-win-x64.zip</tt>,
+    # <tt>-docs</tt>, ...), else without its extension.
+    def legacy_prefix(asset_name)
+      asset_name = asset_name.to_s
+      tails = WarpEngine::AssetKinds::ALL.each_value.flat_map { |kind| [ kind.suffix, kind.unpack_to ] }.compact_blank
+      tail = tails.select { |suffix| asset_name.end_with?(suffix) }.max_by(&:length)
+      return asset_name.delete_suffix(tail) if tail
+
+      extension = File.extname(asset_name)
+      extension.match?(/\A\.[A-Za-z0-9]+\z/) && !extension.match?(/\A\.\d+\z/) ? asset_name.delete_suffix(extension) : asset_name
     end
 
     # Returns +true+ when +entry+ is +versioned+ itself or starts with it and

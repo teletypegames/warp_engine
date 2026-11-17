@@ -29,7 +29,7 @@ RSpec.describe WarpEngine::ReleaseLayoutService do
   end
 
   describe WarpEngine::ReleaseLayout do
-    let(:releases) { [ %w[game 1], %w[game 1.0], %w[game-plus4 1.0] ] }
+    let(:releases) { described_class.owners([ %w[game 1], %w[game 1.0], %w[game-plus4 1.0] ]) }
 
     it "gives an entry to the longest name-version it starts with" do
       expect(described_class.legacy_parts("game-1.0.prg", releases)).to eq(%w[game 1.0 game-1.0.prg])
@@ -41,6 +41,16 @@ RSpec.describe WarpEngine::ReleaseLayoutService do
     it "names an unpacked folder after its kind" do
       expect(described_class.legacy_parts("game-1.0", releases)).to eq(%w[game 1.0 html])
       expect(described_class.legacy_parts("game-1.0-docs", releases)).to eq(%w[game 1.0 docs])
+    end
+
+    it "takes a renamed software's prefix from its assets" do
+      owners = described_class.owners([ %w[rabbitc64 1.0.0] ], "rabbit-1.0.0-win-x64.zip" => %w[rabbitc64 1.0.0],
+                                                               "rabbit-1.0.0" => %w[rabbitc64 1.0.0])
+
+      expect(owners.keys).to contain_exactly("rabbitc64-1.0.0", "rabbit-1.0.0")
+      expect(described_class.legacy_parts("rabbit-1.0.0.metadata.json", owners)).to eq(%w[rabbitc64 1.0.0 rabbit-1.0.0.metadata.json])
+      expect(described_class.legacy_prefix("labyrintwo-1.1.prg")).to eq("labyrintwo-1.1")
+      expect(described_class.legacy_prefix("game-1.0-docs")).to eq("game-1.0")
     end
 
     it "reserves the runtimes and the shelf roots" do
@@ -77,6 +87,19 @@ RSpec.describe WarpEngine::ReleaseLayoutService do
       expect(WarpEngine::Download.where(release: game).pluck(:file_path))
         .to contain_exactly("game/1.0/game-1.0.prg", "game/1.0/html/index.html")
       expect(WarpEngine::Outlets).to have_received(:refresh)
+    end
+
+    it "moves a renamed software's files with its release" do
+      rabbit = release("rabbitc64", "1.0.0")
+      prg = write("rabbit-1.0.0.prg")
+      write("rabbit-1.0.0.metadata.json")
+      WarpEngine::ReleaseAsset.create!(release: rabbit, kind: "cartridge", path: prg)
+
+      service.restructure(dry_run: false)
+
+      expect(Dir.children(File.join(container, "rabbitc64", "1.0.0")).sort).to eq(%w[rabbit-1.0.0.metadata.json rabbit-1.0.0.prg])
+      expect(rabbit.release_assets.reload.pluck(:path)).to eq([ File.join(container, "rabbitc64/1.0.0/rabbit-1.0.0.prg") ])
+      expect(described_class.new.relocate("rabbit-1.0.0.prg")).to eq("rabbitc64/1.0.0/rabbit-1.0.0.prg")
     end
 
     it "only lists on a dry run, and leaves an entry whose target exists" do
