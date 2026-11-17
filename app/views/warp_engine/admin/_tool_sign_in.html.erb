@@ -1,0 +1,45 @@
+<div class="we-ts">
+  <style>
+    .we-ts{--we-surface:rgb(var(--c-surface,250 250 250));--we-line:rgb(var(--c-line,228 228 231));--we-fg:rgb(var(--c-fg,24 24 27));--we-muted:rgb(var(--c-fg-muted,82 82 91));--we-accent:rgb(var(--c-accent,21 128 61));--we-accent-fg:rgb(var(--c-accent-fg,255 255 255));--we-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:var(--we-fg);font-family:ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:1.45;max-width:560px;display:flex;flex-direction:column;gap:16px}
+    .we-ts p{margin:0;color:var(--we-muted)}
+    .we-ts-card{background:var(--we-surface);border:1px solid var(--we-line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px}
+    .we-ts-code{font-family:var(--we-mono);font-size:22px;letter-spacing:.08em}
+    .we-ts-scopes{display:flex;flex-wrap:wrap;gap:6px}
+    .we-ts-scope{font-family:var(--we-mono);font-size:12.5px;border:1px solid var(--we-line);border-radius:4px;padding:2px 6px}
+    .we-ts-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .we-ts input[type=text]{font-family:var(--we-mono);font-size:16px;padding:6px 8px;text-transform:uppercase}
+    .we-ts .we-ts-primary{background:var(--we-accent);color:var(--we-accent-fg);border:0;border-radius:6px;padding:7px 14px;cursor:pointer;text-shadow:none;background-image:none;box-shadow:none}
+    .we-ts .we-ts-secondary{background:transparent;color:var(--we-fg);border:1px solid var(--we-line);border-radius:6px;padding:7px 14px;cursor:pointer;text-shadow:none;background-image:none;box-shadow:none}
+  </style>
+
+  <p>A tool on your computer (an editor extension, a script) asks for an Admin API token in your name. Approve it only if you started the sign-in and the code matches the one your tool shows.</p>
+
+  <% if grant %>
+    <div class="we-ts-card">
+      <div class="we-ts-code"><%= grant.formatted_user_code %></div>
+      <div><strong><%= grant.client_name.presence || "Unnamed tool" %></strong> asks for:</div>
+      <div class="we-ts-scopes">
+        <% Array(grant.scopes).each do |scope| %><span class="we-ts-scope"><%= scope %></span><% end %>
+      </div>
+      <div class="we-ts-row">
+        <%= form_tag admin_tool_sign_in_approve_path, method: :post do %>
+          <%= hidden_field_tag :code, grant.user_code %>
+          <button type="submit" class="we-ts-primary">Approve</button>
+        <% end %>
+        <%= form_tag admin_tool_sign_in_deny_path, method: :post do %>
+          <%= hidden_field_tag :code, grant.user_code %>
+          <button type="submit" class="we-ts-secondary">Deny</button>
+        <% end %>
+      </div>
+    </div>
+  <% else %>
+    <% if code.present? %><p>No pending tool sign-in has the code <strong><%= code %></strong>. It may have expired.</p><% end %>
+    <%= form_tag admin_tool_sign_in_path, method: :get, class: "we-ts-card" do %>
+      <label for="we-ts-code">The code your tool shows</label>
+      <div class="we-ts-row">
+        <%= text_field_tag :code, nil, id: "we-ts-code", placeholder: "ABCD-EFGH", autocomplete: "off", autofocus: true %>
+        <button type="submit" class="we-ts-primary">Continue</button>
+      </div>
+    <% end %>
+  <% end %>
+</div>

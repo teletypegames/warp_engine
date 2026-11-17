@@ -4,7 +4,10 @@ module WarpEngine
   # short +user_code+ the person enters on the verification page.
   #
   # Both codes are generated on create and +expires_at+ is set from the host's
-  # +device_code_ttl+. When the person approves, +subject+ is the account and
+  # +device_code_ttl+. A grant with +scopes+ (Admin API scopes) is a tool
+  # sign-in: an editor extension or a script asks for an Admin API token, and an
+  # administrator approves it in the admin; without +scopes+ it is a client
+  # sign-in for the catalog. When the person approves, +subject+ is the account and
   # +application_token+ the token issued to the device; +issued_token+ holds
   # the plain token until the device collects it or the grant expires.
   class DeviceGrant < ApplicationRecord
@@ -39,6 +42,10 @@ module WarpEngine
     def self.normalize_user_code(code)
       code.to_s.upcase.gsub(/[^A-Z0-9]/, "")
     end
+
+    # Returns whether the grant asks for Admin API +scopes+: a tool sign-in an
+    # administrator approves, not a catalog client's.
+    def tool? = Array(scopes).any?
 
     # Returns whether +expires_at+ has passed.
     def expired? = expires_at <= Time.current

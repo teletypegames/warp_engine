@@ -15,6 +15,7 @@ WarpEngine::Engine.routes.draw do
   post "build/runtime", to: "build/runtimes#create"
   get  "build/config",  to: "build/configs#show"
   post "build/config",  to: "build/configs#create"
+  post "build/check",  to: "build/checks#create"
   get  "build/platforms",                       to: "build/platforms#index"
   get  "build/platforms/:name",                 to: "build/platforms#show"
   get  "build/platforms/:name/metadata-schema", to: "build/platforms#metadata_schema"

@@ -59,7 +59,7 @@ module WarpEngine
 
         # The +Release+ schema, with its assets.
         def release
-          named("Release", { id: S.id, softwareId: S.integer, version: S.string,
+          named("Release", { id: S.id, softwareId: S.integer, version: S.string, commitSha: text,
                              assets: S.array(S.ref("ReleaseAsset")), **timestamps })
         end
 
@@ -187,7 +187,8 @@ module WarpEngine
         # The +PipelineRun+ schema, one run on the CI server.
         def pipeline_run
           named("PipelineRun", { number: S.integer, status: text, branch: text, message: text,
-                                 createdAt: S.nullable(S.datetime), url: text })
+                                 createdAt: S.nullable(S.datetime), url: text, commit: text, event: text,
+                                 ref: text })
         end
 
         # The +PipelineSync+ schema: the pipelines a sync created, updated and deactivated.

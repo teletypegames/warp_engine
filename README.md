@@ -871,6 +871,26 @@ WarpEngine.configure do
 end
 ```
 
+### Checking a publish before the push
+
+`POST /build/check` (a JSON body: `platform`, `metadata`, optional `version` and
+`kinds`) answers what the CI's publish would refuse, writing nothing:
+
+```json
+{ "ok": false, "problems": [ { "field": "shelf_name", "message": "RABBIT is taken on the C64 shelf", "level": "error" } ] }
+```
+
+It checks the required keys, keys a publish does not read, the shelf name, a stale
+version, software ownership (with a bearer token), the `web` section and the kinds
+the build would upload. An `error` would fail the publish, a `warning` would pass.
+
+### Which commit a release came from
+
+The publish step sends `CI_COMMIT_SHA` as `commit`; the release keeps it as
+`commitSha` (Admin API, filterable on `GET /softwares/:id/releases?commitSha=`), and a
+pipeline run reports its `commit`, `event` and `ref`, so a tool can tie the HEAD of a
+working copy to its run and its release.
+
 ### CI management (the Woodpecker adapter)
 
 Beyond serving pipeline configs, the adapter drives the Woodpecker REST API
@@ -1455,6 +1475,23 @@ The flow:
 4. the client's next `POST /api/auth/device/token` carries the token away. It is
    handed over exactly once and never stored in the clear afterwards.
 
+### Tool sign-in
+
+An editor extension or a script needs an Admin API token, not a catalog one, and it
+needs no person identity from the host: it asks for Admin API scopes, and an
+administrator approves it in the admin.
+
+1. the tool `POST`s `/api/auth/device` with `scopes[]` (`admin:read`, `admin:write`,
+   `admin:tokens`) and shows the `userCode`;
+2. an administrator opens `verificationUrlComplete` — by default the admin's
+   *Tool Sign In* page (`/admin/tool_sign_in?code=…`; `tool_verification_url` moves it),
+   sees the tool's name and the scopes, and approves or denies;
+3. the tool polls `POST /api/auth/device/token` as above and gets a token with the
+   scopes it asked for, owned by the approving administrator.
+
+A tool sign-in works wherever the Admin API is enabled; it needs no
+`access_token_owner_class`. A scope outside the Admin API ones answers 422.
+
 ### Recognising a browser
 
 A bearer token is what a *client* carries; a browser carries a session, and the
@@ -1663,6 +1700,13 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.6
+
+- Two migrations, both adding a column (`device_grants.scopes`, `releases.commit_sha`):
+  run `db:migrate`.
+- The generated publish step sends `commit=$CI_COMMIT_SHA`; an older engine ignores it.
+- The admin gets a *Tool Sign In* page (not in the menu, reached through the tool's link).
 
 ## Upgrading to 3.4
 

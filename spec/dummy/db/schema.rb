@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_16_224017) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_17_191000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -26,6 +26,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_224017) do
     t.string "device_code", limit: 64, null: false
     t.datetime "expires_at", precision: 3, null: false
     t.string "issued_token", limit: 64
+    t.json "scopes"
     t.bigint "subject_id", unsigned: true
     t.string "subject_type", limit: 128
     t.datetime "updated_at", precision: 3
@@ -113,6 +114,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_224017) do
   end
 
   create_table "releases", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "commit_sha", limit: 64
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
     t.bigint "runtime_version_id", unsigned: true
@@ -121,6 +123,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_224017) do
     t.string "version", limit: 64
     t.string "web_binding", limit: 32
     t.json "web_options"
+    t.index ["commit_sha"], name: "idx_releases_commit_sha"
     t.index ["deleted_at"], name: "idx_releases_deleted_at"
     t.index ["runtime_version_id"], name: "idx_releases_runtime_version_id"
     t.index ["software_id"], name: "idx_releases_software_id"

@@ -214,6 +214,9 @@ module WarpEngine
             message:    nil,
             created_at: created,
             url:        remote["web_url"],
+            commit:     remote["sha"],
+            event:      remote["source"],
+            ref:        remote["tag"] ? "refs/tags/#{remote['ref']}" : "refs/heads/#{remote['ref']}",
             raw:        remote
           )
         end

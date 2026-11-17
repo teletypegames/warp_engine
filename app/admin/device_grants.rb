@@ -2,7 +2,7 @@ ActiveAdmin.register WarpEngine::DeviceGrant, as: "Device Sign-in" do
   actions :index, :show
 
   menu parent: "WarpEngine", priority: 10, label: "Device Sign-ins",
-       if: proc { WarpEngine.identity_configured? }
+       if: proc { WarpEngine.identity_configured? || WarpEngine.config.admin_api.enabled? }
 
   config.sort_order = "created_at_desc"
   config.batch_actions = false

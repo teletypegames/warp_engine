@@ -225,6 +225,9 @@ module WarpEngine
             message:    remote["message"],
             created_at: remote["created"] ? Time.zone.at(remote["created"]) : nil,
             url:        remote["forge_url"] || remote["link_url"],
+            commit:     remote["commit"],
+            event:      remote["event"],
+            ref:        remote["ref"],
             raw:        remote
           )
         end

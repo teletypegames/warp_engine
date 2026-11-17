@@ -1,11 +1,13 @@
 module WarpEngine
   module Admin
-    # Admin API view of a WarpEngine::Release: id, software id, version, its
-    # assets sorted by kind (as ReleaseAssetSerializer) and timestamps.
+    # Admin API view of a WarpEngine::Release: id, software id, version, the
+    # commit the CI built it from, its assets sorted by kind (as
+    # ReleaseAssetSerializer) and timestamps.
     class ReleaseSerializer < Blueprinter::Base
       identifier :id
       field :software_id, name: :softwareId
       field :version
+      field :commit_sha, name: :commitSha
       field(:assets) { |release| ReleaseAssetSerializer.render_as_hash(release.release_assets.sort_by(&:kind)) }
       include Timestamps
     end

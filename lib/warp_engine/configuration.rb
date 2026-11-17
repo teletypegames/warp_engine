@@ -26,6 +26,8 @@ module WarpEngine
     # [access_token_owner_class]      class name of the client sign-in subject; +nil+ (default) disables sign-in
     # [subject_resolver]              callable taking the request and returning the session subject, or +nil+
     # [identity_verification_url]     the page a user approves a device code on
+    # [tool_verification_url]         the page an administrator approves a tool's
+    #                                 device code on (default: the admin's tool sign-in)
     # [device_code_ttl]               device code lifetime in seconds (default 600)
     # [device_code_interval]          minimum polling interval for device codes in seconds (default 5)
     # [ignored_user_agents]           user agent patterns (strings with <tt>*</tt> wildcards or regexps) the
@@ -54,6 +56,7 @@ module WarpEngine
                   :access_token_owner_class,
                   :subject_resolver,
                   :identity_verification_url,
+                  :tool_verification_url,
                   :device_code_ttl,
                   :device_code_interval,
                   :ignored_user_agents,
@@ -104,6 +107,7 @@ module WarpEngine
       @access_token_owner_class      = nil
       @subject_resolver              = nil
       @identity_verification_url     = nil
+      @tool_verification_url         = nil
       @device_code_ttl               = 600
       @device_code_interval          = 5
       @ignored_user_agents           = []

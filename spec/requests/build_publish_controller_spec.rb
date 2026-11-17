@@ -81,6 +81,24 @@ RSpec.describe "POST /build/publish", type: :request do
                                                  "platform" => "tic80", "version" => "1.0")
   end
 
+  it "stores the commit the CI built on the release" do
+    release = create(:release, version: "1.0")
+    allow(stub_updater).to receive(:publish).and_return(release)
+
+    publish(params: { commit: "0123456789abcdef0123456789abcdef01234567" })
+
+    expect(response).to have_http_status(:ok)
+    expect(release.reload.commit_sha).to eq("0123456789abcdef0123456789abcdef01234567")
+  end
+
+  it "refuses a commit that is no hex id" do
+    stub_updater
+
+    publish(params: { commit: "main; rm -rf" })
+
+    expect(response).to have_http_status(:bad_request)
+  end
+
   it "requires name, platform and version" do
     %i[name platform version].each do |key|
       publish(params: { key => "" })

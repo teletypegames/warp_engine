@@ -22,6 +22,7 @@ module WarpEngine
     def publish(input)
       refuse_stale!(input)
       release = WarpEngine::Platform.find!(input.platform).publish(input.name, input.version)
+      release.update!(commit_sha: input.commit) if input.try(:commit).present? && release.respond_to?(:commit_sha)
 
       ActiveSupport::Notifications.instrument(
         NOTIFICATION,
@@ -35,16 +36,24 @@ module WarpEngine
       release
     end
 
+    # Returns why publishing +version+ of the software +name+ would be refused
+    # as stale (a newer version is published already), or +nil+ when it would
+    # not. A <tt>dev-</tt> version is never stale.
+    def stale_reason(name, version)
+      comparable_version = comparable(version)
+      return nil if comparable_version.nil?
+
+      newest = WarpEngine::Software.find_by(name: name)&.releases.to_a.filter_map { |release| comparable(release.version) }.max
+      return nil if newest.nil? || comparable_version >= newest
+
+      "#{name} #{version} is older than #{newest}, which is published already"
+    end
+
     private
 
     def refuse_stale!(input)
-      version = comparable(input.version)
-      return if version.nil?
-
-      newest = WarpEngine::Software.find_by(name: input.name)&.releases.to_a.filter_map { |release| comparable(release.version) }.max
-      return if newest.nil? || version >= newest
-
-      raise StaleVersionError, "#{input.name} #{input.version} is older than #{newest}, which is published already"
+      reason = stale_reason(input.name, input.version)
+      raise StaleVersionError, reason if reason
     end
 
     def comparable(version)

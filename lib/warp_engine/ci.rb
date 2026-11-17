@@ -56,8 +56,12 @@ module WarpEngine
     # [message]    the commit message, when the provider gives one
     # [created_at] the start time as a Time, or +nil+
     # [url]        the link to the run or commit on the forge
+    # [commit]     the hex id of the commit built, when the provider gives it
+    # [event]      what started the run (+push+, +tag+, +pull_request+, +manual+ ...)
+    # [ref]        the full ref built, e.g. <tt>refs/tags/v1.0.0</tt>
     # [raw]        the provider's response Hash
-    Run = Struct.new(:number, :status, :branch, :message, :created_at, :url, :raw, keyword_init: true) do
+    Run = Struct.new(:number, :status, :branch, :message, :created_at, :url, :commit, :event, :ref, :raw,
+                     keyword_init: true) do
       # Returns +true+ when the run's status is +success+.
       def success? = status.to_s == "success"
 
@@ -69,7 +73,10 @@ module WarpEngine
           branch:    branch,
           message:   message,
           createdAt: created_at&.utc&.iso8601,
-          url:       url
+          url:       url,
+          commit:    commit,
+          event:     event,
+          ref:       ref
         }
       end
     end
