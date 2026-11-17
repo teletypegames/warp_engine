@@ -1,6 +1,6 @@
 REGISTRY = ENV.fetch("WARP_REGISTRY", "git.teletypegames.org/build")
 TOOLING_HOST = ENV.fetch("WARP_TOOLING_HOST", "https://git.teletypegames.org")
-IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.17")
+IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.17.2")
 
 TOOLS_IMAGE = "#{REGISTRY}/ci-tools@sha256:8bb7d77188d3d48ac8c2b1aeea3476f39f41f270e90bdc64ba7b4a35e8037519".freeze
 COMMODORE_PLAYER = "#{REGISTRY}/commodore-player:#{IMAGES}".freeze
