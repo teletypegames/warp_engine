@@ -35,7 +35,7 @@ steps:
         echo "==> Patching player.js"
         sed -i.bak "s|uri = 'nogame\.love'|uri = '<%= name %>.love'|g" dist/web/player.js && rm dist/web/player.js.bak
         echo "==> Patching index.html"
-        sed -i.bak 's|<base href="/play/">|<base href="/file/<%= name %>-'"$VERSION"'/">|g' dist/web/index.html && rm dist/web/index.html.bak
+        sed -i.bak 's|<base href="/play/">|<base href="/file/<%= name %>/'"$VERSION"'/html/">|g' dist/web/index.html && rm dist/web/index.html.bak
         echo "==> Web build ready in dist/web"
         echo "==> Packaging web build for $VERSION"
         (cd dist/web && zip -r ../../<%= name %>-$VERSION.html.zip .)

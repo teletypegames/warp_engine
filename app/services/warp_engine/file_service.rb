@@ -11,8 +11,10 @@ module WarpEngine
     # Returns a WarpEngine::FileResultDto: an <tt>:index</tt> result naming
     # <tt>dir/index.html</tt> for a directory that has one (the controller
     # turns it into a URL), the file (a local path or a storage redirect) for a
-    # file, not found otherwise. Raises WarpEngine::AccessDenied when the
-    # access policy refuses the file.
+    # file, a <tt>:moved</tt> result for a path of the flat layout before 3.4
+    # that is now in a release's folder
+    # (WarpEngine::ReleaseLayoutService#relocate), not found otherwise.
+    # Raises WarpEngine::AccessDenied when the access policy refuses the file.
     def show(path:, subject: nil)
       relative = path.to_s
 
@@ -23,7 +25,10 @@ module WarpEngine
         return FileResultDto.index(index)
       end
 
-      return FileResultDto.not_found unless storage.file?(relative)
+      unless storage.file?(relative)
+        moved = WarpEngine::ReleaseLayoutService.new.relocate(relative)
+        return moved ? FileResultDto.moved(moved) : FileResultDto.not_found
+      end
 
       authorize!(relative, subject)
 

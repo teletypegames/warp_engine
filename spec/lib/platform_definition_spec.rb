@@ -37,7 +37,7 @@ RSpec.describe WarpEngine::Platform do
       docs = WarpEngine::AssetKinds.fetch("docs")
       cartridge = WarpEngine::AssetKinds.fetch("cartridge")
 
-      expect([ docs.upload_name("g-1.0"), docs.asset_name("g-1.0") ]).to eq(%w[g-1.0-docs.zip g-1.0-docs])
+      expect([ docs.upload_name("g-1.0"), docs.asset_name("g-1.0") ]).to eq(%w[g-1.0-docs.zip docs])
       expect(cartridge.upload_name("g-1.0", ext: ".prg")).to eq("g-1.0.prg")
       expect { cartridge.upload_name("g-1.0") }.to raise_error(ArgumentError)
       expect(WarpEngine::ReleaseAsset::KINDS).to eq(WarpEngine::AssetKinds.names)
@@ -77,8 +77,9 @@ RSpec.describe WarpEngine::Platform do
     end
 
     it "publishes through the engine's own steps" do
-      File.write(File.join(dir, "lemmings-1.0.metadata.json"), { name: "lemmings", title: "Lemmings" }.to_json)
-      File.binwrite(File.join(dir, "lemmings-1.0.adf"), "ADF")
+      FileUtils.mkdir_p(File.join(dir, "lemmings", "1.0"))
+      File.write(File.join(dir, "lemmings", "1.0", "lemmings-1.0.metadata.json"), { name: "lemmings", title: "Lemmings" }.to_json)
+      File.binwrite(File.join(dir, "lemmings", "1.0", "lemmings-1.0.adf"), "ADF")
 
       release = described_class.find!("amiga").publish("lemmings", "1.0")
 

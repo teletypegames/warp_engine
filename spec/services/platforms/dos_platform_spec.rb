@@ -4,18 +4,19 @@ RSpec.describe "the dos platform" do
   let(:platform) { WarpEngine::Platform.find!("dos") }
 
   let(:tmpdir) { Dir.mktmpdir }
+  let(:dir) { FileUtils.mkdir_p(File.join(tmpdir, "dosinst", "0.6.0")).first }
 
   before do
     allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
-    File.write(File.join(tmpdir, "dosinst-0.6.0.metadata.json"),
+    File.write(File.join(dir, "dosinst-0.6.0.metadata.json"),
                { name: "dosinst", title: "DOSINST", author: "Teletype Games", category: "tool" }.to_json)
-    File.binwrite(File.join(tmpdir, "dosinst-0.6.0.zip"), "PK dos")
+    File.binwrite(File.join(dir, "dosinst-0.6.0.zip"), "PK dos")
   end
 
   after { FileUtils.remove_entry(tmpdir) }
 
   it "takes the program folder as the cartridge and the Win32 folder as win_x86" do
-    File.binwrite(File.join(tmpdir, "dosinst-0.6.0-win-x86.zip"), "PK win32")
+    File.binwrite(File.join(dir, "dosinst-0.6.0-win-x86.zip"), "PK win32")
 
     release = platform.publish("dosinst", "0.6.0").reload
 
@@ -32,7 +33,7 @@ RSpec.describe "the dos platform" do
 
   it "is download only" do
     release = platform.publish("dosinst", "0.6.0").reload
-    release.release_assets.build(kind: "html", path: File.join(tmpdir, "dosinst-0.6.0"))
+    release.release_assets.build(kind: "html", path: File.join(dir, "dosinst-0.6.0"))
 
     expect(release).not_to be_valid
     expect(release.errors[:base].join).to include("DOS releases cannot be web playable")

@@ -14,7 +14,7 @@ steps:
           npm run build
           # A Vite kimenete onmagaban teljes: index.html + a beforgatott
           # assetek. A vite.config base-enek relativnak kell lennie, mert a
-          # jatek a /file/<nev>-<verzio>/ alkonyvtarbol szolgal ki.
+          # jatek a /file/<nev>/<verzio>/html/ alkonyvtarbol szolgal ki.
           if [ ! -f dist/index.html ]; then
             echo "ERROR: a build nem hagyott dist/index.html-t" >&2
             exit 1

@@ -38,14 +38,16 @@ module WarpEngine
 
     # Writes +uploaded_file+ (an uploaded file with +original_filename+, +size+
     # and +to_io+) into the directory +relative_dir+ under its sanitized name,
-    # overwriting a file of that name. Returns the new file's relative path.
+    # overwriting a file of that name. With +create+ the directory is made
+    # first when it is missing. Returns the new file's relative path.
     # Raises ArgumentError when the file is larger than
     # <tt>WarpEngine.config.max_upload_size</tt>, the target is not a directory, or
     # the name is empty or unsafe.
-    def upload(relative_dir, uploaded_file)
+    def upload(relative_dir, uploaded_file, create: false)
       max = WarpEngine.config.max_upload_size
       raise ArgumentError, "File too large (max #{max / (1024 * 1024)}MB)" if uploaded_file.size > max
       dir = safe_path!(relative_dir)
+      FileUtils.mkdir_p(dir) if create
       raise ArgumentError, "Not a directory" unless dir.directory?
 
       safe_name = sanitize_name(uploaded_file.original_filename)

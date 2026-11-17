@@ -389,7 +389,8 @@ lines build; the class takes the same settings as keywords (`subject:`,
 
 Publishing a release from CI is two steps:
 
-1. **Upload** build artifacts into `file_container_path`, named by convention:
+1. **Upload** build artifacts into the release's folder of `file_container_path`
+   (`<name>/<version>/`, see [File layout](#file-layout)), named by convention:
    `<name>-<version>.metadata.json`, `<name>-<version>.html.zip`,
    `<name>-<version>-win-x64.zip`, `<name>-<version>.tic`, ... (each platform
    declares which asset kinds it expects — see `GET /api/builds`). Push them
@@ -867,6 +868,34 @@ server's repos is an admin-only endpoint (anything less yields
 `403 User not authorized`). Add the user to `WOODPECKER_ADMIN` on the
 Woodpecker server, then log out and back in: the admin flag is written to
 the user record at login, a server restart alone is not enough.
+
+## File layout
+
+Every release has its own folder in `file_container_path`, `<name>/<version>/`:
+
+```
+mygame/1.2.0/mygame-1.2.0.metadata.json
+mygame/1.2.0/mygame-1.2.0.html.zip
+mygame/1.2.0/mygame-1.2.0-win-x64.zip
+mygame/1.2.0/html/index.html          # the html zip, unpacked
+mygame/1.2.0/docs/                    # the docs zip, unpacked
+_runtimes/emulatorjs-4.2.3/           # the installed runtimes
+shelves/C64/                          # the outlets' folders
+```
+
+The uploads keep their names, so a download is still called
+`mygame-1.2.0-win-x64.zip`; a kind the engine unpacks becomes a folder named after
+the kind. `POST /build/upload` writes into the folder and refuses a software name
+that is one of the root folders the engine keeps for itself (`_runtimes` and the
+first folder of every outlet path, `WarpEngine::ReleaseLayout.reserved`).
+
+Before 3.4 the container was flat (`mygame-1.2.0.prg`, `mygame-1.2.0/` for the
+html build, `mygame-1.2.0-docs/`). `bin/rails warp_engine:files:restructure`
+(`DRY_RUN=1` only lists) moves such entries into their release's folder and points
+the asset and download records at the new paths; an entry no release owns stays
+where it is and is listed. The old URLs keep working: `GET /file/<old path>`
+answers 301 with the new place, and `GET /api/download?path=<old path>` serves the
+file from it.
 
 ## Storage
 
@@ -1602,6 +1631,18 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.4
+
+- **A folder per release**: uploads land in `<name>/<version>/` and an unpacked kind
+  is a folder named after the kind (`html/`, `docs/`); see [File layout](#file-layout).
+  After deploying, run `bin/rails warp_engine:files:restructure DRY_RUN=1`, read the
+  list, then run it without `DRY_RUN`. The old flat URLs redirect to the new ones.
+- **`AssetKind#asset_name`** of an unpacked kind is the kind name (`html`), no longer
+  `<name>-<version><unpack_to>`; `unpack_to` only names the old flat folder.
+- **LÖVE web builds** set `<base href="/file/<name>/<version>/html/">`.
+- A legacy `Updatable` service's `full_path` is in the release's folder during
+  `update`.
 
 ## Upgrading to 3.3
 

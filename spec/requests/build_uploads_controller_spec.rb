@@ -42,9 +42,9 @@ RSpec.describe "POST /build/upload", type: :request do
 
     expect(response).to have_http_status(:ok)
     body = JSON.parse(response.body)
-    expect(body["file"]).to eq("game-1.0.html.zip")
+    expect(body["file"]).to eq("game/1.0/game-1.0.html.zip")
     expect(body["sha256"]).to eq(Digest::SHA256.hexdigest("zipdata"))
-    expect(File.read(File.join(tmpdir, "game-1.0.html.zip"))).to eq("zipdata")
+    expect(File.read(File.join(tmpdir, "game", "1.0", "game-1.0.html.zip"))).to eq("zipdata")
   end
 
   it "accepts binary target artifacts with the <name>-<version>- prefix" do
@@ -57,7 +57,15 @@ RSpec.describe "POST /build/upload", type: :request do
     upload(file: artifact("other-2.0.html.zip"))
 
     expect(response).to have_http_status(:bad_request)
-    expect(File.exist?(File.join(tmpdir, "other-2.0.html.zip"))).to be(false)
+    expect(File.exist?(File.join(tmpdir, "other", "2.0", "other-2.0.html.zip"))).to be(false)
+  end
+
+  it "refuses a reserved folder or dots as the name" do
+    upload(file: artifact("_runtimes-1.0.zip"), name: "_runtimes")
+    expect(response).to have_http_status(:bad_request)
+
+    upload(file: artifact("..-1.0.zip"), name: "..")
+    expect(response).to have_http_status(:bad_request)
   end
 
   it "requires name and version" do
@@ -86,7 +94,7 @@ RSpec.describe "POST /build/upload", type: :request do
     upload(file: artifact("game-1.0.html.zip"), extra: { sha256: "0" * 64 })
 
     expect(response).to have_http_status(:unprocessable_entity)
-    expect(File.exist?(File.join(tmpdir, "game-1.0.html.zip"))).to be(false)
+    expect(File.exist?(File.join(tmpdir, "game", "1.0", "game-1.0.html.zip"))).to be(false)
   end
 
   it "accepts a matching sha256" do

@@ -45,9 +45,10 @@ RSpec.describe WarpEngine::Publish::WebBinder do
 
   it "binds on publish, from the metadata.json web section" do
     version = emulatorjs(%w[vice_x64sc])
-    File.write(File.join(tmpdir, "rabbit-1.0.metadata.json"),
+    FileUtils.mkdir_p(File.join(tmpdir, "rabbit", "1.0"))
+    File.write(File.join(tmpdir, "rabbit", "1.0", "rabbit-1.0.metadata.json"),
                { name: "rabbit", title: "Rabbit", web: { params: { options: { "speed" => "1" } } } }.to_json)
-    File.binwrite(File.join(tmpdir, "rabbit-1.0.prg"), "\x01\x08")
+    File.binwrite(File.join(tmpdir, "rabbit", "1.0", "rabbit-1.0.prg"), "\x01\x08")
 
     published = c64.publish("rabbit", "1.0").reload
 

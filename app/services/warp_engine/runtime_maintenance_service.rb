@@ -80,7 +80,7 @@ module WarpEngine
 
         html.soft_delete!
         FileUtils.rm_rf(html.path.to_s)
-        FileUtils.rm_f("#{html.path.to_s.chomp('/')}.html.zip")
+        FileUtils.rm_f(File.join(File.dirname(html.path.to_s.chomp("/")), "#{release.software.name}-#{release.version}.html.zip"))
       end
       Report.new(lines, count)
     end

@@ -1,7 +1,9 @@
 module WarpEngine
   # Validated input of <tt>POST /build/upload</tt>. +name+ and +version+ must
-  # match NAME_FORMAT, +file+ must be an uploaded file, and its file name must
-  # start with <tt><name>-<version>.</tt> or <tt><name>-<version>-</tt>.
+  # match NAME_FORMAT (and not be dots only), the name must not be a reserved
+  # folder of the file container (WarpEngine::ReleaseLayout.reserved), +file+
+  # must be an uploaded file, and its file name must start with
+  # <tt><name>-<version>.</tt> or <tt><name>-<version>-</tt>.
   class UploadInputDto
     include ActiveModel::Model
 
@@ -16,6 +18,7 @@ module WarpEngine
 
     validates :name, format: { with: NAME_FORMAT }
     validates :version, format: { with: NAME_FORMAT }
+    validate :not_a_folder_name
     validate :file_present
     validate :filename_prefixed
 
@@ -31,6 +34,11 @@ module WarpEngine
     def error_message = errors.full_messages.to_sentence
 
     private
+
+    def not_a_folder_name
+      errors.add(:name, "is a reserved folder") if WarpEngine::ReleaseLayout.reserved?(name)
+      %i[name version].each { |field| errors.add(field, "must not be dots only") if public_send(field).to_s.match?(/\A\.+\z/) }
+    end
 
     def file_present
       return if file.respond_to?(:original_filename)

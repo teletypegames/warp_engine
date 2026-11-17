@@ -8,13 +8,14 @@ RSpec.describe "the tic80 platform" do
   let(:name) { "spectic" }
   let(:version) { "9.9" }
   let(:versioned) { "#{name}-#{version}" }
+  let(:dir) { FileUtils.mkdir_p(File.join(tmpdir, name, version)).first }
 
   before do
     allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
 
     write_zip("#{versioned}.html.zip", "index.html" => "<html></html>")
-    File.write(File.join(tmpdir, "#{versioned}.tic"), "TIC!")
-    File.write(File.join(tmpdir, "#{versioned}.lua"), <<~LUA)
+    File.write(File.join(dir, "#{versioned}.tic"), "TIC!")
+    File.write(File.join(dir, "#{versioned}.lua"), <<~LUA)
       -- title: Spec TIC
       -- name: #{name}
       -- author: RSpec
@@ -37,7 +38,7 @@ RSpec.describe "the tic80 platform" do
   end
 
   def write_zip(filename, entries)
-    Zip::File.open(File.join(tmpdir, filename), create: true) do |zip|
+    Zip::File.open(File.join(dir, filename), create: true) do |zip|
       entries.each do |entry_name, content|
         zip.get_output_stream(entry_name) { |io| io.write(content) }
       end
@@ -58,7 +59,7 @@ RSpec.describe "the tic80 platform" do
     release = platform.publish(name, version)
     expect(WarpEngine::Software.find(release.software_id).category).to be_nil
 
-    File.write(File.join(tmpdir, "#{versioned}.lua"), <<~LUA)
+    File.write(File.join(dir, "#{versioned}.lua"), <<~LUA)
       -- title: Spec TIC
       -- name: #{name}
       -- category: puzzle

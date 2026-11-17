@@ -13,6 +13,9 @@ module WarpEngine
     # [subject]    the caller, or +nil+ when anonymous
     # [request]    the Rack request, passed to the access policy
     #
+    # A path of the flat layout before 3.4 is served from where it is now
+    # (WarpEngine::ReleaseLayoutService#relocate) and logged under that path.
+    #
     # Returns the WarpEngine::Storage::Location of the file (a local path or a
     # redirect URL, named and expiring as the policy's grant says), or +nil+ when
     # there is no such file. Writes a WarpEngine::Download and instruments
@@ -21,6 +24,7 @@ module WarpEngine
     # access policy refuses.
     def locate(path:, ip:, user_agent:, referer:, subject: nil, request: nil)
       relative = path.to_s
+      relative = WarpEngine::ReleaseLayoutService.new.relocate(relative) || relative unless storage.file?(relative)
       return nil unless storage.file?(relative)
 
       asset = find_asset(relative)

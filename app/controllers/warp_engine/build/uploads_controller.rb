@@ -12,7 +12,7 @@ module WarpEngine
         short "Build artifact upload"
       end
 
-      api :POST, "/build/upload", "Upload a build artifact into the artifact directory"
+      api :POST, "/build/upload", "Upload a build artifact into the folder of its release"
       header "X-Update-Secret", "Shared secret or application token (upload scope)", required: true
       param :name, String, required: true, desc: "Software name (filename must be prefixed with <name>-<version>)"
       param :version, String, required: true, desc: "Version string"
@@ -31,7 +31,8 @@ module WarpEngine
       # [file]    the artifact, its file name prefixed with <tt><name>-<version></tt>
       # [sha256]  optional expected SHA-256 hex digest
       #
-      # Stores the file through WarpEngine::FileManagerService and renders
+      # Stores the file in the release's folder (WarpEngine::ReleaseLayout)
+      # through WarpEngine::FileManagerService and renders
       # <tt>{ "file", "size", "sha256" }</tt>. Responds 401 without a valid
       # credential, 400 for invalid input (WarpEngine::UploadInputDto), 403 when
       # the token does not own the software, 413 above +max_upload_size+ and 422
@@ -63,7 +64,7 @@ module WarpEngine
           return render json: { error: "SHA256 mismatch" }, status: :unprocessable_entity
         end
 
-        stored = WarpEngine::FileManagerService.new.upload("", input.file)
+        stored = WarpEngine::FileManagerService.new.upload(WarpEngine::ReleaseLayout.directory(input.name, input.version), input.file, create: true)
         render json: { file: stored, size: input.file.size, sha256: digest }
       end
     end

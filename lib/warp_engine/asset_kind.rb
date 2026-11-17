@@ -1,12 +1,14 @@
 module WarpEngine
   # One kind of release asset and how it travels from the CI to the file
   # container: the upload is <tt><name>-<version></tt> plus +suffix+ (+nil+ when
-  # the platform supplies the extension, as for +cartridge+ and +source+), and
-  # an +unpack_to+ suffix marks a zip the engine unpacks into a directory
-  # (<tt><name>-<version><unpack_to></tt>), which then is the asset.
+  # the platform supplies the extension, as for +cartridge+ and +source+). A
+  # kind with an +unpack_to+ is a zip the engine unpacks into a folder named
+  # after the kind in the release's folder (WarpEngine::ReleaseLayout), which
+  # then is the asset; +unpack_to+ is what followed <tt><name>-<version></tt>
+  # in that folder's name in the flat layout before 3.4.
   #
   #   WarpEngine::AssetKinds.fetch("docs").upload_name("game-1.0") # => "game-1.0-docs.zip"
-  #   WarpEngine::AssetKinds.fetch("docs").asset_name("game-1.0")  # => "game-1.0-docs"
+  #   WarpEngine::AssetKinds.fetch("docs").asset_name("game-1.0")  # => "docs"
   AssetKind = ::Data.define(:name, :suffix, :unpack_to) do
     # Returns the uploaded file name of the kind for +versioned+
     # (<tt>name-version</tt>). +ext+ is the extension of a kind without a
@@ -21,9 +23,9 @@ module WarpEngine
     # Returns +true+ when the upload is a zip the engine unpacks.
     def unpacked? = !unpack_to.nil?
 
-    # Returns the name of the asset in the file container: the unpacked
-    # directory, or the upload itself.
-    def asset_name(versioned, ext: nil) = unpacked? ? "#{versioned}#{unpack_to}" : upload_name(versioned, ext: ext)
+    # Returns the name of the asset in the release's folder: the unpacked
+    # folder (the kind name), or the upload itself.
+    def asset_name(versioned, ext: nil) = unpacked? ? name : upload_name(versioned, ext: ext)
   end
 
   # The registry of every AssetKind, in the order the catalog lists them.

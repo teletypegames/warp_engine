@@ -234,12 +234,12 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder do
 
     it "fills the shelf when a release is published" do
       software = create(:software, name: "ariadne", title: "Ariadne", platform: "c64", status: "released")
-      FileUtils.mkdir_p(container)
-      File.binwrite(File.join(container, "ariadne-1.0.0.prg"), "prg")
-      Zip::File.open(File.join(container, "ariadne-1.0.0.html.zip"), Zip::File::CREATE) do |zip|
+      folder = FileUtils.mkdir_p(File.join(container, "ariadne", "1.0.0")).first
+      File.binwrite(File.join(folder, "ariadne-1.0.0.prg"), "prg")
+      Zip::File.open(File.join(folder, "ariadne-1.0.0.html.zip"), Zip::File::CREATE) do |zip|
         zip.get_output_stream("index.html") { |io| io.write("<html></html>") }
       end
-      File.write(File.join(container, "ariadne-1.0.0.metadata.json"),
+      File.write(File.join(folder, "ariadne-1.0.0.metadata.json"),
                  { name: "ariadne", title: "Ariadne", shelf_name: "ARIADNE" }.to_json)
 
       WarpEngine::PublishService.new.publish(

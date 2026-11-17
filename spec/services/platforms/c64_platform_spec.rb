@@ -4,12 +4,13 @@ RSpec.describe "the c64 platform" do
   let(:platform) { WarpEngine::Platform.find!("c64") }
 
   let(:tmpdir) { Dir.mktmpdir }
+  let(:dir) { FileUtils.mkdir_p(File.join(tmpdir, "warp64u", "0.1.1")).first }
 
   before do
     allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
-    File.write(File.join(tmpdir, "warp64u-0.1.1.metadata.json"),
+    File.write(File.join(dir, "warp64u-0.1.1.metadata.json"),
                { name: "warp64u", title: "WARP64U", author: "Teletype Games", category: "tool" }.to_json)
-    File.binwrite(File.join(tmpdir, "warp64u-0.1.1.prg"), "\x01\x08prg")
+    File.binwrite(File.join(dir, "warp64u-0.1.1.prg"), "\x01\x08prg")
   end
 
   after { FileUtils.remove_entry(tmpdir) }
@@ -21,7 +22,7 @@ RSpec.describe "the c64 platform" do
   end
 
   it "refuses a release without the program, its required kind, and records nothing" do
-    File.delete(File.join(tmpdir, "warp64u-0.1.1.prg"))
+    File.delete(File.join(dir, "warp64u-0.1.1.prg"))
 
     expect { platform.publish("warp64u", "0.1.1") }
       .to raise_error(WarpEngine::Platforms::MissingAssetsError, /cartridge/)
@@ -29,13 +30,13 @@ RSpec.describe "the c64 platform" do
   end
 
   it "leaves a browser player upload alone: the release plays in the EmulatorJS runtime" do
-    Zip::File.open(File.join(tmpdir, "warp64u-0.1.1.html.zip"), create: true) do |zip|
+    Zip::File.open(File.join(dir, "warp64u-0.1.1.html.zip"), create: true) do |zip|
       zip.get_output_stream("index.html") { |io| io.write("<html></html>") }
     end
 
     release = platform.publish("warp64u", "0.1.1").reload
 
     expect(release.release_assets.map(&:kind)).to eq([ "cartridge" ])
-    expect(File.exist?(File.join(tmpdir, "warp64u-0.1.1"))).to be(false)
+    expect(File.exist?(File.join(dir, "html"))).to be(false)
   end
 end

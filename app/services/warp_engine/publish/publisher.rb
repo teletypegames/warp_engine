@@ -13,15 +13,16 @@ module WarpEngine
         @metadata = metadata || definition.metadata
       end
 
-      # Publishes the upload <tt>name-version</tt> found in the file container:
-      # collects the assets, checks the required kinds, reads the metadata and
-      # records the catalog.
+      # Publishes the upload <tt>name-version</tt> found in the release's
+      # folder of the file container (WarpEngine::ReleaseLayout): collects the
+      # assets, checks the required kinds, reads the metadata and records the
+      # catalog.
       #
       # Returns the WarpEngine::Release. Raises
       # WarpEngine::Platforms::MissingAssetsError when a required kind is
       # missing, and ActiveRecord::RecordInvalid when a record does not save.
       def publish(name, version)
-        upload = Upload.new(name: name, version: version, root: WarpEngine.config.file_container_path)
+        upload = Upload.new(name: name, version: version, root: WarpEngine::ReleaseLayout.absolute_directory(name, version))
         assets = Collector.new(@definition).collect(upload)
         missing = @definition.required_kinds - assets.keys
         raise WarpEngine::Platforms::MissingAssetsError.new(upload.versioned, missing) if missing.any?

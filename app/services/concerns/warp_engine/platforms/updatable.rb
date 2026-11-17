@@ -95,9 +95,11 @@ module WarpEngine
 
       # Runs the #prepare_steps, then publishes the upload <tt>name-version</tt>
       # through WarpEngine::Publish::Publisher, reading the metadata with
-      # #parse_metadata. Returns the WarpEngine::Release; raises
+      # #parse_metadata. The steps' file names are in the release's folder
+      # (WarpEngine::ReleaseLayout). Returns the WarpEngine::Release; raises
       # MissingAssetsError when a required kind is missing.
       def update(name, version)
+        @release_directory = WarpEngine::ReleaseLayout.absolute_directory(name, version)
         versioned = "#{name}-#{version}"
         self.class.prepare_steps.each { |step| send(step, versioned) }
         WarpEngine::Publish::Publisher.new(self.class.definition, metadata: ->(upload) { parse_metadata(upload.versioned) })
@@ -112,7 +114,7 @@ module WarpEngine
 
       def parse_lua_metadata(path) = WarpEngine::Publish::MetadataReader.lua(path)
 
-      def full_path(filename) = File.join(WarpEngine.config.file_container_path, filename)
+      def full_path(filename) = File.join(@release_directory || WarpEngine.config.file_container_path, filename)
 
       def dir_exists?(dirname) = File.directory?(full_path(dirname))
 
