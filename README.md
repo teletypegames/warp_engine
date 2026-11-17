@@ -932,6 +932,29 @@ A developer's tool serves the page itself, with the build: the WarpEngine Toolbo
 serves the runtime files from a local proxy and runs it in its panel or a local browser tab.
 A public page could not fetch the build from the developer's machine (browsers block it).
 
+### Release channels
+
+A release is on a channel its version names (`WarpEngine::Channels`), never set by hand:
+
+| Channel | Version | Who gets it |
+|---|---|---|
+| `stable` | `1.2.0` | everyone: the catalog's latest release, the outlets (shelves, Assembly64) |
+| `beta` | `1.3.0-beta.1`, `1.0-alpha`, `2.0.0-rc.2` | listed; the latest only for a caller asking `GET /api/software?channel=beta` |
+| `dev` | `dev-1.3.0-feature-x`, `dev-3fb3ed8` (the CI's builds off the default branch) | never listed nor the latest; its own `/play/` and `/file/` links and the Admin API (`channel` filter) |
+
+Every release in the catalog API and the Admin API carries its `channel`. A pre-release goes out the
+usual way: put the version (`1.3.0-beta.1`) in the source and push, or tag `v1.3.0-beta.1`.
+
+**Development builds** pile up, one per branch and version. `rake warp_engine:releases:prune_dev`
+removes the ones superseded on their branch and the ones not updated for `TTL_DAYS` (default 30),
+assets and release folder included; `DRY_RUN=1` only lists. Schedule it on the host if you want it.
+
+**Pull request previews.** With a forge configured, the publish of a development build adds a
+comment to the open pull request of its branch (the software's pipeline names the repository):
+the version, the commit, the play link and every download. The next build of the branch changes
+the same comment. The forge token needs the `write:issue` scope for it; without it the job logs
+the refusal and the publish goes on.
+
 ### CI management (the Woodpecker adapter)
 
 Beyond serving pipeline configs, the adapter drives the Woodpecker REST API
@@ -1741,6 +1764,17 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.0
+
+- Migration: `releases.channel` (`stable` by default, filled from every version: `dev-…` → `dev`,
+  a pre-release → `beta`); run `db:migrate`.
+- `WarpEngine::Release.latest_non_dev` is gone: `WarpEngine::Release.latest(releases, channel:)`
+  takes its place. A pre-release is no longer the latest release, nor offered by the outlets.
+- The catalog API lists no development builds any more and gives every release its `channel`;
+  `?channel=beta` lets a newer pre-release be the latest.
+- New: `rake warp_engine:releases:prune_dev`, pull request preview comments (forge token with
+  `write:issue`).
 
 ## Upgrading to 3.9
 

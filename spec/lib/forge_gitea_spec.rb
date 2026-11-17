@@ -1,4 +1,5 @@
 require "rails_helper"
+require "webmock/rspec"
 
 RSpec.describe WarpEngine::Forge::Gitea do
   subject(:forge) { described_class.new(url: "https://git.example/", token: "t0k", owner: "games") }

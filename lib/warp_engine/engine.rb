@@ -36,6 +36,10 @@ module WarpEngine
     initializer "warp_engine.outlets" do
       ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
         WarpEngine::OutletRefreshJob.perform_later(payload[:platform]) if WarpEngine::Outlets.any?
+        release = payload[:release]
+        if release.respond_to?(:dev?) && release.dev? && WarpEngine.forge.configured?
+          WarpEngine::PreviewCommentJob.perform_later(release.id)
+        end
       end
     end
 

@@ -41,6 +41,30 @@ module WarpEngine
         to_repo(request(Net::HTTP::Post, "/api/v1/orgs/#{@owner}/repos", body))
       end
 
+      # Returns the number of the open pull request of +owner+/+name+ whose
+      # source branch is +branch+ (compared with its slashes as dashes, the
+      # way the CI names a development build), or +nil+. Raises Forge::Error.
+      def open_pull_request(owner:, name:, branch:)
+        wanted = branch.to_s.tr("/", "-")
+        pulls = request(Net::HTTP::Get, "/api/v1/repos/#{owner}/#{name}/pulls?state=open&limit=50", nil)
+        Array(pulls).find { |pull| pull.dig("head", "ref").to_s.tr("/", "-") == wanted }&.dig("number")
+      end
+
+      # Writes +body+ as the comment of pull request (or issue) +number+ of
+      # +owner+/+name+ that carries +marker+: the existing one is changed, a new
+      # one is added when there is none. Returns the comment id. Raises
+      # Forge::Error (the token needs the +write:issue+ scope).
+      def upsert_comment(owner:, name:, number:, marker:, body:)
+        text = "#{body}\n\n#{marker}"
+        comments = request(Net::HTTP::Get, "/api/v1/repos/#{owner}/#{name}/issues/#{number}/comments", nil)
+        existing = Array(comments).find { |comment| comment["body"].to_s.include?(marker) }
+        if existing
+          request(Net::HTTP::Patch, "/api/v1/repos/#{owner}/#{name}/issues/comments/#{existing['id']}", { body: text })["id"]
+        else
+          request(Net::HTTP::Post, "/api/v1/repos/#{owner}/#{name}/issues/#{number}/comments", { body: text })["id"]
+        end
+      end
+
       private
 
       def to_repo(remote)
@@ -53,8 +77,10 @@ module WarpEngine
         request = klass.new(uri)
         request["Authorization"] = "token #{@token}"
         request["Accept"] = "application/json"
-        request.content_type = "application/json"
-        request.body = body.to_json
+        unless body.nil?
+          request.content_type = "application/json"
+          request.body = body.to_json
+        end
         response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
                                                        open_timeout: @open_timeout, read_timeout: @read_timeout) do |http|
           http.request(request)

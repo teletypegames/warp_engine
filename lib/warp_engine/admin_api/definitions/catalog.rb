@@ -90,11 +90,12 @@ module WarpEngine
         def releases(api)
           api.resource(:releases, label: "Releases") do |r|
             r.list "/softwares/:softwareId/releases", summary: "The releases of a software", item: X.release,
-                   filters: { commitSha: S.string("The commit the CI built the release from") },
+                   filters: { commitSha: S.string("The commit the CI built the release from"), channel: S.enum(WarpEngine::Channels::ALL) },
                    sort: { createdAt: :created_at, version: :version }, default_sort: "-createdAt" do |ctx|
               software = WarpEngine::Software.kept.find(ctx[:softwareId])
               scope = software.releases.includes(:release_assets)
               scope = scope.where(commit_sha: ctx[:commitSha]) if ctx[:commitSha].present?
+              scope = scope.where(channel: ctx[:channel]) if ctx[:channel].present?
               ctx.list(scope, Admin::ReleaseSerializer)
             end
 

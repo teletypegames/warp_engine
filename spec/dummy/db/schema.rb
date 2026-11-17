@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_17_191000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_17_200000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -114,6 +114,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_191000) do
   end
 
   create_table "releases", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "channel", limit: 16, default: "stable", null: false
     t.string "commit_sha", limit: 64
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -123,6 +124,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_191000) do
     t.string "version", limit: 64
     t.string "web_binding", limit: 32
     t.json "web_options"
+    t.index ["channel"], name: "idx_releases_channel"
     t.index ["commit_sha"], name: "idx_releases_commit_sha"
     t.index ["deleted_at"], name: "idx_releases_deleted_at"
     t.index ["runtime_version_id"], name: "idx_releases_runtime_version_id"

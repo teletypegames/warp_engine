@@ -5,14 +5,16 @@ module WarpEngine
   module SoftwareResponseBuilder
     private
 
-    # Renders +software+ with WarpEngine::SoftwareDetailSerializer: its
-    # +releases+ newest first, the latest non-dev release, the web playable
-    # release (the latest, when it plays on the web: ReleaseSerializer.play_url), the download totals from
+    # Renders +software+ with WarpEngine::SoftwareDetailSerializer: its listed
+    # +releases+ (every channel but +dev+) newest first, the latest release for
+    # a caller asking for +channel+ (WarpEngine::Release.latest: +stable+, or
+    # +beta+ too), the web playable release (the latest, when it plays on the
+    # web: ReleaseSerializer.play_url), the download totals from
     # +download_counts+ (release id => count) and the access of +subject+.
     # Returns a Hash.
-    def build_response(software, releases, download_counts, subject: nil)
-      sorted = releases.sort_by { |r| r.created_at || Time.at(0) }.reverse
-      latest = Release.latest_non_dev(releases)
+    def build_response(software, releases, download_counts, subject: nil, channel: WarpEngine::Channels::STABLE)
+      sorted = releases.reject(&:dev?).sort_by { |r| r.created_at || Time.at(0) }.reverse
+      latest = Release.latest(releases, channel: channel)
 
       web_playable = latest if latest && ReleaseSerializer.play_url(latest).present?
       total_downloads = releases.sum { |r| download_counts.fetch(r.id, 0) }

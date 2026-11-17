@@ -1,6 +1,6 @@
 module WarpEngine
   # Catalog view of a WarpEngine::Release: id, timestamps (see
-  # WarpEngine::TimestampFields), software id, version, the paths of the
+  # WarpEngine::TimestampFields), software id, version, +channel+, the paths of the
   # cartridge, source, HTML and docs assets, every asset as kind and path,
   # +downloadCount+, and how it plays on the web: +playUrl+ (the page of the
   # runtime it was published with, <tt>/play/<name>/<version></tt>, else its
@@ -94,6 +94,7 @@ module WarpEngine
     field(:deletedAt)      { |r| r.deleted_at&.utc&.strftime(TS_FORMAT) }
     field(:softwareId)     { |r| r.software_id }
     field :version
+    field :channel
     field(:cartridgePath)  { |r| asset_path(r, "cartridge") }
     field(:sourcePath)     { |r| asset_path(r, "source") }
     field(:htmlFolderPath) { |r| asset_path(r, "html") }

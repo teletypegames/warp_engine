@@ -5,7 +5,7 @@ module WarpEngine
   module Catalog
     # What an outlet offers an anonymous caller: of every kept software of the
     # +platforms+ whose status is listed and which the access policy shows
-    # without a gate, the latest release (WarpEngine::Release.latest_non_dev)
+    # without a gate, the latest stable release (WarpEngine::Release.latest)
     # that has an asset of each of the +kinds+ whose file exists. One decision
     # shared by every outlet, so a shelf and a served outlet always list the
     # same titles.
@@ -128,7 +128,7 @@ module WarpEngine
           path = asset && absolute(asset.path)
           sources[release] = path if path && File.file?(path)
         end
-        release = WarpEngine::Release.latest_non_dev(sources.keys)
+        release = WarpEngine::Release.latest(sources.keys)
         release ? [ release, sources[release] ] : nil
       end
 

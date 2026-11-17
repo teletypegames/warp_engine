@@ -59,7 +59,7 @@ module WarpEngine
 
         # The +Release+ schema, with its assets.
         def release
-          named("Release", { id: S.id, softwareId: S.integer, version: S.string, commitSha: text,
+          named("Release", { id: S.id, softwareId: S.integer, version: S.string, channel: S.enum(WarpEngine::Channels::ALL), commitSha: text,
                              assets: S.array(S.ref("ReleaseAsset")), **timestamps })
         end
 

@@ -32,6 +32,12 @@ module WarpEngine
 
       # Raises NotConfigured.
       def create_repo(**) = raise(NotConfigured, "no forge is configured (WarpEngine::Configuration#forge)")
+
+      # Returns +nil+: there is no forge to ask.
+      def open_pull_request(**) = nil
+
+      # Raises NotConfigured.
+      def upsert_comment(**) = raise(NotConfigured, "no forge is configured (WarpEngine::Configuration#forge)")
     end
 
     class << self

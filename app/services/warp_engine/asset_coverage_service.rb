@@ -146,7 +146,7 @@ module WarpEngine
     def sorted(all) = all.sort_by { |release| [ release.created_at || Time.at(0), release.id ] }.reverse
 
     def latest(all)
-      Release.latest_non_dev(all)
+      Release.latest(all)
     end
   end
 end

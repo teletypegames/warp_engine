@@ -1,5 +1,7 @@
 module WarpEngine
-  # One version of a software (table +releases+), unique per software. Has
+  # One version of a software (table +releases+), unique per software, on the
+  # +channel+ its version says (WarpEngine::Channels: +stable+, +beta+, +dev+;
+  # set on every save, never by hand). Has
   # many kept +downloads+ and +release_assets+ (editable as nested
   # attributes). A release of a download-only platform may not have an +html+
   # asset. Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
@@ -20,16 +22,30 @@ module WarpEngine
     validates :version, presence: true
     validates :version, uniqueness: { scope: :software_id }
 
+    validates :channel, inclusion: { in: WarpEngine::Channels::ALL }
+
     validate :download_only_platform_cannot_be_web_playable
 
-    # Returns the newest of +releases+ (by creation time, then id) whose version
-    # does not start with <tt>dev-</tt>, or the newest of all when every one
-    # does; +nil+ for an empty list.
-    def self.latest_non_dev(releases)
-      sorted = releases.sort_by { |r| [ r.created_at || Time.at(0), r.id ] }.reverse
-      candidates = sorted.reject { |r| r.version.to_s.start_with?("dev-") }
-      candidates.empty? ? sorted.first : candidates.first
+    before_validation { self.channel = WarpEngine::Channels.for(version) }
+
+    scope :listed, -> { where.not(channel: WarpEngine::Channels::DEV) }
+    scope :in_channels, ->(channels) { where(channel: Array(channels)) }
+
+    # Returns the newest of +releases+ (by creation time, then id) on a channel
+    # offered to a caller asking for +channel+ (WarpEngine::Channels.offered:
+    # +stable+, or +stable+ and +beta+ for +beta+); +nil+ when there is none.
+    # A development build is never the latest.
+    def self.latest(releases, channel: WarpEngine::Channels::STABLE)
+      offered = WarpEngine::Channels.offered(channel)
+      releases.select { |r| offered.include?(r.channel) }.max_by { |r| [ r.created_at || Time.at(0), r.id ] }
     end
+
+    # Returns +true+ for a development build (WarpEngine::Channels::DEV).
+    def dev? = channel == WarpEngine::Channels::DEV
+
+    # Returns the branch a development build was made of
+    # (WarpEngine::Channels.branch_of), or +nil+.
+    def branch = WarpEngine::Channels.branch_of(version)
 
     # Returns the software's platform, whose outlets to refresh.
     def outlet_platform = software&.platform

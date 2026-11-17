@@ -26,7 +26,9 @@ module WarpEngine
     # [category]  only this category
     # [query]     a search text
     # [sort]      a key of SORTS
-    def index(owner_id: nil, subject: nil, page: nil, per_page: nil, statuses: [], platform: nil, category: nil, query: nil, sort: nil)
+    # [channel]   +beta+ makes a newer pre-release the latest; +stable+ (default) otherwise
+    def index(owner_id: nil, subject: nil, page: nil, per_page: nil, statuses: [], platform: nil, category: nil, query: nil, sort: nil,
+              channel: WarpEngine::Channels::STABLE)
       scope = filtered(visible_scope(subject), owner_id: owner_id, statuses: statuses, platform: platform, category: category, query: query)
       total = scope.count
       per = page_size(per_page, total, paged: !page.nil?)
@@ -48,7 +50,7 @@ module WarpEngine
         total:      total,
         totalPages: pages,
         nextPage:   current < pages ? current + 1 : nil,
-        softwares:  softwares.map { |sw| build_response(sw, sw.releases.to_a, counts, subject: subject) }
+        softwares:  softwares.map { |sw| build_response(sw, sw.releases.to_a, counts, subject: subject, channel: channel) }
       }
     end
 
