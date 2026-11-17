@@ -46,9 +46,10 @@ RSpec.describe "Commodore pipelines" do
       end
 
       it "publishes the build under its own platform" do
-        calls, = run_with_fake_curl(step_script(render(config_class), "publish"), env: { "UPDATE_SERVER" => "https://u.example" })
+        calls, = run_with_fake_curl(step_script(render(config_class), "publish"),
+                                    env: { "UPDATE_SERVER" => "https://u.example", "CI_COMMIT_SHA" => "abc1234" })
 
-        expect(calls.last).to end_with("https://u.example/build/publish?name=warp64u&platform=#{platform}&version=1.0&commit=")
+        expect(calls.last).to end_with("https://u.example/build/publish?name=warp64u&platform=#{platform}&version=1.0&commit=abc1234")
       end
     end
   end
