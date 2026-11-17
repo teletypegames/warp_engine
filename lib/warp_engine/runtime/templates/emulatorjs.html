@@ -35,7 +35,7 @@
     EJS_gameName: {{ json title }},
     EJS_gameUrl: payloadUrl,
     EJS_pathtodata: runtimeUrl,
-    EJS_startOnLoaded: true,
+    EJS_startOnLoaded: typeof navigator.getAutoplayPolicy !== "function" || navigator.getAutoplayPolicy("audiocontext") === "allowed",
     EJS_backgroundColor: "#000000",
     EJS_disableAutoLang: false,
     EJS_threads: {{ json isolated }},

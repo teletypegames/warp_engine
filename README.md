@@ -1746,6 +1746,12 @@ claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp 
   --header "Authorization: Bearer $TOKEN"
 ```
 
+## Upgrading to 3.8.2
+
+- An EmulatorJS page starts the game at once only where the browser lets audio start without a
+  click (`navigator.getAutoplayPolicy`); elsewhere (an editor's panel, a first visit) it shows
+  EmulatorJS's start button, because a core whose audio cannot start draws nothing.
+
 ## Upgrading to 3.8
 
 - The runtime page templates run as module scripts and take the payload from a `message`

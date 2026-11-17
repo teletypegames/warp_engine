@@ -109,7 +109,8 @@ RSpec.describe "GET /play-preview/:platform", type: :request do
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('const payloadUrl = await receivePayload("message", true)', '"warpengine.payload"',
-                                     'parent.postMessage({ type: "warpengine.ready" }, "*")', "event.source !== window")
+                                     'parent.postMessage({ type: "warpengine.ready" }, "*")', "event.source !== window",
+                                     'navigator.getAutoplayPolicy("audiocontext") === "allowed"')
   end
 
   it "takes no payload off the loopback interface" do
