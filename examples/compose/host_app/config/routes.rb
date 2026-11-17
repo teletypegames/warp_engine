@@ -3,7 +3,8 @@ Rails.application.routes.draw do
   ActiveAdmin.routes(self)
   apipie
 
-  root to: redirect("/admin")
+  root to: "catalog#index"
+  get "games/:name", to: "catalog#show", as: :game
 
   namespace :api do
     get "image/:id", to: "images#show"

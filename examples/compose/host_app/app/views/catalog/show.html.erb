@@ -1,0 +1,48 @@
+<% software = @game["software"] %>
+<% content_for :title, software["title"] %>
+
+<h1><%= software["title"] %></h1>
+
+<% if software["imageUrl"] %>
+  <p><img src="<%= software["imageUrl"] %>" alt="<%= software["title"] %>" width="480"></p>
+<% end %>
+
+<p><%= software["desc"] %></p>
+
+<dl>
+  <dt>Platform</dt><dd><%= software["platform"] %></dd>
+  <% if software["author"].present? %><dt>Author</dt><dd><%= software["author"] %></dd><% end %>
+  <% if software["license"].present? %><dt>Licence</dt><dd><%= software["license"] %></dd><% end %>
+  <% if software["category"].present? %><dt>Category</dt><dd><%= software["category"] %></dd><% end %>
+  <dt>Downloads</dt><dd><%= @game["totalDownloads"] %></dd>
+</dl>
+
+<% if (play = @game.dig("webPlayableRelease", "playUrl")) %>
+  <p><a href="<%= play %>"><strong>Play in the browser</strong></a> (<%= @game["webPlayableRelease"]["version"] %>)</p>
+<% end %>
+
+<% if software["story"].present? %>
+  <h2>Story</h2>
+  <p><%= software["story"] %></p>
+<% end %>
+
+<h2>Releases</h2>
+<% @game["releases"].each do |release| %>
+  <h3><%= release["version"] %><% if release["channel"] != "stable" %> (<%= release["channel"] %>)<% end %></h3>
+  <ul>
+    <% release["assets"].each do |asset| %>
+      <% next if asset["kind"] == "html" %>
+      <li><%= asset["kind"] %>: <a href="<%= download_path(asset) %>"><%= file_name(asset) %></a></li>
+    <% end %>
+    <% if release["playUrl"] %><li>web: <a href="<%= release["playUrl"] %>">play <%= release["version"] %></a></li><% end %>
+  </ul>
+<% end %>
+
+<% if software["externalLinks"].present? %>
+  <h2>Links</h2>
+  <ul>
+    <% software["externalLinks"].each do |link| %>
+      <li><a href="<%= link["url"] %>"><%= link["label"] %></a></li>
+    <% end %>
+  </ul>
+<% end %>
