@@ -82,52 +82,85 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 
 ## Example stack (docker compose)
 
-`examples/compose` boots everything the engine's workflow assumes, end to
-end: the catalog app itself and — behind a compose profile — a Gitea forge
-with Woodpecker CI, so you can watch a pipeline publish a release into the
-catalog.
+`examples/compose` is a whole studio on one machine: the catalog app, a Gitea
+forge and Woodpecker CI, wired together. `bin/setup` brings it up and connects
+the pieces — no install wizard, no OAuth app to click together, no
+`/etc/hosts` — so the first game you push builds and lands in the catalog.
 
 | Service | Role | Where |
 | --- | --- | --- |
 | `app` | Rails host with the engine mounted as a path gem, ActiveAdmin + Devise for the admin | `http://localhost:8080` |
 | `mysql` | Catalog database | internal |
-| `gitea` | Git forge (profile `ci`) | `http://gitea:3000` |
-| `woodpecker` + agent | CI wired to gitea (profile `ci`) | `http://woodpecker:8000` |
+| `gitea` | Git forge (profile `ci`) | `http://gitea.localhost:3000` |
+| `woodpecker` + agent | CI wired to gitea, pipelines served by the engine (profile `ci`) | `http://woodpecker.localhost:8000` |
 
-### Quickstart — catalog and admin
+What you need: Docker with Compose, git and curl. Browsers, curl and git send
+every `*.localhost` name to your own machine, and the containers find the same
+names on the stack network.
+
+### Quickstart
 
 ```sh
 git clone https://git.teletypegames.org/engines/warp_engine.git
 cd warp_engine/examples/compose
-cp .env.example .env
-docker compose up -d --build
-until curl -fs http://localhost:8080/api/service >/dev/null; do sleep 5; done; echo ready
-docker compose exec app bin/rails db:seed
+bin/setup
 ```
 
-The first boot takes a few minutes: the app container bundles, runs
-`rails g warp_engine:install` and `rails db:prepare`, then serves on
-`http://localhost:8080`. The first boot also seeds the empty database (`db:prepare`
-does); `db:seed` runs `host_app/db/seeds.rb` again whenever you like, and keeps what
-is there. The seed creates an admin user and publishes three demo games through the
-engine's own publish path, each with a playable web build, a Windows zip, a cover
-image and a few downloads.
+The first run takes a few minutes: the app container bundles, runs
+`rails g warp_engine:install` and `rails db:prepare` (which seeds the empty
+database), installs the web runtimes, and the script then
+
+1. starts Gitea and creates its admin (`warp` / `warpengine`) and the `games`
+   organisation;
+2. creates the Woodpecker OAuth app and an API token for the engine's forge;
+3. starts Woodpecker, signs in once as `warp`, takes an API token for the
+   engine and stores the `gitea_token` secret the pipelines tag with;
+4. restarts the app with all of it in `.env`, and, when git has a credential
+   helper, stores the Gitea password in it for `gitea.localhost`.
+
+Run it again any time; what is set up stays. `bin/setup --no-ci` brings up only
+the catalog and the admin (the same as `cp .env.example .env && docker compose up -d --build`).
 
 - `http://localhost:8080/admin` — the admin, `admin@example.org` / `warpengine`
   (`docker compose exec -e ADMIN_EMAIL=you@example.org -e ADMIN_PASSWORD=secret123 app bin/rails db:seed`
   adds one of your own)
 - `http://localhost:8080/api/software` — the catalog
-- `http://localhost:8080/file/starhop-1.0.0/index.html` — a web build
+- `http://localhost:8080/file/starhop/1.0.0/html/index.html` — a web build
 - `http://localhost:8080/api/builds` — the platform build matrix
 - `http://localhost:8080/api/docs` — apipie API docs
 
-`APP_PORT` in `.env` moves the app off 8080; `docker compose down -v` removes it
-all.
+The ports live in `.env` (`APP_PORT`, `GITEA_PORT`, `WOODPECKER_PORT`,
+`GITEA_SSH_PORT`); `docker compose --profile ci down -v` removes it all.
+
+### Your first game
+
+With the [WarpEngine Toolbox](https://marketplace.visualstudio.com/items?itemName=TeletypeGames.warpengine-toolbox)
+in VS Code: *WarpEngine: Set Host…* → `http://localhost:8080`, *WarpEngine: Sign
+In* (approve the code on the admin's *Tool Sign In* page), then *WarpEngine: New
+Game*. The engine creates the repository in the `games` organisation, enables it
+in Woodpecker with its own CI token, and the toolbox pushes the template. The
+pipeline the engine serves builds it, tags `v1.0.0`, and the tag pipeline
+publishes the release.
+
+Without the toolbox the same works through the Admin API
+(`POST /api/admin/v1/softwares/scaffold`) and a plain `git push` of a repository
+holding the one-line marker:
+
+```yaml
+# .woodpecker.yaml
+platform: phaser
+```
+
+The builder images, the project templates and the web shells come from
+`git.teletypegames.org` — public, no login needed; `WARP_REGISTRY` and
+`WARP_TOOLING_HOST` point the example at your own copies. The images are
+built for amd64; on an arm64 machine Docker runs them emulated, slower.
 
 ### Publish a release by hand
 
 The updater contract is nothing but a handful of HTTP calls, so you can play
-the role of the CI pipeline yourself:
+the role of the CI pipeline yourself. The seed stores `UPDATE_SECRET` as an
+application token for this:
 
 ```sh
 # 1. Fake a build: metadata, a web build and a windows artifact, named by
@@ -150,52 +183,9 @@ curl -X POST -H "X-Update-Secret: example-update-secret" \
 ```
 
 `GET /api/software` now lists *Demo Game* with `html` and `win_x64` assets,
-`http://localhost:8080/file/demo-0.1.0/index.html` serves the extracted web
-build, and `GET /api/download?path=demo-0.1.0-win-x64.zip` serves the
+`http://localhost:8080/file/demo/0.1.0/html/index.html` serves the extracted web
+build, and `GET /api/download?path=demo/0.1.0/demo-0.1.0-win-x64.zip` serves the
 artifact while logging a download record.
-
-### Full loop — forge + CI (profile `ci`)
-
-gitea and woodpecker address each other by service name, so let your browser
-resolve those names too:
-
-```sh
-echo "127.0.0.1 gitea woodpecker" | sudo tee -a /etc/hosts
-```
-
-1. `docker compose --profile ci up -d gitea`, open `http://gitea:3000`,
-   finish the install wizard (SQLite is fine) and create your admin user.
-2. In gitea: *Settings → Applications → Manage OAuth2 Applications*, create
-   an app with redirect URI `http://woodpecker:8000/authorize`; copy the
-   client id/secret into `WOODPECKER_GITEA_CLIENT` / `WOODPECKER_GITEA_SECRET`
-   in `.env`.
-3. `docker compose --profile ci up -d` — then log in at
-   `http://woodpecker:8000` (OAuth via gitea) and enable your repository.
-
-A pipeline publishes a release exactly like the by-hand steps above — build,
-upload, publish:
-
-```yaml
-# .woodpecker.yaml in a game repo hosted on the example gitea
-steps:
-  publish:
-    image: alpine
-    environment:
-      UPDATE_SECRET:
-        from_secret: update_secret
-    commands:
-      - apk add --no-cache curl zip
-      - # ... build your game, produce mygame-1.0.0.metadata.json + artifacts ...
-      - for f in mygame-1.0.0*; do curl -fs -H "X-Update-Secret: $UPDATE_SECRET" -F "file=@$f" "http://app:3000/build/upload?name=mygame&version=1.0.0"; done
-      - curl -fs -X POST -H "X-Update-Secret: $UPDATE_SECRET" "http://app:3000/build/publish?platform=love&name=mygame&version=1.0.0"
-```
-
-(The agent attaches pipeline containers to the stack network, so `app`
-resolves. For real projects, the per-platform
-[`tools/*-tools`](https://git.teletypegames.org) repos ship ready-made
-Makefile + pipeline templates implementing this contract.)
-
-Tear the stack down with `docker compose --profile ci down -v`.
 
 ## Installation
 

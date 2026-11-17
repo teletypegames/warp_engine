@@ -6,9 +6,19 @@ ActiveRecord::Base.logger = nil
 admin_email    = ENV.fetch("ADMIN_EMAIL", "admin@example.org")
 admin_password = ENV.fetch("ADMIN_PASSWORD", "warpengine")
 
-AdminUser.find_or_create_by!(email: admin_email) do |user|
+admin = AdminUser.find_or_create_by!(email: admin_email) do |user|
   user.password = admin_password
   user.password_confirmation = admin_password
+end
+
+if (secret = ENV["UPDATE_SECRET"].presence)
+  WarpEngine::ApplicationToken.find_or_create_by!(token_digest: WarpEngine::ApplicationToken.digest(secret)) do |token|
+    token.name = "UPDATE_SECRET (scripts, publish by hand)"
+    token.token_prefix = secret.first(8)
+    token.owner = admin
+    token.unrestricted = true
+    token.scopes = [ WarpEngine::ApplicationToken::UPDATE_SCOPE, WarpEngine::ApplicationToken::UPLOAD_SCOPE ]
+  end
 end
 
 GAMES = [
@@ -64,17 +74,17 @@ def cover_image(game)
   end
 end
 
-root = WarpEngine.config.file_container_path
-FileUtils.mkdir_p(root)
-
 GAMES.each do |game|
   next if WarpEngine::Software.exists?(name: game[:name])
 
   base = "#{game[:name]}-#{game[:version]}"
+  directory = WarpEngine::ReleaseLayout.directory(game[:name], game[:version])
+  folder = File.join(WarpEngine.config.file_container_path, directory)
+  FileUtils.mkdir_p(folder)
   metadata = game.slice(:name, :title, :desc, :category).merge(author: "WarpEngine Example", license: "MIT")
-  File.write(File.join(root, "#{base}.metadata.json"), JSON.pretty_generate(metadata))
-  write_zip(File.join(root, "#{base}.html.zip"), "index.html" => game_html(game))
-  write_zip(File.join(root, "#{base}-win-x64.zip"), "README.txt" => "#{game[:title]} #{game[:version]} for Windows\n")
+  File.write(File.join(folder, "#{base}.metadata.json"), JSON.pretty_generate(metadata))
+  write_zip(File.join(folder, "#{base}.html.zip"), "index.html" => game_html(game))
+  write_zip(File.join(folder, "#{base}-win-x64.zip"), "README.txt" => "#{game[:title]} #{game[:version]} for Windows\n")
 
   input = WarpEngine::PublishInputDto.new(platform: game[:platform], name: game[:name], version: game[:version])
   release = WarpEngine::PublishService.new.publish(input)
@@ -84,7 +94,7 @@ GAMES.each do |game|
   software.software_images.create!(image: cover_image(game), is_default: true, position: 0)
 
   rand(3..12).times do |i|
-    WarpEngine::Download.create!(file_path: "#{base}-win-x64.zip", release: release,
+    WarpEngine::Download.create!(file_path: File.join(directory, "#{base}-win-x64.zip"), release: release,
                                  ip_address: "192.0.2.#{i + 1}", user_agent: "seed")
   end
 

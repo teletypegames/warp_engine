@@ -1,0 +1,115 @@
+#!/bin/sh
+# Brings up the whole example stack and wires it together: the catalog with its
+# admin, a Gitea forge, Woodpecker CI, the tokens between them. Run it again any
+# time: what is already set up is left alone.
+#
+#   bin/setup            catalog + forge + CI
+#   bin/setup --no-ci    catalog and admin only
+set -eu
+
+cd "$(dirname "$0")/.."
+
+WITH_CI=1
+[ "${1:-}" = "--no-ci" ] && WITH_CI=0
+
+[ -f .env ] || cp .env.example .env
+
+get() { sed -n "s/^$1=//p" .env | tail -n 1; }
+put() {
+  if grep -q "^$1=" .env; then
+    sed "s|^$1=.*|$1=$2|" .env > .env.tmp && mv .env.tmp .env
+  else
+    printf '%s=%s\n' "$1" "$2" >> .env
+  fi
+}
+or_default() { value=$(get "$1"); [ -n "$value" ] && printf '%s' "$value" || printf '%s' "$2"; }
+compose() { docker compose --profile ci "$@"; }
+wait_for() {
+  printf '  waiting for %s ' "$1"
+  tries=0
+  until curl -fs -o /dev/null "$2"; do
+    tries=$((tries + 1))
+    [ "$tries" -gt 120 ] && { echo " gave up"; exit 1; }
+    printf '.'; sleep 5
+  done
+  echo " ok"
+}
+import() {
+  printf '%s\n' "$1" | while IFS='=' read -r key value; do
+    [ -n "$key" ] && put "$key" "$value"
+  done
+}
+
+APP_PORT=$(or_default APP_PORT 8080)
+GITEA_PORT=$(or_default GITEA_PORT 3000)
+WOODPECKER_PORT=$(or_default WOODPECKER_PORT 8000)
+GITEA_ADMIN=$(or_default GITEA_ADMIN warp)
+GITEA_PASSWORD=$(or_default GITEA_PASSWORD warpengine)
+GITEA_OWNER=$(or_default GITEA_OWNER games)
+GITEA_URL="http://gitea.localhost:$GITEA_PORT"
+WOODPECKER_URL="http://woodpecker.localhost:$WOODPECKER_PORT"
+
+echo "1. The catalog"
+docker compose up -d --build mysql app
+wait_for "the catalog" "http://localhost:$APP_PORT/api/service"
+
+if [ "$WITH_CI" = 0 ]; then
+  echo
+  echo "Done: http://localhost:$APP_PORT/admin (admin@example.org / warpengine)"
+  exit 0
+fi
+
+echo "2. Gitea"
+put GITEA_URL "$GITEA_URL"
+compose up -d gitea
+wait_for "gitea" "http://localhost:$GITEA_PORT/api/healthz"
+compose exec -T -u git gitea gitea admin user create --admin --username "$GITEA_ADMIN" \
+  --password "$GITEA_PASSWORD" --email "$GITEA_ADMIN@example.org" --must-change-password=false \
+  >/dev/null 2>&1 || true
+
+bootstrap() {
+  compose exec -T -e GITEA_URL="$GITEA_URL" -e WOODPECKER_URL="$WOODPECKER_URL" \
+    -e GITEA_ADMIN="$GITEA_ADMIN" -e GITEA_PASSWORD="$GITEA_PASSWORD" -e GITEA_OWNER="$GITEA_OWNER" \
+    -e GITEA_API_TOKEN="$(get GITEA_API_TOKEN)" app ruby script/ci_bootstrap.rb "$1"
+}
+
+if [ -z "$(get WOODPECKER_GITEA_CLIENT)" ] || [ -z "$(get GITEA_API_TOKEN)" ]; then
+  echo "  creating the $GITEA_OWNER organisation, the Woodpecker OAuth app and an API token"
+  import "$(bootstrap gitea)"
+fi
+
+echo "3. Woodpecker"
+put WOODPECKER_URL "$WOODPECKER_URL"
+put WOODPECKER_PUBLIC_KEY_URL "$WOODPECKER_URL/api/signature/public-key"
+compose up -d woodpecker woodpecker-agent
+wait_for "woodpecker" "http://localhost:$WOODPECKER_PORT/healthz"
+if [ -z "$(get WOODPECKER_API_TOKEN)" ]; then
+  echo "  signing in to Woodpecker as $GITEA_ADMIN and storing the gitea_token secret"
+  import "$(bootstrap woodpecker)"
+fi
+
+echo "4. The catalog, wired to the forge and the CI"
+docker compose up -d app
+wait_for "the catalog" "http://localhost:$APP_PORT/api/service"
+
+if git config --get credential.helper >/dev/null 2>&1; then
+  printf 'protocol=http\nhost=gitea.localhost:%s\nusername=%s\npassword=%s\n\n' \
+    "$GITEA_PORT" "$GITEA_ADMIN" "$GITEA_PASSWORD" | git credential approve
+  GIT_NOTE="git already knows the gitea password (credential helper)."
+else
+  GIT_NOTE="git asks for the gitea user and password on the first push."
+fi
+
+cat <<EOF
+
+Your studio is up.
+
+  Catalog admin   http://localhost:$APP_PORT/admin       admin@example.org / warpengine
+  Catalog API     http://localhost:$APP_PORT/api/software
+  Gitea           $GITEA_URL      $GITEA_ADMIN / $GITEA_PASSWORD
+  Woodpecker CI   $WOODPECKER_URL
+
+Next: install the WarpEngine Toolbox in VS Code, run "WarpEngine: Set Host…"
+with http://localhost:$APP_PORT, then "WarpEngine: Sign In" and "New Game".
+$GIT_NOTE
+EOF
