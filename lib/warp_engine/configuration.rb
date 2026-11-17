@@ -83,6 +83,10 @@ module WarpEngine
     # name to a list of option Hashes, filled by #platform_web.
     attr_reader :platform_web_changes
 
+    # The host's tooling of the platforms for the developer tools: a Hash of
+    # platform name to a Hash of values, filled by #platform_tooling.
+    attr_reader :platform_toolings
+
     # Creates a configuration with every setting at its default.
     def initialize
       @site_url                      = nil
@@ -113,6 +117,7 @@ module WarpEngine
       @runtimes                      = {}
       @runtime_versions              = {}
       @platform_web_changes          = {}
+      @platform_toolings             = {}
     end
 
     # Registers (or replaces) a platform the engine does not ship. With a block,
@@ -191,6 +196,20 @@ module WarpEngine
       key = (change[:as] || change[:runtime]).to_s
       list = @platform_web_changes.fetch(platform.to_s, []).reject { |other| (other[:as] || other[:runtime]).to_s == key }
       @platform_web_changes[platform.to_s] = list + [ change ]
+    end
+
+    # Sets what the developer tools get to know of the platform +platform+
+    # besides its definition: free-form +values+ the host chooses (where the
+    # project template is, a demo, documentation links), served by
+    # <tt>GET /build/platforms</tt> under +tooling+. Calling it again merges
+    # into the earlier values.
+    #
+    #   config.platform_tooling :c64, template: "https://git.example/build/c64-tools",
+    #                                 docs: "https://wiki.example/c64"
+    #
+    # Returns the platform's tooling Hash.
+    def platform_tooling(platform, **values)
+      @platform_toolings[platform.to_s] = @platform_toolings.fetch(platform.to_s, {}).merge(values)
     end
 
     # Returns the WarpEngine::AdminApi::Configuration, creating it with its

@@ -839,6 +839,38 @@ is deprecated: the service's declarations become a definition, its `update` publ
 through `WarpEngine::Publish`, and its adapter-specific template is still rendered
 with the shared steps around it.
 
+### Platform descriptions for developer tools
+
+An editor extension or a scaffolder learns the platforms from the engine instead of
+knowing them itself. Three public endpoints describe them:
+
+| Endpoint | Answer |
+|---|---|
+| `GET /build/platforms` | `{ "platforms": [ ... ] }`, one description per platform |
+| `GET /build/platforms/:name` | one description, 404 for an unknown platform |
+| `GET /build/platforms/:name/metadata-schema` | the JSON Schema (2020-12) of the platform's metadata |
+
+A description holds the platform's `kinds` (with the upload name, `required`, `optional`,
+`built`, `always`), its `metadata` (`format` `json`, `lua` or `custom`, the `file` a developer
+edits and the keys a publish reads), where the `version` comes from, the forced
+`releaseRule`, the enabled `web` bindings with their runtime parameters, the `ci` side
+(adapter, the marker file and its content, the builder image, whether the adapter builds
+it) and the host's `tooling`.
+
+The schema has every key `MetadataReader` reads, `version` where the pipeline reads it
+from `metadata.json`, the known categories as examples, the shelf-name rules and the `web`
+section with the platform's binding keys and parameters.
+
+`tooling` is free-form, what the host wants its developers' tools to know — where the
+project template is, a demo, documentation:
+
+```ruby
+WarpEngine.configure do
+  platform_tooling :c64, template: "https://git.example/build/c64-tools",
+                         demo: "https://git.example/demos/c64-demo"
+end
+```
+
 ### CI management (the Woodpecker adapter)
 
 Beyond serving pipeline configs, the adapter drives the Woodpecker REST API

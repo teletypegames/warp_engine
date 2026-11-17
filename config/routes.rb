@@ -15,6 +15,9 @@ WarpEngine::Engine.routes.draw do
   post "build/runtime", to: "build/runtimes#create"
   get  "build/config",  to: "build/configs#show"
   post "build/config",  to: "build/configs#create"
+  get  "build/platforms",                       to: "build/platforms#index"
+  get  "build/platforms/:name",                 to: "build/platforms#show"
+  get  "build/platforms/:name/metadata-schema", to: "build/platforms#metadata_schema"
 
   scope WarpEngine::AdminApi.url_path, module: "api/admin", as: "api_admin", format: false do
     get  "openapi.json", to: "documents#openapi", defaults: { format: "json" }, as: :openapi

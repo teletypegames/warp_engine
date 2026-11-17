@@ -104,6 +104,12 @@ module WarpEngine
       #   platform_web :c64, :emulatorjs, enabled: false
       def platform_web(platform, runtime, **options) = @config.platform_web(platform, runtime, **options)
 
+      # Sets a platform's tooling for the developer tools; see
+      # WarpEngine::Configuration#platform_tooling.
+      #
+      #   platform_tooling :c64, template: "https://git.example/build/c64-tools"
+      def platform_tooling(platform, **values) = @config.platform_tooling(platform, **values)
+
       # Evaluates +block+ with a WarpEngine::Configuration::AdminApiDSL on the
       # admin API settings.
       def admin_api(&block)
