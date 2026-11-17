@@ -43,7 +43,7 @@ module WarpEngine
     api :GET, "/play-preview/:platform(/:binding)", "A runtime page for a local build"
     param :platform, String, required: true, desc: "Platform name"
     param :binding, String, required: false, desc: "A web binding key of the platform; the default when absent"
-    param :payload, String, required: true, desc: "The payload URL, on the loopback interface (http://127.0.0.1:PORT/...)"
+    param :payload, String, required: true, desc: "message (the embedding page posts the file), or a URL on the loopback interface (http://127.0.0.1:PORT/...)"
     param :title, String, required: false, desc: "The page title"
     param :params, String, required: false, desc: "The runtime parameters as JSON (a metadata's web.params)"
     param :start, String, required: false, desc: "The program a launcher starts"
@@ -52,15 +52,19 @@ module WarpEngine
     error code: 404, desc: "The platform does not play on the web (in that binding)"
     # <tt>GET /play-preview/:platform(/:binding)</tt>.
     #
-    # Renders the runtime's page around a payload a developer's tool serves
-    # on the loopback interface, so a local build plays in the runtime its
-    # release would. Only a loopback +payload+ URL is taken, so the page
-    # never plays someone else's file under the host's name. The page leaves
+    # Renders the runtime's page around a developer's local build, so it
+    # plays in the runtime its release would. With <tt>payload=message</tt>
+    # the page asks its parent for the file (+warpengine.ready+) and plays
+    # what the parent posts back (<tt>{ type: "warpengine.payload", name,
+    # data }</tt>): nothing is fetched from the developer's machine, which a
+    # browser's local network protection would refuse. Otherwise +payload+
+    # must be a loopback URL, so the page never plays someone else's file
+    # under the host's name. The page leaves
     # out +X-Frame-Options+, so an editor's panel can frame it. Responds 400 for
     # another URL or unreadable +params+, and 404 when
     # WarpEngine::PlayService#preview finds nothing to play in.
     def preview
-      payload = loopback_url(params[:payload])
+      payload = params[:payload] == "message" ? "message" : loopback_url(params[:payload])
       return render plain: "payload must be a loopback URL", status: :bad_request if payload.nil?
 
       page = WarpEngine::PlayService.new.preview(platform: params[:platform], binding: params[:binding],

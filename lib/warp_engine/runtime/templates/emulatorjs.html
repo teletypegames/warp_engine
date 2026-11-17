@@ -12,9 +12,20 @@
 </head>
 <body>
 <div id="game"></div>
-<script>
+<script type="module">
+  const receivePayload = (source, asFile) => {
+    if (source !== "message") return Promise.resolve(source);
+    return new Promise((resolve) => {
+      addEventListener("message", (event) => {
+        if (event.source !== parent || !event.data || event.data.type !== "warpengine.payload") return;
+        const file = new File([event.data.data], event.data.name || "payload", { type: "application/octet-stream" });
+        resolve(asFile ? file : URL.createObjectURL(file) + "#" + file.name);
+      });
+      parent.postMessage({ type: "warpengine.ready" }, "*");
+    });
+  };
   const runtimeUrl = {{ json runtime_url }};
-  const payloadUrl = {{ json payload_url }};
+  const payloadUrl = await receivePayload({{ json payload_url }}, true);
   const params = {{ json params }};
   const start = {{ json start }};
 
@@ -78,7 +89,7 @@
     return files.filter((name) => /\.(bat|com|exe)$/i.test(name)).sort((a, b) => rank(a) - rank(b))[0];
   };
   const dos = async () => {
-    const zip = new Uint8Array(await (await fetch(payloadUrl)).arrayBuffer());
+    const zip = new Uint8Array(payloadUrl instanceof Blob ? await payloadUrl.arrayBuffer() : await (await fetch(payloadUrl)).arrayBuffer());
     const path = program(centralDirectory(zip).names);
     if (!path) throw new Error("no program to start");
     const parts = path.split("/"), exe = parts.pop(), top = parts[0], root = params.dos_root;

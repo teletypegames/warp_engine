@@ -20,8 +20,19 @@
   </div>
 </div>
 <script type="module">
+  const receivePayload = (source, asFile) => {
+    if (source !== "message") return Promise.resolve(source);
+    return new Promise((resolve) => {
+      addEventListener("message", (event) => {
+        if (event.source !== parent || !event.data || event.data.type !== "warpengine.payload") return;
+        const file = new File([event.data.data], event.data.name || "payload", { type: "application/octet-stream" });
+        resolve(asFile ? file : URL.createObjectURL(file) + "#" + file.name);
+      });
+      parent.postMessage({ type: "warpengine.ready" }, "*");
+    });
+  };
   const runtimeUrl = {{ json runtime_url }}
-  const payloadUrl = {{ json payload_url }}
+  const payloadUrl = await receivePayload({{ json payload_url }}, false)
   const canvas = document.querySelector("#canvas")
   const play = document.getElementById("tic80-play")
   const options = {

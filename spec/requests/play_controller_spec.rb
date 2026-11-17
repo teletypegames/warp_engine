@@ -27,7 +27,7 @@ RSpec.describe "GET /play/:name/:version", type: :request do
     expect(response).to have_http_status(:ok)
     expect(response.media_type).to eq("text/html")
     expect(response.body).to include("<title>Rabbit &amp; Co</title>", '"core":"vice_x64sc"',
-                                     'const payloadUrl = "/file/rabbit-1.0.0.prg"', 'const runtimeUrl = "/file/_runtimes/emulatorjs-4.2.3/"',
+                                     'const payloadUrl = await receivePayload("/file/rabbit-1.0.0.prg", true)', 'const runtimeUrl = "/file/_runtimes/emulatorjs-4.2.3/"',
                                      '"keyboardInput":"enabled"', '"speed":"2"', "EJS_threads: false")
     expect(response.headers["Cross-Origin-Embedder-Policy"]).to be_nil
   end
@@ -99,9 +99,17 @@ RSpec.describe "GET /play-preview/:platform", type: :request do
                                        params: { options: { "speed" => "2" } }.to_json }
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("<title>Rabbit</title>", 'const payloadUrl = "http://127.0.0.1:47111/rabbit.prg"',
+    expect(response.body).to include("<title>Rabbit</title>", 'const payloadUrl = await receivePayload("http://127.0.0.1:47111/rabbit.prg", true)',
                                      '"core":"vice_x64sc"', '"speed":"2"')
     expect(response.headers["X-Frame-Options"]).to be_nil
+  end
+
+  it "asks its parent for the payload when told to" do
+    get "/play-preview/c64", params: { payload: "message" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include('const payloadUrl = await receivePayload("message", true)', '"warpengine.payload"',
+                                     'parent.postMessage({ type: "warpengine.ready" }, "*")')
   end
 
   it "takes no payload off the loopback interface" do

@@ -929,6 +929,12 @@ metadata's `web.params`), `title` and `start` are optional. Any other payload UR
 answers with `Access-Control-Allow-Origin` (and, for an isolated binding,
 `Cross-Origin-Resource-Policy: cross-origin`).
 
+Browsers refuse a public page's request to the loopback interface (Chrome's local network
+access protection), so a tool should hand the file over instead: with `payload=message` the page
+posts `{ type: "warpengine.ready" }` to its parent and plays the file the parent posts back as
+`{ type: "warpengine.payload", name, data }` (`data` an `ArrayBuffer`). The page leaves out
+`X-Frame-Options`, so an editor's panel or a tool's local page may frame it.
+
 ### CI management (the Woodpecker adapter)
 
 Beyond serving pipeline configs, the adapter drives the Woodpecker REST API
@@ -1738,6 +1744,11 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.8
+
+- The runtime page templates run as module scripts and take the payload from a `message`
+  handoff in preview mode; `/play` pages behave as before.
 
 ## Upgrading to 3.7
 
