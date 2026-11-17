@@ -10,9 +10,6 @@ module WarpEngine
       "Cross-Origin-Embedder-Policy" => "require-corp"
     }.freeze
 
-    # The hosts a preview payload URL may name: the loopback interface only.
-    LOOPBACK_HOSTS = %w[127.0.0.1 localhost [::1] ::1].freeze
-
     resource_description do
       short "Web player"
       formats [ "html" ]
@@ -43,35 +40,30 @@ module WarpEngine
     api :GET, "/play-preview/:platform(/:binding)", "A runtime page for a local build"
     param :platform, String, required: true, desc: "Platform name"
     param :binding, String, required: false, desc: "A web binding key of the platform; the default when absent"
-    param :payload, String, required: true, desc: "message (the embedding page posts the file), or a URL on the loopback interface (http://127.0.0.1:PORT/...)"
+    param :payload, String, required: true, desc: "message: the file is posted to the page"
     param :title, String, required: false, desc: "The page title"
     param :params, String, required: false, desc: "The runtime parameters as JSON (a metadata's web.params)"
     param :start, String, required: false, desc: "The program a launcher starts"
     returns code: 200, desc: "HTML page"
-    error code: 400, desc: "The payload is not on the loopback interface"
+    error code: 400, desc: "The payload is not message, or params is not JSON"
     error code: 404, desc: "The platform does not play on the web (in that binding)"
     # <tt>GET /play-preview/:platform(/:binding)</tt>.
     #
     # Renders the runtime's page around a developer's local build, so it
-    # plays in the runtime its release would. With <tt>payload=message</tt>
-    # the page asks its parent for the file (+warpengine.ready+) and plays
-    # what the parent, or a script of the page itself, posts back (<tt>{ type: "warpengine.payload", name,
-    # data }</tt>): nothing is fetched from the developer's machine, which a
-    # browser's local network protection would refuse. Otherwise +payload+
-    # must be a loopback URL, so the page never plays someone else's file
-    # under the host's name. The page leaves
-    # out +X-Frame-Options+, so an editor's panel can frame it. Responds 400 for
-    # another URL or unreadable +params+, and 404 when
+    # plays in the runtime its release would. The page does not fetch the
+    # build: it posts +warpengine.ready+ to its parent and plays the file
+    # posted back to it, by its parent or by a script of its own (<tt>{ type:
+    # "warpengine.payload", name, data }</tt>). A developer's tool serves the
+    # page with the build itself (the WarpEngine Toolbox does). Responds 400
+    # when +payload+ is not +message+ or +params+ is not JSON, and 404 when
     # WarpEngine::PlayService#preview finds nothing to play in.
     def preview
-      payload = params[:payload] == "message" ? "message" : loopback_url(params[:payload])
-      return render plain: "payload must be a loopback URL", status: :bad_request if payload.nil?
+      return render plain: "payload must be message", status: :bad_request unless params[:payload] == "message"
 
       page = WarpEngine::PlayService.new.preview(platform: params[:platform], binding: params[:binding],
                                                  params: params[:params].present? ? JSON.parse(params[:params]) : nil)
       response.headers.merge!(ISOLATION_HEADERS) if page.isolated?
-      response.headers.delete("X-Frame-Options")
-      render html: WarpEngine::Runtime::Template.render(page.template, preview_values(page, payload)).html_safe
+      render html: WarpEngine::Runtime::Template.render(page.template, preview_values(page)).html_safe
     rescue JSON::ParserError
       render plain: "params must be JSON", status: :bad_request
     rescue WarpEngine::PlayService::NotFound
@@ -80,19 +72,12 @@ module WarpEngine
 
     private
 
-    def loopback_url(value)
-      uri = URI.parse(value.to_s)
-      uri if %w[http https].include?(uri.scheme) && LOOPBACK_HOSTS.include?(uri.host) && uri.userinfo.nil?
-    rescue URI::InvalidURIError
-      nil
-    end
-
-    def preview_values(page, payload)
+    def preview_values(page)
       {
         "title" => params[:title].presence || "Preview",
         "name" => "preview",
         "version" => "local",
-        "payload_url" => payload.to_s,
+        "payload_url" => "message",
         "runtime_url" => "#{file_path(path: page.runtime_version.path)}/",
         "isolated" => page.isolated?,
         "params" => page.params,

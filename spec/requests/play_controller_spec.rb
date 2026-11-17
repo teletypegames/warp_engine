@@ -94,33 +94,24 @@ RSpec.describe "GET /play-preview/:platform", type: :request do
 
   after { FileUtils.rm_rf(tmpdir) }
 
-  it "plays a local build in the runtime a release would get" do
-    get "/play-preview/c64", params: { payload: "http://127.0.0.1:47111/rabbit.prg", title: "Rabbit",
-                                       params: { options: { "speed" => "2" } }.to_json }
+  it "plays a local build in the runtime a release would get, asking for the file" do
+    get "/play-preview/c64", params: { payload: "message", title: "Rabbit", params: { options: { "speed" => "2" } }.to_json }
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("<title>Rabbit</title>", 'const payloadUrl = await receivePayload("http://127.0.0.1:47111/rabbit.prg", true)',
-                                     '"core":"vice_x64sc"', '"speed":"2"')
-    expect(response.headers["X-Frame-Options"]).to be_nil
-  end
-
-  it "asks its parent for the payload when told to" do
-    get "/play-preview/c64", params: { payload: "message" }
-
-    expect(response).to have_http_status(:ok)
-    expect(response.body).to include('const payloadUrl = await receivePayload("message", true)', '"warpengine.payload"',
+    expect(response.body).to include("<title>Rabbit</title>", 'const payloadUrl = await receivePayload("message", true)',
+                                     '"core":"vice_x64sc"', '"speed":"2"', '"warpengine.payload"',
                                      'parent.postMessage({ type: "warpengine.ready" }, "*")', "event.source !== window",
                                      'navigator.getAutoplayPolicy("audiocontext") === "allowed"')
   end
 
-  it "takes no payload off the loopback interface" do
-    get "/play-preview/c64", params: { payload: "https://evil.example/x.prg" }
+  it "takes the file only as a message" do
+    get "/play-preview/c64", params: { payload: "http://127.0.0.1:47111/rabbit.prg" }
 
     expect(response).to have_http_status(:bad_request)
   end
 
   it "answers 404 where the platform does not play on the web" do
-    get "/play-preview/godot", params: { payload: "http://localhost:1/x.zip" }
+    get "/play-preview/godot", params: { payload: "message" }
 
     expect(response).to have_http_status(:not_found)
   end

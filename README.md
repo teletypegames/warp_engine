@@ -921,20 +921,16 @@ repositories in `owner`.
 
 ### Playing a local build
 
-`GET /play-preview/:platform(/:binding)?payload=URL` renders the platform's runtime page
-around a payload a developer's tool serves on the loopback interface
-(`http://127.0.0.1:PORT/...`), with the runtime version new releases get; `params` (JSON, a
-metadata's `web.params`), `title` and `start` are optional. Any other payload URL answers
-400, so the page never plays a file from elsewhere under the host's name. The tool's server
-answers with `Access-Control-Allow-Origin` (and, for an isolated binding,
-`Cross-Origin-Resource-Policy: cross-origin`).
+`GET /play-preview/:platform(/:binding)?payload=message` renders the platform's runtime page
+for a build that is not in the catalog yet, with the runtime version new releases get;
+`params` (JSON, a metadata's `web.params`), `title` and `start` are optional. The page fetches
+no build: it posts `{ type: "warpengine.ready" }` to its parent and plays the file posted back
+to it — by its parent, or by a script of the page itself posting to its own window — as
+`{ type: "warpengine.payload", name, data }` (`data` an `ArrayBuffer` or typed array).
 
-Browsers refuse a public page's request to the loopback interface (Chrome's local network
-access protection), so a tool should hand the file over instead: with `payload=message` the page
-posts `{ type: "warpengine.ready" }` to its parent and plays the file the parent (or a script the
-tool put into the page, posting to the page's own window) posts back as
-`{ type: "warpengine.payload", name, data }` (`data` an `ArrayBuffer`). The page leaves out
-`X-Frame-Options`, so an editor's panel or a tool's local page may frame it.
+A developer's tool serves the page itself, with the build: the WarpEngine Toolbox fetches it,
+serves the runtime files from a local proxy and runs it in its panel or a local browser tab.
+A public page could not fetch the build from the developer's machine (browsers block it).
 
 ### CI management (the Woodpecker adapter)
 
@@ -1745,6 +1741,11 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.9
+
+- `/play-preview` takes only `payload=message`; the loopback payload URL (3.7) is gone, browsers
+  refuse it. The page keeps the host's `X-Frame-Options` again: nothing frames it.
 
 ## Upgrading to 3.8.2
 
