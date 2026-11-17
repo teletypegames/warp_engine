@@ -22,7 +22,6 @@
 <script type="module">
   const runtimeUrl = {{ json runtime_url }}
   const payloadUrl = {{ json payload_url }}
-  const { default: startTic80 } = await import(runtimeUrl + "tic80.js")
   const canvas = document.querySelector("#canvas")
   const play = document.getElementById("tic80-play")
   const options = {
@@ -31,15 +30,24 @@
     locateFile: (file) => runtimeUrl + file,
     preRun: [
       (module) => {
-        module.ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT = "#canvas"
+        if (module && module.ENV) module.ENV.SDL_EMSCRIPTEN_KEYBOARD_ELEMENT = "#canvas"
       }
     ]
   }
+  const source = await (await fetch(runtimeUrl + "tic80.js")).text()
+  const start = /export\s+default/.test(source)
+    ? async () => (await import(runtimeUrl + "tic80.js")).default(options)
+    : async () => {
+      window.Module = options
+      const script = document.createElement("script")
+      script.src = runtimeUrl + "tic80.js"
+      document.body.appendChild(script)
+    }
   canvas.addEventListener("click", () => canvas.focus())
   play.addEventListener("click", () => {
     play.style.display = "none"
     canvas.focus()
-    startTic80(options)
+    start()
   })
 </script>
 </body>
