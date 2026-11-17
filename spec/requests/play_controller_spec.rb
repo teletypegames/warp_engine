@@ -101,6 +101,7 @@ RSpec.describe "GET /play-preview/:platform", type: :request do
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("<title>Rabbit</title>", 'const payloadUrl = "http://127.0.0.1:47111/rabbit.prg"',
                                      '"core":"vice_x64sc"', '"speed":"2"')
+    expect(response.headers["X-Frame-Options"]).to be_nil
   end
 
   it "takes no payload off the loopback interface" do

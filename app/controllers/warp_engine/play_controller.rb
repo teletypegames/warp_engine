@@ -55,7 +55,8 @@ module WarpEngine
     # Renders the runtime's page around a payload a developer's tool serves
     # on the loopback interface, so a local build plays in the runtime its
     # release would. Only a loopback +payload+ URL is taken, so the page
-    # never plays someone else's file under the host's name. Responds 400 for
+    # never plays someone else's file under the host's name. The page leaves
+    # out +X-Frame-Options+, so an editor's panel can frame it. Responds 400 for
     # another URL or unreadable +params+, and 404 when
     # WarpEngine::PlayService#preview finds nothing to play in.
     def preview
@@ -65,6 +66,7 @@ module WarpEngine
       page = WarpEngine::PlayService.new.preview(platform: params[:platform], binding: params[:binding],
                                                  params: params[:params].present? ? JSON.parse(params[:params]) : nil)
       response.headers.merge!(ISOLATION_HEADERS) if page.isolated?
+      response.headers.delete("X-Frame-Options")
       render html: WarpEngine::Runtime::Template.render(page.template, preview_values(page, payload)).html_safe
     rescue JSON::ParserError
       render plain: "params must be JSON", status: :bad_request
