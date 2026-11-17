@@ -36,6 +36,10 @@ module WarpEngine
     # [catalog_max_page_size]         the largest catalog page a client may ask for (default 200)
     # [sys_info_live_checks]          whether the SysInfo page may call the CI server (default +true+; +false+
     #                                 turns the live checks off for good)
+    # [dev_release_ttl_days]          a development build not updated for this many days is removed by
+    #                                 WarpEngine::DevReleasePruneJob (default 30)
+    # [dev_release_keep_branches]     the branches whose newest development build is never removed for its
+    #                                 age, e.g. <tt>%w[develop]</tt> (default empty)
     # [additional_resources]          the WarpEngine::AdditionalResource list (default empty)
     # [outlets]                       the outlet definitions, shelves among them, as hashes with +key+,
     #                                 +type+ and the type's options (see WarpEngine::Outlets; default empty)
@@ -63,6 +67,8 @@ module WarpEngine
                   :catalog_page_size,
                   :catalog_max_page_size,
                   :sys_info_live_checks,
+                  :dev_release_ttl_days,
+                  :dev_release_keep_branches,
                   :additional_resources,
                   :outlets,
                   :outlet_types
@@ -118,6 +124,8 @@ module WarpEngine
       @catalog_page_size             = 48
       @catalog_max_page_size         = 200
       @sys_info_live_checks          = true
+      @dev_release_ttl_days          = 30
+      @dev_release_keep_branches     = []
       @additional_resources          = []
       @outlets                       = []
       @outlet_types                  = {}

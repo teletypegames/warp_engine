@@ -33,6 +33,27 @@ RSpec.describe WarpEngine::DevReleaseService do
     expect(stale.reload.deleted_at).to be_present
   end
 
+  it "keeps the newest build of a kept branch whatever its age" do
+    build("dev-0.1-develop-old", 50.days.ago)
+    old = build("dev-0.1.0-develop", 45.days.ago)
+    newest = build("dev-0.1.1-develop", 40.days.ago)
+    nested = build("dev-0.1.0-team-main", 40.days.ago)
+
+    report = described_class.new.prune(ttl_days: 30, keep_branches: %w[develop team/main], dry_run: false)
+
+    expect(report.lines).to contain_exactly("rabbit dev-0.1.0-develop: superseded by dev-0.1.1-develop",
+                                            a_string_starting_with("rabbit dev-0.1-develop-old: not updated since"))
+    expect(WarpEngine::Release.kept).to contain_exactly(newest, nested)
+    expect(old.reload.deleted_at).to be_present
+  end
+
+  it "takes the age limit and the kept branches from the configuration" do
+    allow(WarpEngine.config).to receive_messages(dev_release_ttl_days: 60, dev_release_keep_branches: [])
+    build("dev-1.0.0-spike", 40.days.ago)
+
+    expect(described_class.new.prune.count).to eq(0)
+  end
+
   it "only reports in a dry run" do
     build("dev-1.0.0-spike", 40.days.ago)
 

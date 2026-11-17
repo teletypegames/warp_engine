@@ -945,9 +945,31 @@ A release is on a channel its version names (`WarpEngine::Channels`), never set 
 Every release in the catalog API and the Admin API carries its `channel`. A pre-release goes out the
 usual way: put the version (`1.3.0-beta.1`) in the source and push, or tag `v1.3.0-beta.1`.
 
-**Development builds** pile up, one per branch and version. `rake warp_engine:releases:prune_dev`
-removes the ones superseded on their branch and the ones not updated for `TTL_DAYS` (default 30),
-assets and release folder included; `DRY_RUN=1` only lists. Schedule it on the host if you want it.
+**Development builds** pile up, one per branch and version. `WarpEngine::DevReleasePruneJob`
+removes the ones superseded on their branch and the ones not updated for `dev_release_ttl_days`
+(default 30), assets and release folder included. The newest build of a branch in
+`dev_release_keep_branches` stays whatever its age — a long-lived working branch such as
+`develop`:
+
+```ruby
+WarpEngine.configure do |config|
+  config.dev_release_ttl_days = 30
+  config.dev_release_keep_branches = %w[develop]
+end
+```
+
+The engine does not schedule the job; run it with your job backend, e.g. a Solid Queue recurring
+task in `config/recurring.yml`:
+
+```yaml
+production:
+  prune_dev_releases:
+    class: WarpEngine::DevReleasePruneJob
+    schedule: every day at 4am
+```
+
+`rake warp_engine:releases:prune_dev` does the same by hand (`TTL_DAYS` overrides the setting,
+`DRY_RUN=1` only lists).
 
 **Pull request previews.** With a forge configured, the publish of a development build adds a
 comment to the open pull request of its branch (the software's pipeline names the repository):
@@ -1764,6 +1786,12 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.1
+
+- New: `WarpEngine::DevReleasePruneJob` and the `dev_release_ttl_days` and
+  `dev_release_keep_branches` settings. The job is not scheduled by the engine; nothing changes
+  until the host runs it.
 
 ## Upgrading to 4.0
 
