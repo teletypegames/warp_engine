@@ -164,7 +164,8 @@ newer set when you are ready:
 
 | Example of engine | Images (`git.teletypegames.org/build/…`) | Tag |
 | --- | --- | --- |
-| 4.1.5– | the same set, with the `dos-builder` that fills in a missing `dos` block from the name | `2026.11.17.2` |
+| 4.1.6– | the same set, with the `tic80pro` that has `tic80-export` and its own native players | `2026.11.17.3` |
+| 4.1.5 | the same set, with the `dos-builder` that fills in a missing `dos` block from the name | `2026.11.17.2` |
 | 4.1.2–4.1.4 | `godot-builder` (Godot 4.7.1), `phaser-builder`, `love-builder`, `bevy-builder`, `ebitengine-builder`, `c64-builder`, `plus4-builder`, `dos-builder`, `tic80pro`, `commodore-player` | `2026.11.17` |
 | 4.1.2– | `ci-tools` (version, tag, upload, publish steps) | `@sha256:8bb7d771…` |
 
@@ -1811,6 +1812,14 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.1.6
+
+The TIC-80 pipeline's `binaries` step embeds the cart with `tic80-export` instead of
+TIC-80's `export win|linux|mac`, which fetches its players from tic80.com and fails
+since tic80.com serves the 1.1 players only. A host's `tic80` builder must have
+`tic80-export`: `git.teletypegames.org/build/tic80pro:latest` or `:2026.11.17.3` and
+later (the example stack moves to the image set `2026.11.17.3`).
 
 ## Upgrading to 4.1.5
 

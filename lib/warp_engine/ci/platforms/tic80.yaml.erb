@@ -140,9 +140,11 @@ steps:
     commands:
       - |
         VERSION=$(cat .version)
-        echo "==> Exporting native players for version $VERSION"
-        tic80 --cli --skip --fs=. \
-          --cmd="load <%= name %>.lua & export win <%= name %>-win & export linux <%= name %>-linux & export mac <%= name %>-mac & exit"
+        CART=<%= name %>-$VERSION.tic
+        echo "==> Embedding $CART into the native players"
+        tic80-export win "$CART" <%= name %>-win.exe
+        tic80-export linux "$CART" <%= name %>-linux
+        tic80-export mac "$CART" <%= name %>-mac
         # unix zip preserves the executable bit
         pack_binary() {
           SLUG="$1"; SRC_FILE="$2"; DST_FILE="$3"
