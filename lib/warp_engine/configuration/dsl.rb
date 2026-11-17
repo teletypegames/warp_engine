@@ -110,6 +110,12 @@ module WarpEngine
       #   platform_tooling :c64, template: "https://git.example/build/c64-tools"
       def platform_tooling(platform, **values) = @config.platform_tooling(platform, **values)
 
+      # Chooses the forge new softwares get their repository on; see
+      # WarpEngine::Configuration#forge.
+      #
+      #   forge :gitea, url: "https://git.example", token: ENV["GITEA_TOKEN"], owner: "games"
+      def forge(type, **options) = @config.forge(type, **options)
+
       # Evaluates +block+ with a WarpEngine::Configuration::AdminApiDSL on the
       # admin API settings.
       def admin_api(&block)

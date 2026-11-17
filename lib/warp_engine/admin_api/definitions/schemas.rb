@@ -63,6 +63,19 @@ module WarpEngine
                              assets: S.array(S.ref("ReleaseAsset")), **timestamps })
         end
 
+        # The body of a scaffold (<tt>POST /softwares/scaffold</tt>).
+        def scaffold_body
+          S.object({ name: S.string("Software and repository name: a-z, 0-9 and dashes"), title: S.string,
+                     platform: S.enum(WarpEngine::Platform.names), category: text, description: text })
+        end
+
+        # The +Scaffold+ schema, what a scaffold made.
+        def scaffold
+          named("Scaffold", { software: S.ref("Software"),
+                              repository: S.object({ owner: S.string, name: S.string, htmlUrl: text, cloneUrl: text, sshUrl: text }),
+                              pipelineId: S.nullable(S.integer), warnings: S.array(S.string) })
+        end
+
         # The body of creating or changing a release.
         def release_body = S.object({ version: S.string })
 
@@ -280,7 +293,7 @@ module WarpEngine
           [ software, release, release_asset, external_link, software_image, platform_link, software_status,
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
-            application_token, device_grant, principal, extra ]
+            application_token, device_grant, principal, extra, scaffold ]
         end
       end
     end

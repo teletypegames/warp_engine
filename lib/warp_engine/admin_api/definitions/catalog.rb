@@ -59,6 +59,20 @@ module WarpEngine
               ctx.created(Admin::SoftwareSerializer.render_as_hash(software))
             end
 
+            r.action :post, "/softwares/scaffold", name: :scaffold, status: 201,
+                     summary: "Start a software: forge repository, CI, CI token and a draft catalog entry",
+                     body: X.scaffold_body, required: %i[name title platform], item: X.scaffold do |ctx|
+              result = WarpEngine::ScaffoldService.new.scaffold(
+                name: ctx[:name].to_s, title: ctx[:title].to_s, platform: ctx[:platform].to_s, owner: ctx.principal.owner,
+                category: ctx[:category], description: ctx[:description]
+              )
+              ctx.created(scaffold_payload(result))
+            rescue WarpEngine::ScaffoldService::Error => e
+              raise Error.conflict(e.message)
+            rescue WarpEngine::Forge::Error => e
+              raise Error.new(502, e.message)
+            end
+
             r.update "/softwares/:id", summary: "Change a software", body: X.software_body, item: X.software do |ctx|
               software = WarpEngine::Software.kept.find(ctx.id)
               software.assign_attributes(ctx.attributes)
@@ -252,6 +266,19 @@ module WarpEngine
               ctx.ok(extra_payload(extra, software.reload))
             end
           end
+        end
+
+        # Returns the answer of a scaffold: the software (as Admin::SoftwareSerializer),
+        # the repository's URLs, the pipeline id and the warnings of a
+        # WarpEngine::ScaffoldService::Result.
+        def scaffold_payload(result)
+          repo = result.repo
+          {
+            software: Admin::SoftwareSerializer.render_as_hash(result.software),
+            repository: { owner: repo.owner, name: repo.name, htmlUrl: repo.html_url, cloneUrl: repo.clone_url, sshUrl: repo.ssh_url },
+            pipelineId: result.pipeline&.id,
+            warnings: result.warnings
+          }
         end
 
         # The serialized +software+ with the lists named in +include+ (see INCLUDES).

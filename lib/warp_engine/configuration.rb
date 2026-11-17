@@ -90,6 +90,10 @@ module WarpEngine
     # platform name to a Hash of values, filled by #platform_tooling.
     attr_reader :platform_toolings
 
+    # The forge the engine creates repositories on: a Hash with +type+ and the
+    # adapter's options, set by #forge; +nil+ for none.
+    attr_reader :forge_settings
+
     # Creates a configuration with every setting at its default.
     def initialize
       @site_url                      = nil
@@ -122,6 +126,7 @@ module WarpEngine
       @runtime_versions              = {}
       @platform_web_changes          = {}
       @platform_toolings             = {}
+      @forge_settings                = nil
     end
 
     # Registers (or replaces) a platform the engine does not ship. With a block,
@@ -214,6 +219,17 @@ module WarpEngine
     # Returns the platform's tooling Hash.
     def platform_tooling(platform, **values)
       @platform_toolings[platform.to_s] = @platform_toolings.fetch(platform.to_s, {}).merge(values)
+    end
+
+    # Chooses the forge new softwares get their repository on
+    # (WarpEngine::ScaffoldService): +type+ (+:gitea+, which Forgejo answers
+    # too) and the adapter's options (see WarpEngine::Forge::Gitea).
+    #
+    #   config.forge :gitea, url: "https://git.example", token: ENV["GITEA_TOKEN"], owner: "games"
+    #
+    # Returns the settings Hash.
+    def forge(type, **options)
+      @forge_settings = { type: type.to_s, **options }
     end
 
     # Returns the WarpEngine::AdminApi::Configuration, creating it with its

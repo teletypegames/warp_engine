@@ -31,6 +31,33 @@ module WarpEngine
       def isolated? = binding.isolated
     end
 
+    # A runtime page for a payload that is not in the catalog yet, a
+    # developer's local build.
+    #
+    # [platform]        the WarpEngine::Platform
+    # [binding]         the WarpEngine::Platform::WebBinding
+    # [runtime_version] the WarpEngine::RuntimeVersion the new releases get
+    # [params]          the runtime parameters, a Hash with String keys
+    # [template]        the runtime's page template, a String
+    Preview = ::Data.define(:platform, :binding, :runtime_version, :params, :template) do
+      # Returns +true+ when the page must be served cross-origin isolated.
+      def isolated? = binding.isolated
+    end
+
+    # Returns the Preview of the platform +platform+ (a name) in the binding
+    # +binding+ (a key; blank for the default), with the runtime version new
+    # releases get and +params+ (the <tt>web.params</tt> of a metadata, or
+    # +nil+) over the binding's. Raises NotFound when the platform does not
+    # play on the web in that binding or its runtime is not installed.
+    def preview(platform:, binding: nil, params: nil)
+      found = WarpEngine::Platform.find(platform) || raise(NotFound, "unknown platform")
+      chosen = found.web_binding(binding) || raise(NotFound, "#{found.label} does not play on the web in #{binding.presence || 'a runtime'}")
+      runtime_version = Publish::WebBinder.new(found).available_version(chosen) || raise(NotFound, "#{chosen.runtime} is not installed")
+
+      definition = chosen.runtime_object.definition
+      Preview.new(found, chosen, runtime_version, definition.resolve_params(chosen.params, params), definition.template_source)
+    end
+
     # Returns the Page of the release +version+ of the software +name+, in
     # the binding +binding+ (a key; blank for the release's own). +subject+
     # is the caller for the access policy (+nil+ when anonymous); +authorize+

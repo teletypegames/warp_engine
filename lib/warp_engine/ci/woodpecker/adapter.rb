@@ -103,6 +103,12 @@ module WarpEngine
           nil
         end
 
+        # Enables CI for the forge repository +forge_repo_id+ that is new to
+        # Woodpecker. Returns its CI::Repo. Raises CI::ApiError.
+        def activate_forge_repo(forge_repo_id)
+          to_repo(client.activate_forge_repo(forge_repo_id))
+        end
+
         # Disables CI for the repository +repo_id+ on the server. Returns +nil+. Raises CI::ApiError.
         def deactivate_repo(repo_id)
           client.deactivate_repo(repo_id)

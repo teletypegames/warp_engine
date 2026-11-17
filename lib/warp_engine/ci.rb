@@ -122,6 +122,8 @@ module WarpEngine
       # Raises CI::NotConfigured.
       def activate_repo(_id)                 = raise(NotConfigured, MESSAGE)
       # Raises CI::NotConfigured.
+      def activate_forge_repo(_id)           = raise(NotConfigured, MESSAGE)
+      # Raises CI::NotConfigured.
       def deactivate_repo(_id)               = raise(NotConfigured, MESSAGE)
       # Raises CI::NotConfigured.
       def runs(_repo_id, page: 1)            = raise(NotConfigured, MESSAGE)

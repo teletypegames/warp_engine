@@ -46,6 +46,8 @@ module WarpEngine
           mapper.get "file/*path", to: "files#show", format: false, as: :file
           mapper.get "play/:name/:version(/:binding)", to: "play#show", format: false, as: :play,
                                                        constraints: { name: %r{[^/]+}, version: %r{[^/]+}, binding: %r{[^/]+} }
+          mapper.get "play-preview/:platform(/:binding)", to: "play#preview", format: false, as: :play_preview,
+                                                          constraints: { platform: %r{[^/]+}, binding: %r{[^/]+} }
         end
       end
 

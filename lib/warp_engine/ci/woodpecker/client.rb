@@ -42,6 +42,14 @@ module WarpEngine
           post("/api/repos", body: { id: repo_id })
         end
 
+        # <tt>POST /api/repos?forge_remote_id=</tt>: enables CI for the forge
+        # repository +forge_remote_id+ Woodpecker has not seen yet; returns the
+        # new repository Hash.
+        def activate_forge_repo(forge_remote_id)
+          uri = build_uri("/api/repos", { forge_remote_id: forge_remote_id })
+          execute(uri, Net::HTTP::Post.new(uri))
+        end
+
         # <tt>DELETE /api/repos/:repo_id</tt>: disables CI for the repository.
         def deactivate_repo(repo_id)
           delete("/api/repos/#{repo_id}")

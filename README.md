@@ -891,6 +891,44 @@ The publish step sends `CI_COMMIT_SHA` as `commit`; the release keeps it as
 pipeline run reports its `commit`, `event` and `ref`, so a tool can tie the HEAD of a
 working copy to its run and its release.
 
+### Starting a software in one step (scaffold)
+
+`POST /api/admin/v1/softwares/scaffold` (scope `admin:write`; body `name`, `title`,
+`platform`, optional `category` and `description`) does what starting a game takes:
+
+1. an empty repository on the forge, in the configured organisation;
+2. CI for it (`activate_forge_repo`) and its `Pipeline`, linked to the software;
+3. a draft `Software` (status `development`) owned by the caller, with a *Repository* link;
+4. an application token with `update` + `upload`, written into the pipeline's
+   `application_token` secret;
+5. the `warp_engine.scaffold` notification (`software`, `repo`, `pipeline`), where a host
+   hangs its own integrations (an issue tracker project, a wiki page, an asset collection).
+
+It answers the software, the repository URLs, the pipeline id and `warnings` for the steps
+that did not go through (no CI, a refused secret). The project files are the tool's
+business: it pushes them into the new repository, and the first push builds.
+
+The forge is a seam like the others; without one, scaffolding answers 409:
+
+```ruby
+WarpEngine.configure do
+  forge :gitea, url: "https://git.example", token: ENV["GITEA_API_TOKEN"], owner: "games"
+end
+```
+
+The Gitea adapter (Forgejo answers the same API) needs a token that may create
+repositories in `owner`.
+
+### Playing a local build
+
+`GET /play-preview/:platform(/:binding)?payload=URL` renders the platform's runtime page
+around a payload a developer's tool serves on the loopback interface
+(`http://127.0.0.1:PORT/...`), with the runtime version new releases get; `params` (JSON, a
+metadata's `web.params`), `title` and `start` are optional. Any other payload URL answers
+400, so the page never plays a file from elsewhere under the host's name. The tool's server
+answers with `Access-Control-Allow-Origin` (and, for an isolated binding,
+`Cross-Origin-Resource-Policy: cross-origin`).
+
 ### CI management (the Woodpecker adapter)
 
 Beyond serving pipeline configs, the adapter drives the Woodpecker REST API
@@ -1700,6 +1738,11 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 3.7
+
+- New, optional: `forge` (for scaffolding) and the `warp_engine.scaffold` notification.
+- `GET /play-preview/...` is drawn with the catalog routes (the `wecp` outlet).
 
 ## Upgrading to 3.6
 

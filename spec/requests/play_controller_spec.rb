@@ -82,3 +82,36 @@ RSpec.describe "GET /play/:name/:version", type: :request do
     expect(json[:players]).to eq([])
   end
 end
+
+RSpec.describe "GET /play-preview/:platform", type: :request do
+  let(:tmpdir) { Dir.mktmpdir }
+
+  before do
+    allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
+    install_runtime_version(name: "emulatorjs", version: "4.2.3", files: { "loader.js" => "loader" },
+                            components: { "core" => %w[vice_x64sc] })
+  end
+
+  after { FileUtils.rm_rf(tmpdir) }
+
+  it "plays a local build in the runtime a release would get" do
+    get "/play-preview/c64", params: { payload: "http://127.0.0.1:47111/rabbit.prg", title: "Rabbit",
+                                       params: { options: { "speed" => "2" } }.to_json }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("<title>Rabbit</title>", 'const payloadUrl = "http://127.0.0.1:47111/rabbit.prg"',
+                                     '"core":"vice_x64sc"', '"speed":"2"')
+  end
+
+  it "takes no payload off the loopback interface" do
+    get "/play-preview/c64", params: { payload: "https://evil.example/x.prg" }
+
+    expect(response).to have_http_status(:bad_request)
+  end
+
+  it "answers 404 where the platform does not play on the web" do
+    get "/play-preview/godot", params: { payload: "http://localhost:1/x.zip" }
+
+    expect(response).to have_http_status(:not_found)
+  end
+end

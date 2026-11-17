@@ -52,6 +52,14 @@ module WarpEngine
       sync_single(repo_id)
     end
 
+    # Activates CI for the forge repository +forge_repo_id+ the CI has not
+    # seen yet (WarpEngine::CI adapter +activate_forge_repo+) and syncs its
+    # pipeline. Returns the saved WarpEngine::Pipeline.
+    def activate_forge(forge_repo_id)
+      remote = @ci.activate_forge_repo(forge_repo_id)
+      sync_single(remote.id)
+    end
+
     # Deactivates the CI repository +repo_id+ and marks its pipeline inactive.
     # Raises ActiveRecord::RecordNotFound when no kept pipeline matches.
     def deactivate(repo_id)
