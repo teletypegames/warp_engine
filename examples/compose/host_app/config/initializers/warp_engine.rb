@@ -1,19 +1,20 @@
 REGISTRY = ENV.fetch("WARP_REGISTRY", "git.teletypegames.org/build")
 TOOLING_HOST = ENV.fetch("WARP_TOOLING_HOST", "https://git.teletypegames.org")
+IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.17")
 
 TOOLS_IMAGE = "#{REGISTRY}/ci-tools@sha256:8bb7d77188d3d48ac8c2b1aeea3476f39f41f270e90bdc64ba7b4a35e8037519".freeze
-COMMODORE_PLAYER = "#{REGISTRY}/commodore-player:latest".freeze
+COMMODORE_PLAYER = "#{REGISTRY}/commodore-player:#{IMAGES}".freeze
 
 BUILDERS = {
-  godot:      "#{REGISTRY}/godot-builder:4.7.1",
-  phaser:     "#{REGISTRY}/phaser-builder:latest",
-  love:       "#{REGISTRY}/love-builder:latest",
-  bevy:       "#{REGISTRY}/bevy-builder:latest",
-  c64:        "#{REGISTRY}/c64-builder:latest",
-  plus4:      "#{REGISTRY}/plus4-builder:latest",
-  ebitengine: "#{REGISTRY}/ebitengine-builder:latest",
-  tic80:      "#{REGISTRY}/tic80pro:latest",
-  dos:        "#{REGISTRY}/dos-builder:latest"
+  godot:      "#{REGISTRY}/godot-builder:#{IMAGES}",
+  phaser:     "#{REGISTRY}/phaser-builder:#{IMAGES}",
+  love:       "#{REGISTRY}/love-builder:#{IMAGES}",
+  bevy:       "#{REGISTRY}/bevy-builder:#{IMAGES}",
+  c64:        "#{REGISTRY}/c64-builder:#{IMAGES}",
+  plus4:      "#{REGISTRY}/plus4-builder:#{IMAGES}",
+  ebitengine: "#{REGISTRY}/ebitengine-builder:#{IMAGES}",
+  tic80:      "#{REGISTRY}/tic80pro:#{IMAGES}",
+  dos:        "#{REGISTRY}/dos-builder:#{IMAGES}"
 }.freeze
 
 WEB_SHELLS = {

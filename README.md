@@ -156,6 +156,18 @@ The builder images, the project templates and the web shells come from
 `WARP_TOOLING_HOST` point the example at your own copies. The images are
 built for amd64; on an arm64 machine Docker runs them emulated, slower.
 
+The example pins the images to a dated tag (`WARP_IMAGES`), so a new builder
+on our side never changes a pipeline that already works for you; move to a
+newer set when you are ready:
+
+| Example of engine | Images (`git.teletypegames.org/build/…`) | Tag |
+| --- | --- | --- |
+| 4.1.2 | `godot-builder` (Godot 4.7.1), `phaser-builder`, `love-builder`, `bevy-builder`, `ebitengine-builder`, `c64-builder`, `plus4-builder`, `dos-builder`, `tic80pro`, `commodore-player` | `2026.11.17` |
+| 4.1.2 | `ci-tools` (version, tag, upload, publish steps) | `@sha256:8bb7d771…` |
+
+The project templates and demos (`platform_tooling`, `ref: master`) and the web
+shells follow their `master` branch: they only matter when a new game starts.
+
 ### Publish a release by hand
 
 The updater contract is nothing but a handful of HTTP calls, so you can play
@@ -1776,6 +1788,10 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.1.2
+
+Nothing to change in a host. The example stack pins its builder images to the dated tag `2026.11.17` instead of `latest`.
 
 ## Upgrading to 4.1
 
