@@ -1,0 +1,14 @@
+#!/bin/sh
+# <%= @store_name %> on <%= client_label %>:
+#   curl -fsSL <%= public_url("install.sh") %> | sh
+set -eu
+
+STORE_CONFIG="${STORE_CONFIG:-<%= public_url("config.json") %>}"
+ENGINE_RAW_BASE="${ENGINE_RAW_BASE:-<%= engine_raw_base %>}"
+WARPSTORE_RAW_BASE="${WARPSTORE_RAW_BASE:-<%= warpstore_raw_base %>}"
+export STORE_CONFIG ENGINE_RAW_BASE WARPSTORE_RAW_BASE
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+curl -fsSL --retry 3 --connect-timeout 15 "$ENGINE_RAW_BASE/install.sh" -o "$TMP_DIR/install.sh"
+sh "$TMP_DIR/install.sh"

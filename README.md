@@ -170,6 +170,26 @@ newer set when you are ready:
 The project templates and demos (`platform_tooling`, `ref: master`) and the web
 shells follow their `master` branch: they only matter when a new game starts.
 
+### Stores for your catalog
+
+`rails g warp_engine:store batocera` (or `retroarch`) writes a store config and a
+short installer into the host's `public/stores/<client>/`, so a Batocera box or a
+RetroArch install reads *this* catalog:
+
+```sh
+docker compose exec app bin/rails g warp_engine:store batocera \
+  --base-url http://192.168.1.20:8080 --name "My Studio" --id mystudio
+# then, on the box:
+curl -fsSL http://192.168.1.20:8080/stores/batocera/install.sh | sh
+```
+
+The box has to reach the catalog, so give `--base-url` the address it sees (your
+machine's LAN address for the example; `site_url` by default). The config starts
+from the one teletypegames.org runs, keeps the platforms the host has and the
+statuses shown by default (`--statuses` to change), and is the host's own file
+from then on. The installer pins the store engine and warpstore to the commits that
+config was tested with.
+
 ### Publish a release by hand
 
 The updater contract is nothing but a handful of HTTP calls, so you can play
@@ -1790,6 +1810,10 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.1.4
+
+Nothing to change in a host. New: `rails g warp_engine:store batocera|retroarch` writes a store config and installer for the host's catalog into `public/stores/`.
 
 ## Upgrading to 4.1.3
 

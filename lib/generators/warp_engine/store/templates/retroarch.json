@@ -1,0 +1,77 @@
+{
+  "store": {
+    "id": "",
+    "name": "",
+    "base_url": "",
+    "api": {
+      "catalog": "/api/software",
+      "download": "/api/download"
+    }
+  },
+  "paths": {
+    "retroarch_dir": null,
+    "playlists_dir": null,
+    "thumbnails_dir": null,
+    "libretro_dir": null,
+    "content_root": null,
+    "subfolder": "",
+    "target_prefix": null
+  },
+  "playlist": {
+    "name_template": "{store} - {label}",
+    "write_crc32": true,
+    "thumbnail_kinds": [
+      "Named_Boxarts",
+      "Named_Titles",
+      "Named_Snaps"
+    ]
+  },
+  "catalog": {
+    "statuses": [
+      "released",
+      "archived"
+    ],
+    "owner_id": null,
+    "only": [],
+    "exclude": []
+  },
+  "platforms": {
+    "c64": {
+      "label": "Commodore 64",
+      "kind": "cartridge",
+      "ext": ".prg",
+      "core": {
+        "file": "vice_x64_libretro",
+        "name": "VICE x64"
+      },
+      "enabled": true
+    },
+    "plus4": {
+      "label": "Commodore Plus/4",
+      "kind": "cartridge",
+      "ext": ".prg",
+      "core": {
+        "file": "vice_xplus4_libretro",
+        "name": "VICE xplus4"
+      },
+      "enabled": true
+    },
+    "tic80": {
+      "label": "TIC-80",
+      "kind": "cartridge",
+      "ext": ".tic",
+      "core": {
+        "file": "tic80_libretro",
+        "name": "TIC-80"
+      },
+      "enabled": true
+    }
+  },
+  "behavior": {
+    "prune": true,
+    "timeout": 30,
+    "insecure": false,
+    "refuse_while_running": true,
+    "convert_images": true
+  }
+}
