@@ -931,7 +931,8 @@ answers with `Access-Control-Allow-Origin` (and, for an isolated binding,
 
 Browsers refuse a public page's request to the loopback interface (Chrome's local network
 access protection), so a tool should hand the file over instead: with `payload=message` the page
-posts `{ type: "warpengine.ready" }` to its parent and plays the file the parent posts back as
+posts `{ type: "warpengine.ready" }` to its parent and plays the file the parent (or a script the
+tool put into the page, posting to the page's own window) posts back as
 `{ type: "warpengine.payload", name, data }` (`data` an `ArrayBuffer`). The page leaves out
 `X-Frame-Options`, so an editor's panel or a tool's local page may frame it.
 

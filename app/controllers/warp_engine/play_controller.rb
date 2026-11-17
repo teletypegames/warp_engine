@@ -55,7 +55,7 @@ module WarpEngine
     # Renders the runtime's page around a developer's local build, so it
     # plays in the runtime its release would. With <tt>payload=message</tt>
     # the page asks its parent for the file (+warpengine.ready+) and plays
-    # what the parent posts back (<tt>{ type: "warpengine.payload", name,
+    # what the parent, or a script of the page itself, posts back (<tt>{ type: "warpengine.payload", name,
     # data }</tt>): nothing is fetched from the developer's machine, which a
     # browser's local network protection would refuse. Otherwise +payload+
     # must be a loopback URL, so the page never plays someone else's file
