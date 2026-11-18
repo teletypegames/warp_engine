@@ -94,6 +94,18 @@ RSpec.describe WarpEngine::SyncService do
     expect(described_class.new.prune_events).to eq(1)
   end
 
+  describe WarpEngine::SyncPushJob, "with criteria" do
+    it "hands the filter and skip_existing to the push" do
+      release = create(:release, software: software, version: "3.0")
+      service = instance_double(WarpEngine::SyncPushService, push: nil)
+      allow(WarpEngine::SyncPushService).to receive(:new).and_return(service)
+
+      described_class.perform_now(release.id, server.id, nil, WarpEngine::Sync::Criteria.build(filtered: false).to_h.transform_keys(&:to_s))
+
+      expect(service).to have_received(:push).with(release, server, hash_including(skip_existing: true, filter: an_instance_of(WarpEngine::Sync::Filter)))
+    end
+  end
+
   describe WarpEngine::SyncPushJob do
     it "marks the event skipped when the release is gone" do
       event = WarpEngine::SyncEvent.create!(direction: "outbound", status: "queued", sync_server: server)
@@ -151,7 +163,7 @@ RSpec.describe WarpEngine::SyncService, "runs" do
       .to have_enqueued_job(WarpEngine::SyncPushJob).exactly(8).times
     expect(result.queued).to eq(8)
     job = enqueued_jobs.last
-    expect(job["arguments"].last).to include("filtered" => false, "mode" => "all")
+    expect(job["arguments"].last).to include("filtered" => false, "mode" => "all", "skip_existing" => true)
   end
 
   it "leaves out an inactive server" do
@@ -185,7 +197,9 @@ RSpec.describe WarpEngine::Sync::Criteria do
   it "defaults to the newest release, the configured filters and channels" do
     criteria = described_class.build
 
-    expect(criteria).to have_attributes(mode: "latest", filtered: true, channels: %w[stable beta])
+    expect(criteria).to have_attributes(mode: "latest", filtered: true, channels: %w[stable beta], skip_existing: true)
+    expect(described_class.build(skip_existing: "0").skip_existing).to be(false)
+    expect(described_class.from_h("mode" => "all").skip_existing).to be(true)
   end
 
   it "reads loose values and travels as a Hash" do

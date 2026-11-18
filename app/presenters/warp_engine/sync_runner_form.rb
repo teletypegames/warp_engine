@@ -37,7 +37,7 @@ module WarpEngine
       @criteria ||= WarpEngine::Sync::Criteria.build(
         mode: @params["mode"], filtered: submitted? ? @params["filtered"] : true, channels: channels,
         softwares: @params["softwares"], platforms: @params["platforms"], categories: @params["categories"],
-        statuses: @params["statuses"]
+        statuses: @params["statuses"], skip_existing: submitted? ? @params["skip_existing"] : true
       )
     end
 
@@ -72,7 +72,8 @@ module WarpEngine
     # Returns the params that bring the same form back, for a redirect.
     def to_params
       shown = shown_criteria
-      { mode: shown.mode, filtered: shown.filtered ? "1" : "0", channels: shown.channels,
+      { mode: shown.mode, filtered: shown.filtered ? "1" : "0", skip_existing: shown.skip_existing ? "1" : "0",
+        channels: shown.channels,
         server_ids: servers.map(&:id), softwares: shown.softwares.join(", "), platforms: shown.platforms,
         categories: shown.categories, statuses: shown.statuses }
     end

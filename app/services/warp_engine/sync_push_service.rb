@@ -23,16 +23,21 @@ module WarpEngine
     # Pushes +release+ to +server+, logging on +event+ (a queued
     # WarpEngine::SyncEvent, or +nil+ to start one) as attempt +attempt+,
     # through +filter+ (a WarpEngine::Sync::Filter; by default the configured
-    # one), which also chooses the files.
+    # one), which also chooses the files. With +skip_existing+ it first asks
+    # the server (WarpEngine::Sync::Client#builds) and sends nothing when it
+    # has the version with every kind this push would bring; when that
+    # question goes unanswered, the push goes ahead.
     #
     # Returns a Result: +skipped+ when sync is off, the server inactive, the
-    # filters hold the release back, it has no files, or the other side has a
-    # newer version (409); +failed+ when the other side refuses an upload or
+    # filters hold the release back, it has no files, the server has it
+    # already (with +skip_existing+), or the other side has a newer version
+    # (409); +failed+ when the other side refuses an upload or
     # the publish; +succeeded+ otherwise. Raises
     # WarpEngine::Sync::ConnectionError (after logging it) when the server
     # does not answer, so the job tries again.
-    def push(release, server, event: nil, attempt: 1, filter: nil)
+    def push(release, server, event: nil, attempt: 1, filter: nil, skip_existing: false)
       @filter = filter if filter
+      @skip_existing = skip_existing
       event ||= SyncEvent.log(direction: "outbound", status: "queued", sync_server: server, **SyncEvent.release_attributes(release))
       @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       @files_count = 0
@@ -62,6 +67,10 @@ module WarpEngine
     def run(release, server, event)
       software = release.software
       client = server.client
+      if @skip_existing && (present = present_reason(client, software, release))
+        return finish(event, server, status: "skipped", message: present)
+      end
+
       with_files(release, software) do |paths|
         return finish(event, server, status: "skipped", message: "no uploaded file of the release is left") if paths.empty?
 
@@ -83,6 +92,32 @@ module WarpEngine
       return finish(event, server, status: "skipped", response: response) if response.status == 409
 
       finish(event, server, status: "failed", response: response)
+    end
+
+    def present_reason(client, software, release)
+      @step = "check"
+      response = client.builds(software.name)
+      return nil unless response.success?
+
+      actual = Array(response.body.dig("releases", release.version, "actual")).map(&:to_s)
+      return nil unless response.body.fetch("releases", {}).key?(release.version)
+
+      missing = kinds_to_send(release, software) - actual
+      return nil if missing.any?
+
+      "already on the server (#{actual.sort.join(', ').presence || 'no assets'})"
+    rescue Sync::ConnectionError
+      nil
+    end
+
+    def kinds_to_send(release, software)
+      platform = WarpEngine::Platform.find!(software.platform)
+      upload = Publish::Upload.new(name: software.name, version: release.version,
+                                   root: WarpEngine::ReleaseLayout.absolute_directory(software.name, release.version))
+      @filter.kind_specs(platform).select do |spec|
+        File.file?(upload.path(spec.upload_name(upload.versioned))) ||
+          (spec.kind.unpacked? && File.directory?(upload.path(spec.asset_name(upload.versioned))))
+      end.map(&:name)
     end
 
     def with_files(release, software)

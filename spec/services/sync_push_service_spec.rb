@@ -92,6 +92,54 @@ RSpec.describe WarpEngine::SyncPushService do
     expect(uploads).to be_empty
   end
 
+  describe "skipping what the server has" do
+    def stub_builds(status: 200, releases: {})
+      stub_request(:get, "https://other.example/warp/api/softwares/game/builds")
+        .to_return(status: status, body: { platform: "c64", releases: releases }.to_json)
+    end
+
+    it "sends nothing when the server has the version with every kind" do
+      stub_builds(releases: { "1.0" => { actual: %w[cartridge win_x64], missing: [] } })
+
+      result = described_class.new.push(release, server, skip_existing: true)
+
+      expect(result).to have_attributes(status: "skipped", message: "already on the server (cartridge, win_x64)")
+      expect(uploads).to be_empty
+    end
+
+    it "sends it when the server lacks a kind this push brings" do
+      stub_builds(releases: { "1.0" => { actual: %w[cartridge], missing: [] } })
+      stub_publish
+
+      expect(described_class.new.push(release, server, skip_existing: true).status).to eq("succeeded")
+      expect(uploads).to include("game-1.0-win-x64.zip")
+    end
+
+    it "sends it when the server has another version or no such software" do
+      stub_builds(releases: { "0.9" => { actual: %w[cartridge win_x64] } })
+      stub_publish
+      expect(described_class.new.push(release, server, skip_existing: true).status).to eq("succeeded")
+
+      stub_builds(status: 404)
+      expect(described_class.new.push(release, server, skip_existing: true).status).to eq("succeeded")
+    end
+
+    it "goes ahead when the question goes unanswered" do
+      stub_request(:get, %r{/builds}).to_raise(Errno::ECONNREFUSED)
+      stub_publish
+
+      expect(described_class.new.push(release, server, skip_existing: true).status).to eq("succeeded")
+    end
+
+    it "does not ask without skip_existing" do
+      stub_publish
+
+      described_class.new.push(release, server)
+
+      expect(a_request(:get, %r{/builds})).not_to have_been_made
+    end
+  end
+
   it "logs a server that does not answer and raises so the job tries again" do
     WebMock.reset!
     stub_request(:post, %r{/build/upload}).to_raise(Errno::ECONNREFUSED)

@@ -3,7 +3,7 @@ namespace :warp_engine do
     desc "Push releases to a sync server (by label or id; ALL_SERVERS=1 for every active one): the newest allowed " \
          "release of every software, ALL=1 every allowed release (a full sync). FILTERED=0 leaves the configured " \
          "filters out; CHANNELS, SOFTWARES (or the second argument), PLATFORMS, CATEGORIES and STATUSES narrow it " \
-         "(comma separated); DRY_RUN=1 only lists"
+         "(comma separated); FORCE=1 sends again what the server has; DRY_RUN=1 only lists"
     task :push, %i[server software] => :environment do |_task, args|
       servers = if ENV["ALL_SERVERS"] == "1"
         WarpEngine::SyncServer.active.order(:label).to_a
@@ -15,7 +15,7 @@ namespace :warp_engine do
       criteria = WarpEngine::Sync::Criteria.build(
         mode: ENV["ALL"] == "1" ? "all" : "latest", filtered: ENV["FILTERED"] != "0", channels: ENV["CHANNELS"],
         softwares: args[:software].presence || ENV["SOFTWARES"], platforms: ENV["PLATFORMS"],
-        categories: ENV["CATEGORIES"], statuses: ENV["STATUSES"]
+        categories: ENV["CATEGORIES"], statuses: ENV["STATUSES"], skip_existing: ENV["FORCE"] != "1"
       )
       puts "#{servers.map(&:label).join(', ')}: #{criteria.summary}"
       service = WarpEngine::SyncService.new

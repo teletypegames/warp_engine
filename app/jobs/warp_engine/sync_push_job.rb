@@ -14,7 +14,8 @@ module WarpEngine
     # Pushes the kept release +release_id+ to the server +sync_server_id+,
     # logging on the WarpEngine::SyncEvent +event_id+ (when the events are
     # on), through the filter of +criteria+ (a WarpEngine::Sync::Criteria as
-    # a Hash, from a run) or the configured one. A release or server gone in
+    # a Hash, from a run; it also says whether to skip what the server has)
+    # or the configured one. A release or server gone in
     # the meantime marks the event +skipped+.
     def perform(release_id, sync_server_id, event_id = nil, criteria = nil)
       event = event_id && WarpEngine::SyncEvent.find_by(id: event_id)
@@ -22,8 +23,9 @@ module WarpEngine
       server = WarpEngine::SyncServer.kept.find_by(id: sync_server_id)
       return event&.update!(status: "skipped", message: "the release or the server is gone") if release.nil? || server.nil?
 
-      filter = criteria.present? ? WarpEngine::Sync::Criteria.from_h(criteria).filter : nil
-      WarpEngine::SyncPushService.new.push(release, server, event: event, attempt: executions, filter: filter)
+      run = criteria.present? ? WarpEngine::Sync::Criteria.from_h(criteria) : nil
+      WarpEngine::SyncPushService.new.push(release, server, event: event, attempt: executions, filter: run&.filter,
+                                                           skip_existing: run&.skip_existing == true)
     end
   end
 end

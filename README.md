@@ -1832,9 +1832,15 @@ ALL_SERVERS=1 bin/rails warp_engine:sync:push                   # every active s
 bin/rails "warp_engine:sync:check[other-engine]"               # does it accept the token
 ```
 
-A run does not look at what the other side has: a release it holds already is
-uploaded again and published over itself, and one older than its newest is refused
-there (409) and logged as skipped. A push queued without the configured filters
+A run skips what the other side has (4.7): before its uploads each push asks the
+server's `GET /api/softwares/:name/builds` (public, no token sent) and sends nothing
+when the server holds that version with every kind of file the push would bring; it
+is logged as skipped, *already on the server*. A version the server holds with
+fewer kinds is sent, and a question that goes unanswered does not stop the push.
+Untick *Skip what the server already has* on the runner (`skipExisting: false` in
+the Admin API, `FORCE=1` for rake) to send them again. The automatic push after a
+publish never skips: a version published again goes out again. A version older
+than the server's newest is still refused there (409) and logged as skipped. A push queued without the configured filters
 keeps that choice, so the filters do not hold it back when the job runs.
 
 The check posts an upload without a file: an accepted token answers 400, a refused
@@ -2016,6 +2022,14 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.7
+
+Nothing to change in a host. A manual sync run (the runner, the server page's
+buttons, `POST /sync_servers/:id/push`, `POST /sync_servers/run`, `rake
+warp_engine:sync:push`) now leaves out what the other server already has; send them
+again with *Skip what the server already has* unticked, `skipExisting: false` or
+`FORCE=1`.
 
 ## Upgrading to 4.6
 

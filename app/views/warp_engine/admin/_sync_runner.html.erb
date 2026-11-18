@@ -64,6 +64,9 @@
           <label class="we-sr-opt"><%= radio_button_tag :mode, "latest", shown.mode == "latest" %> <span>Newest release of each software</span></label>
           <label class="we-sr-opt"><%= radio_button_tag :mode, "all", shown.mode == "all" %> <span>Every release, oldest first (full sync)</span></label>
         </div>
+        <%= hidden_field_tag :skip_existing, "0", id: nil %>
+        <label class="we-sr-opt"><%= check_box_tag :skip_existing, "1", shown.skip_existing, id: "we-sr-skip-existing" %> <span>Skip what the server already has</span></label>
+        <p class="we-sr-hint">Each push first asks the server; a release it holds with every kind of file this push would bring is left out. Untick it to send them again.</p>
         <div class="we-sr-h">Channels</div>
         <div class="we-sr-opts">
           <% WarpEngine::Channels::ALL.each do |channel| %>
@@ -117,6 +120,7 @@
     <div class="we-sr-card">
       <div class="we-sr-h">Preview</div>
       <p><strong><%= plan.releases.size %></strong> release(s) to <strong><%= form.servers.size %></strong> server(s): <%= shown.summary %>.</p>
+      <% if shown.skip_existing %><p class="we-sr-hint">What a server already has is found out when its push runs, so the list may hold releases that will be skipped.</p><% end %>
       <% if plan.releases.any? %>
         <table class="we-sr-table">
           <thead><tr><th>Software</th><th>Version</th><th>Platform</th><th>Channel</th></tr></thead>

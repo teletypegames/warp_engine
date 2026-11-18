@@ -36,6 +36,13 @@ RSpec.describe WarpEngine::Sync::Client do
     expect(response.message).to include("older")
   end
 
+  it "asks for the builds of a software" do
+    stub_request(:get, "https://other.example/warp/api/softwares/my%20game/builds")
+      .to_return(status: 200, body: { releases: { "1.0" => { actual: %w[cartridge] } } }.to_json)
+
+    expect(client.builds("my game").body.dig("releases", "1.0", "actual")).to eq(%w[cartridge])
+  end
+
   it "checks the token with an upload without a file" do
     stub_request(:post, "https://other.example/warp/build/upload").to_return(status: 400, body: "{}")
 

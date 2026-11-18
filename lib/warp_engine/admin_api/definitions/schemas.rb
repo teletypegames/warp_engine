@@ -289,6 +289,7 @@ module WarpEngine
             channels: S.array(S.enum(WarpEngine::Channels::ALL), "Default: the configured allowed_channels"),
             softwares: list.call("Software names, * as a wildcard"), software: S.string("One software, by name"),
             platforms: list.call("Platform names"), categories: list.call("Category keys"), statuses: list.call("Status keys"),
+            skipExisting: S.boolean("Leave out what the server already has, asked when each push runs (default true)"),
             dryRun: S.boolean("Only answer what would go")
           })
         end

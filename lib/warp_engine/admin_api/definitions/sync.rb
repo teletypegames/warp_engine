@@ -109,7 +109,8 @@ module WarpEngine
           criteria = WarpEngine::Sync::Criteria.build(
             mode: ctx[:all] == true ? "all" : "latest", filtered: ctx.key?(:filtered) ? ctx[:filtered] : true,
             channels: ctx[:channels], softwares: ctx[:softwares].presence || ctx[:software], platforms: ctx[:platforms],
-            categories: ctx[:categories], statuses: ctx[:statuses]
+            categories: ctx[:categories], statuses: ctx[:statuses],
+            skip_existing: ctx.key?(:skipExisting) ? ctx[:skipExisting] : true
           )
           service = WarpEngine::SyncService.new
           if ctx[:dryRun] == true

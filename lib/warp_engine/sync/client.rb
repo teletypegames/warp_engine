@@ -1,6 +1,7 @@
 require "net/http"
 require "securerandom"
 require "json"
+require "erb"
 
 module WarpEngine
   module Sync
@@ -53,6 +54,16 @@ module WarpEngine
         perform(Net::HTTP::Post.new(uri("/build/publish", name: name, platform: platform, version: version, commit: commit)))
       end
 
+      # Asks which releases of the software +name+ the other engine has, and
+      # with which asset kinds (<tt>GET /api/softwares/:name/builds</tt>, the
+      # same read its CI checklist uses). Returns a Response: 200 with
+      # +releases+ (version to <tt>{ "actual" => kinds }</tt>), 404 when it
+      # has no such software. The token is not sent: the read is public. Raises WarpEngine::Sync::ConnectionError when
+      # the host does not answer.
+      def builds(name)
+        perform(Net::HTTP::Get.new(uri("/api/softwares/#{ERB::Util.url_encode(name.to_s)}/builds")), secret: false)
+      end
+
       # Checks the token without changing anything: an upload without a file
       # answers 400 for a token the other side accepts and 401 for one it
       # does not. Returns a Response. Raises WarpEngine::Sync::ConnectionError
@@ -71,8 +82,8 @@ module WarpEngine
         target
       end
 
-      def perform(request)
-        request["X-Update-Secret"] = @secret
+      def perform(request, secret: true)
+        request["X-Update-Secret"] = @secret if secret
         request["Accept"] = "application/json"
         response = Net::HTTP.start(@base.host, @base.port, use_ssl: @base.scheme == "https",
                                    open_timeout: 10, read_timeout: @timeout, write_timeout: @timeout) do |http|
