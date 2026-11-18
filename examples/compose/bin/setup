@@ -50,7 +50,7 @@ GITEA_URL="http://gitea.localhost:$GITEA_PORT"
 WOODPECKER_URL="http://woodpecker.localhost:$WOODPECKER_PORT"
 
 echo "1. The catalog"
-docker compose up -d --build mysql app
+docker compose up -d --build mysql app shelf-http shelf-ftp
 wait_for "the catalog" "http://localhost:$APP_PORT/api/service"
 
 if [ "$WITH_CI" = 0 ]; then
@@ -108,6 +108,7 @@ Your studio is up.
   Catalog API     http://localhost:$APP_PORT/api/software
   Gitea           $GITEA_URL      $GITEA_ADMIN / $GITEA_PASSWORD
   Woodpecker CI   $WOODPECKER_URL
+  Shelves         $(or_default SHELF_HTTP_URL http://localhost:8090) (HTTP, WARP64U)   $(or_default SHELF_FTP_URL ftp://localhost:2121) (FTP, DOSINST)
 
 Next: install the WarpEngine Toolbox in VS Code, run "WarpEngine: Set Host…"
 with http://localhost:$APP_PORT, then "WarpEngine: Sign In" and "New Game".

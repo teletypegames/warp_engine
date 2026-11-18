@@ -12,6 +12,7 @@
     "retroarch_dir": null,
     "playlists_dir": null,
     "thumbnails_dir": null,
+    "assets_dir": null,
     "libretro_dir": null,
     "content_root": null,
     "subfolder": "",
@@ -24,7 +25,8 @@
       "Named_Boxarts",
       "Named_Titles",
       "Named_Snaps"
-    ]
+    ],
+    "icon": null
   },
   "catalog": {
     "statuses": [

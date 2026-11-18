@@ -130,9 +130,12 @@ the catalog and the admin (the same as `cp .env.example .env && docker compose u
 - `http://localhost:8080/file/starhop/1.0.0/html/index.html` — a web build
 - `http://localhost:8080/api/builds` — the platform build matrix
 - `http://localhost:8080/api/docs` — apipie API docs
+- `http://localhost:8090/` — the shelves over plain HTTP (`C64`, `PLUS4`, `APPS`),
+  for WARP64U on a C64; `ftp://localhost:2121/` — the same over FTP, for DOSINST
 
 The ports live in `.env` (`APP_PORT`, `GITEA_PORT`, `WOODPECKER_PORT`,
-`GITEA_SSH_PORT`); `docker compose --profile ci down -v` removes it all.
+`GITEA_SSH_PORT`, `SHELF_HTTP_PORT`, `SHELF_FTP_PORT`); `docker compose --profile ci down -v`
+removes it all.
 
 ### Your first game
 
@@ -192,6 +195,23 @@ from the one teletypegames.org runs, keeps the platforms the host has and the
 statuses shown by default (`--statuses` to change), and is the host's own file
 from then on. The installer pins the store engine and warpstore to the commits that
 config was tested with.
+
+`--logo` brands the store: image URLs, or local image files the generator copies next
+to the config. On Batocera they are the menu logo (a PNG and an SVG are both worth
+giving); on RetroArch the PNG is the icon of the store's playlists.
+
+```sh
+docker compose exec app bin/rails g warp_engine:store retroarch \
+  --base-url http://192.168.1.20:8080 --name "My Studio" --id mystudio --logo public/logo.png
+```
+
+The C64, Plus/4 and DOS clients read files, not the API: the example writes the
+`c64`, `plus4` and `dos` shelves (see *Shelves*) and serves them with two small
+containers, `shelf-http` (plain HTTP, the way a C64 with a network cartridge can
+fetch them) and `shelf-ftp` (anonymous, read-only, passive FTP for DOSINST). For a
+real machine on your network set `SHELF_HTTP_URL`, `SHELF_FTP_URL` and
+`SHELF_FTP_ADDRESS` in `.env` to your machine's address; the clients themselves are
+pointed there with their own config file (`WARP64U.CFG`, `DOSINST.CFG`).
 
 ### Publish a release by hand
 

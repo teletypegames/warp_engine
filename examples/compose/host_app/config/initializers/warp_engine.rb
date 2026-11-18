@@ -49,6 +49,15 @@ Rails.application.config.to_prepare do
     runtime :emulatorjs, version: "4.2.3"
 
     forge :gitea, url: ENV["GITEA_URL"], token: ENV["GITEA_API_TOKEN"], owner: ENV.fetch("GITEA_OWNER", "games")
+
+    shelf_http = ENV.fetch("SHELF_HTTP_URL", "http://localhost:8090")
+    shelf_ftp = ENV.fetch("SHELF_FTP_URL", "ftp://localhost:2121")
+    shelf :c64,   kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16, preview: "c64",
+                  urls: [ "#{shelf_http}/C64" ]
+    shelf :plus4, kind: "cartridge", path: "shelves/PLUS4", extension: ".PRG", name_length: 16,
+                  urls: [ "#{shelf_http}/PLUS4" ]
+    shelf :dos,   kinds: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
+                  urls: [ "#{shelf_ftp}/APPS", "#{shelf_http}/APPS" ]
     TOOLING.each do |platform, repos|
       platform_tooling platform, **repos.transform_values { |path| "#{TOOLING_HOST}/#{path}" }, ref: "master"
     end

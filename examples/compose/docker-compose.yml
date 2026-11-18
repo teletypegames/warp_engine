@@ -3,6 +3,8 @@
 #   mysql             the catalog database
 #   app               a Rails host with the engine mounted from this repo
 #                     checkout, ActiveAdmin + Devise for the admin at /admin
+#   shelf-http        the C64 and Plus/4 shelves over plain HTTP (WARP64U), port 8090
+#   shelf-ftp         the shelves over FTP (DOSINST), port 2121
 #   gitea             (profile "ci") the git forge
 #   woodpecker        (profile "ci") CI server + agent, wired to gitea
 #
@@ -35,6 +37,8 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-warpengine}
       SITE_URL: http://localhost:${APP_PORT:-8080}
       STORE_NAME: ${STORE_NAME:-My Studio}
+      SHELF_HTTP_URL: ${SHELF_HTTP_URL:-http://localhost:8090}
+      SHELF_FTP_URL: ${SHELF_FTP_URL:-ftp://localhost:2121}
       UPDATE_SECRET: ${UPDATE_SECRET:-example-update-secret}
       FILE_CONTAINER_PATH: /softwares
       IMAGE_CONTAINER_PATH: /images
@@ -53,6 +57,29 @@ services:
       - bundle:/usr/local/bundle
       - softwares:/softwares
       - images:/images
+
+  # The shelves (C64, Plus/4, DOS) the engine writes, for the clients that read files
+  # rather than the API: WARP64U on a C64 over plain HTTP, DOSINST on DOS over FTP.
+  shelf-http:
+    build:
+      context: ./shelves
+      dockerfile: http.Dockerfile
+    ports:
+      - "${SHELF_HTTP_PORT:-8090}:8080"
+    volumes:
+      - softwares:/softwares:ro
+
+  shelf-ftp:
+    build:
+      context: ./shelves
+      dockerfile: ftp.Dockerfile
+    ports:
+      - "${SHELF_FTP_PORT:-2121}:2121"
+      - "30000-30009:30000-30009"
+    environment:
+      FTP_MASQUERADE: ${SHELF_FTP_ADDRESS:-127.0.0.1}
+    volumes:
+      - softwares:/softwares:ro
 
   gitea:
     image: gitea/gitea:1.27.3
