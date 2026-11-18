@@ -70,18 +70,32 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     end
   end
 
-  sidebar "Sync", only: :show, if: -> { WarpEngine::Sync.enabled? && WarpEngine::Sync.config.events? } do
-    events = WarpEngine::SyncEvent.where(software_name: resource.name).recent.includes(:sync_server).limit(8)
-    if events.any?
-      table_for events do
-        column("When") { |event| event.created_at&.strftime("%m-%d %H:%M") }
-        column("Server") { |event| event.inbound? ? "inbound" : event.sync_server&.label }
-        column("Version", &:version)
-        column("Status") { |event| status_tag event.status, class: event.succeeded? ? "yes" : (event.failed? ? "no" : nil) }
+  sidebar "Sync", only: :show, if: -> { WarpEngine::SyncPeer.kept.exists? } do
+    lines = WarpEngine::SyncService.new.status(resource)
+    if lines.any?
+      table_for lines do
+        column("Peer") { |line| link_to line.peer.label, admin_sync_peer_path(line.peer) }
+        column("Dir") { |line| line.direction == "outbound" ? "out" : "in" }
+        column("Last") do |line|
+          if line.event
+            span(status_tag(line.event.status, class: line.event.succeeded? ? "yes" : (line.event.failed? ? "no" : nil)))
+            span "#{line.event.version} · #{line.event.created_at&.strftime('%m-%d %H:%M')}", class: "we-muted"
+          else
+            span "never", class: "we-muted"
+          end
+        end
+      end
+      held = lines.find { |line| line.direction == "outbound" && line.reason }
+      para "Not pushed: #{held.reason}", class: "we-muted" if held
+      if WarpEngine::Sync.outbound? && lines.any? { |line| line.direction == "outbound" }
+        para link_to("Push now", admin_sync_runner_path(softwares: resource.name, mode: "latest", filtered: "1", skip_existing: "1",
+                                                        channels: WarpEngine::Sync.config.outbound.allowed_channels,
+                                                        peer_ids: lines.select { |line| line.direction == "outbound" }.map { |line| line.peer.id }))
       end
     else
-      para "No sync events", class: "we-muted"
+      para "No peer takes part in sync", class: "we-muted"
     end
+    para link_to("All sync events of #{resource.name}", admin_sync_events_path(q: { software_id_eq: resource.id })) if WarpEngine::Sync.config.events?
   end
 
   sidebar "Download Statistics", only: :show do
@@ -129,13 +143,13 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         f.input :story, as: :text, input_html: { rows: 8 }
       end
 
-      if WarpEngine::Sync.config.software_switch?
-        opt_in = WarpEngine::Sync.config.software_switch == :opt_in
+      if WarpEngine::Sync.config.outbound.software_switch?
+        opt_in = WarpEngine::Sync.config.outbound.software_switch == :opt_in
         f.inputs "Sync" do
           f.input :sync_enabled, as: :select, label: "Sync to other engines",
                   collection: [ [ "Default (#{opt_in ? 'off' : 'on'})", "" ], [ "On", true ], [ "Off", false ] ],
                   include_blank: false,
-                  hint: "Whether the releases of this software go to the sync servers. The denied_* lists of the sync settings still win."
+                  hint: "Whether the releases of this software go to the sync peers. The denied_* lists of the outbound settings still win."
         end
       end
 

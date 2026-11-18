@@ -37,7 +37,8 @@ module WarpEngine
       # Stores the file in the release's folder (WarpEngine::ReleaseLayout)
       # through WarpEngine::FileManagerService and renders
       # <tt>{ "file", "size", "sha256" }</tt>. A token with the +upload+ or the
-      # +sync+ scope is accepted. Responds 401 without a valid credential, 400
+      # +sync+ scope is accepted, the latter only as far as
+      # WarpEngine::SyncInboundService takes it (403 otherwise). Responds 401 without a valid credential, 400
       # for invalid input (WarpEngine::UploadInputDto), 403 when the token does
       # not own the software, 413 above +max_upload_size+ and 422 on a digest
       # mismatch.
@@ -53,6 +54,11 @@ module WarpEngine
           sha256:  params[:sha256]
         )
         return render json: { error: input.error_message }, status: :bad_request unless input.valid?
+
+        if sync_request? && (refusal = WarpEngine::SyncInboundService.new.refuse_upload(token: current_application_token,
+                                                                                         name: input.name, version: input.version))
+          return render json: { error: refusal.message }, status: refusal.status
+        end
 
         unless software_ownership_authorized?(input.name)
           return render json: { error: "Forbidden" }, status: :forbidden

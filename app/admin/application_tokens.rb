@@ -54,7 +54,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       end
       f.input :name
       f.input :scopes_string, label: "Scopes (comma separated)",
-              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload, the "catalog" scope for a client reading the API. Client tokens are normally issued by device sign-in rather than created here. "admin:read", "admin:write" and "admin:tokens" open the Admin API at /api/admin/v1; only an admin owner may hold them. "sync" lets another WarpEngine push its releases here (upload and publish only); a sync token is always unrestricted and is not written to any pipeline.)
+              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload, the "catalog" scope for a client reading the API. Client tokens are normally issued by device sign-in rather than created here. "admin:read", "admin:write" and "admin:tokens" open the Admin API at /api/admin/v1; only an admin owner may hold them. "sync" tokens are issued on a Sync Peer's page (Issue inbound token), owned by that peer.)
       f.input :unrestricted, hint: "Internal token: exempt from owner isolation (enforce_software_ownership)."
       f.input :expires_at, hint: "Leave empty for a token that never expires."
     end

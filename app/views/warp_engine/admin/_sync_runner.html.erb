@@ -1,6 +1,6 @@
 <%
   shown = form.shown_criteria
-  enabled = WarpEngine::Sync.enabled?
+  enabled = WarpEngine::Sync.outbound?
   filters = form.configured_filters
 %>
 <div class="we-sr">
@@ -33,25 +33,25 @@
     .we-sr details ul{margin:8px 0 0;padding-left:18px;font-family:var(--we-mono);font-size:12.5px;color:var(--we-muted)}
   </style>
 
-  <p class="we-sr-intro">Send releases to the sync servers by hand: the newest release of each software, or every release (a full sync). The configured filters of the initializer apply unless you switch them off here; the choices below narrow the run further. <strong>Preview</strong> shows what would go, <strong>Run</strong> queues the pushes; follow them under <%= link_to "Sync Events", admin_sync_events_path %>.</p>
+  <p class="we-sr-intro">Send releases to the sync peers by hand: the newest release of each software, or every release (a full sync). The configured filters of the initializer apply unless you switch them off here; the choices below narrow the run further. <strong>Preview</strong> shows what would go, <strong>Run</strong> queues the pushes; follow them under <%= link_to "Sync Events", admin_sync_events_path %>.</p>
 
   <% unless enabled %>
-    <p class="we-sr-note">Sync is off. Set <span class="we-sr-mono">enabled true</span> in the sync block of the initializer to run it; until then the page only previews.</p>
+    <p class="we-sr-note">Outbound sync is off. Set <span class="we-sr-mono">enabled true</span> in the outbound block of the sync settings of the initializer to run it; until then the page only previews.</p>
   <% end %>
   <% if error %><p class="we-sr-note"><%= error %></p><% end %>
 
   <%= form_tag admin_sync_runner_run_path, method: :post, class: "we-sr-stack", id: "we-sync-runner" do %>
     <div class="we-sr-grid">
       <fieldset class="we-sr-card">
-        <legend>Servers</legend>
-        <% if form.available_servers.empty? %>
-          <p class="we-sr-hint">No active sync server. Add one under <%= link_to "Sync Servers", admin_sync_servers_path %>.</p>
+        <legend>Peers</legend>
+        <% if form.available_peers.empty? %>
+          <p class="we-sr-hint">No peer takes outbound pushes. Add one under <%= link_to "Sync Peers", admin_sync_peers_path %>.</p>
         <% else %>
           <div class="we-sr-stack">
-            <% form.available_servers.each do |server| %>
+            <% form.available_peers.each do |server| %>
               <label class="we-sr-opt">
-                <%= check_box_tag "server_ids[]", server.id, form.server_checked?(server), id: "we-sr-server-#{server.id}" %>
-                <span><%= server.label %> <span class="we-sr-mono we-sr-hint"><%= server.base_url %></span></span>
+                <%= check_box_tag "peer_ids[]", server.id, form.peer_checked?(server), id: "we-sr-peer-#{server.id}" %>
+                <span><%= server.label %> <span class="we-sr-mono we-sr-hint"><%= server.target %></span></span>
               </label>
             <% end %>
           </div>
@@ -65,8 +65,8 @@
           <label class="we-sr-opt"><%= radio_button_tag :mode, "all", shown.mode == "all" %> <span>Every release, oldest first (full sync)</span></label>
         </div>
         <%= hidden_field_tag :skip_existing, "0", id: nil %>
-        <label class="we-sr-opt"><%= check_box_tag :skip_existing, "1", shown.skip_existing, id: "we-sr-skip-existing" %> <span>Skip what the server already has</span></label>
-        <p class="we-sr-hint">Each push first asks the server; a release it holds with every kind of file this push would bring is left out. Untick it to send them again.</p>
+        <label class="we-sr-opt"><%= check_box_tag :skip_existing, "1", shown.skip_existing, id: "we-sr-skip-existing" %> <span>Skip what the peer already has</span></label>
+        <p class="we-sr-hint">Each push first asks the peer; a release it holds with every kind of file this push would bring is left out. Untick it to send them again.</p>
         <div class="we-sr-h">Channels</div>
         <div class="we-sr-opts">
           <% WarpEngine::Channels::ALL.each do |channel| %>
@@ -111,16 +111,16 @@
 
     <div class="we-sr-actions">
       <button type="submit" class="we-sr-btn" name="preview" value="1">Preview</button>
-      <button type="submit" class="we-sr-btn we-sr-btn-primary" <%= "disabled" unless enabled && form.available_servers.any? %>
-              data-confirm="Queue these pushes to the chosen servers?">Run</button>
+      <button type="submit" class="we-sr-btn we-sr-btn-primary" <%= "disabled" unless enabled && form.available_peers.any? %>
+              data-confirm="Queue these pushes to the chosen peers?">Run</button>
     </div>
   <% end %>
 
   <% if plan %>
     <div class="we-sr-card">
       <div class="we-sr-h">Preview</div>
-      <p><strong><%= plan.releases.size %></strong> release(s) to <strong><%= form.servers.size %></strong> server(s): <%= shown.summary %>.</p>
-      <% if shown.skip_existing %><p class="we-sr-hint">What a server already has is found out when its push runs, so the list may hold releases that will be skipped.</p><% end %>
+      <p><strong><%= plan.releases.size %></strong> release(s) to <strong><%= form.peers.size %></strong> peer(s): <%= shown.summary %>.</p>
+      <% if shown.skip_existing %><p class="we-sr-hint">What a peer already has is found out when its push runs, so the list may hold releases that will be skipped.</p><% end %>
       <% if plan.releases.any? %>
         <table class="we-sr-table">
           <thead><tr><th>Software</th><th>Version</th><th>Platform</th><th>Channel</th></tr></thead>

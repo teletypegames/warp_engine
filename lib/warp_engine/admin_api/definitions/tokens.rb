@@ -168,8 +168,11 @@ module WarpEngine
           ctx.principal.expires_at
         end
 
-        # The owner class name for a token with +scopes+: the admin owner class for admin scopes, else the engine's.
+        # The owner class name for a token with +scopes+: the sync peer class for
+        # the sync scope, the admin owner class for admin scopes, else the engine's.
         def owner_type_for(scopes)
+          return WarpEngine::ApplicationToken::SYNC_OWNER_TYPE if scopes.include?(WarpEngine::ApplicationToken::SYNC_SCOPE)
+
           admin = scopes.intersect?(AdminApi::Scopes::ALL)
           admin ? AdminApi.config.owner_class_name : WarpEngine.config.application_token_owner_class
         end

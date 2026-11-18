@@ -7,7 +7,7 @@ RSpec.describe WarpEngine::SyncService do
   include SyncHelpers
   include ActiveJob::TestHelper
 
-  let!(:server) { WarpEngine::SyncServer.create!(label: "Other", host: "https://other.example", secret: "other-token") }
+  let!(:server) { sync_peer(label: "Other", host: "https://other.example", secret: "other-token") }
   let(:software) { create(:software, name: "game", platform: "c64") }
 
   before { sync_config }
@@ -15,8 +15,14 @@ RSpec.describe WarpEngine::SyncService do
   describe "#dispatch" do
     let(:release) { create(:release, software: software, version: "1.0") }
 
-    it "queues a push to every active server" do
-      WarpEngine::SyncServer.create!(label: "Off", host: "https://off.example", secret: "x", active: false)
+    it "does not push on a release that came by sync" do
+      release.update_columns(origin: "sync")
+
+      expect { described_class.new.dispatch(release) }.not_to have_enqueued_job
+    end
+
+    it "queues a push to every outbound peer" do
+      sync_peer(label: "Off", host: "https://off.example", secret: "x", outbound_enabled: false)
 
       expect { described_class.new.dispatch(release) }.to have_enqueued_job(WarpEngine::SyncPushJob).exactly(:once)
     end
@@ -108,7 +114,7 @@ RSpec.describe WarpEngine::SyncService do
 
   describe WarpEngine::SyncPushJob do
     it "marks the event skipped when the release is gone" do
-      event = WarpEngine::SyncEvent.create!(direction: "outbound", status: "queued", sync_server: server)
+      event = WarpEngine::SyncEvent.create!(direction: "outbound", status: "queued", sync_peer: server)
 
       described_class.perform_now(0, server.id, event.id)
 
@@ -121,8 +127,8 @@ RSpec.describe WarpEngine::SyncService, "runs" do
   include SyncHelpers
   include ActiveJob::TestHelper
 
-  let!(:server) { WarpEngine::SyncServer.create!(label: "Other", host: "https://other.example", secret: "other-token") }
-  let!(:second) { WarpEngine::SyncServer.create!(label: "Second", host: "https://second.example", secret: "x") }
+  let!(:server) { sync_peer(label: "Other", host: "https://other.example", secret: "other-token") }
+  let!(:second) { sync_peer(label: "Second", host: "https://second.example", secret: "x") }
   let(:game) { create(:software, name: "game", platform: "c64", category: "game", status: "released") }
   let(:tool) { create(:software, name: "tool-x", platform: "dos", category: "tool", status: "development") }
 
@@ -159,7 +165,7 @@ RSpec.describe WarpEngine::SyncService, "runs" do
     run_criteria = criteria(mode: "all", filtered: false)
     result = nil
 
-    expect { result = described_class.new.run(run_criteria, servers: [ server, second ]) }
+    expect { result = described_class.new.run(run_criteria, peers: [ server, second ]) }
       .to have_enqueued_job(WarpEngine::SyncPushJob).exactly(8).times
     expect(result.queued).to eq(8)
     job = enqueued_jobs.last
@@ -167,9 +173,9 @@ RSpec.describe WarpEngine::SyncService, "runs" do
   end
 
   it "leaves out an inactive server" do
-    second.update!(active: false)
+    second.update!(outbound_enabled: false)
 
-    expect(described_class.new.run(criteria, servers: [ server, second ]).servers).to eq([ server ])
+    expect(described_class.new.run(criteria, peers: [ server, second ]).peers).to eq([ server ])
   end
 
   it "pushes an unfiltered release whatever the configured lists say" do
@@ -220,20 +226,20 @@ RSpec.describe WarpEngine::SyncRunnerForm do
 
   before { sync_config }
 
-  let!(:server) { WarpEngine::SyncServer.create!(label: "Other", host: "https://other.example", secret: "x") }
+  let!(:server) { sync_peer(label: "Other", host: "https://other.example", secret: "x") }
 
   it "chooses every active server and the defaults before it is sent" do
     form = described_class.new({})
 
-    expect(form.servers).to eq([ server ])
+    expect(form.peers).to eq([ server ])
     expect(form.criteria).to have_attributes(mode: "latest", filtered: true, channels: %w[stable])
   end
 
   it "reads a sent form" do
-    form = described_class.new("mode" => "all", "filtered" => "0", "channels" => %w[stable dev], "server_ids" => [],
+    form = described_class.new("mode" => "all", "filtered" => "0", "channels" => %w[stable dev], "peer_ids" => [],
                                "platforms" => %w[c64])
 
-    expect(form.servers).to be_empty
+    expect(form.peers).to be_empty
     expect(form.criteria).to have_attributes(mode: "all", filtered: false, channels: %w[stable dev], platforms: %w[c64])
     expect(form.to_params).to include(mode: "all", filtered: "0", platforms: %w[c64])
   end

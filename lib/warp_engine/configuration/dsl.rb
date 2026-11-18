@@ -123,6 +123,14 @@ module WarpEngine
         AdminApiDSL.new(@config.admin_api).instance_eval(&block)
       end
 
+      # Registers the sync transport +key+ with the class named +class_name+, a
+      # WarpEngine::Sync::Transport subclass (see WarpEngine::Sync::Transports).
+      #
+      #   register_sync_transport :rsync, "MyStudio::RsyncTransport"
+      def register_sync_transport(key, class_name)
+        @config.sync_transports = @config.sync_transports.merge(key.to_s => class_name.to_s)
+      end
+
       # Evaluates +block+ with a WarpEngine::Configuration::SyncDSL on the
       # sync settings (WarpEngine::Sync).
       def sync(&block)

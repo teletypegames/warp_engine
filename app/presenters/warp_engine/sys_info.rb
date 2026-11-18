@@ -480,33 +480,48 @@ module WarpEngine
 
     def sync
       settings = WarpEngine::Sync.config
-      unless settings.enabled?
-        return group("sync", "Sync", icon: :send, intro: "Off", children: [
-          node("sync.off", "Sync", "off", status: "off", hint: "Set enabled in the sync block of the initializer to push releases to other engines.")
+      unless settings.outbound.enabled? || settings.inbound.enabled?
+        return group("sync", "Sync", icon: :send, intro: "Off in both directions", children: [
+          node("sync.off", "Sync", "off", status: "off",
+                                          hint: "Turn on sync { outbound { enabled true } } to push releases, sync { inbound { enabled true } } to accept them.")
         ])
       end
 
-      servers = WarpEngine::SyncServer.active.order(:label).map do |server|
-        status = server.last_error.present? ? "warn" : (server.last_synced_at ? "ok" : "info")
-        node("sync.server.#{server.id}", server.label, server.base_url, status: status, mono: true,
-                                                                        chips: [ server.last_synced_at ? ago(server.last_synced_at).sub("updated", "pushed") : "no push yet" ],
-                                                                        hint: server.last_error.presence&.truncate(160))
-      end
-      filters = WarpEngine::Sync::Configuration::LISTS.filter_map do |name|
-        values = Array(settings.public_send(name))
-        "#{name}: #{values.join(', ')}" if values.any?
-      end
-      children = [
-        node("sync.servers", "Servers", servers.any? ? "#{servers.size} active" : "none", status: servers.any? ? "ok" : "warn",
-                                                                                   children: servers,
-                                                                                   hint: servers.any? ? nil : "Add one under Sync Servers; nothing is pushed until then."),
-        node("sync.switch", "Per-software switch", settings.software_switch ? settings.software_switch.to_s : "off"),
-        node("sync.filters", "Filters", filters.any? ? "" : "none", chips: filters),
-        node("sync.events", "Event log", settings.events? ? "#{settings.verbose_events? ? 'verbose' : 'on'}, kept #{settings.event_retention_days} days" : "off",
-             status: settings.events? ? "ok" : "off")
-      ]
+      peers = WarpEngine::SyncPeer.kept.order(:label).to_a
+      children = [ sync_direction(settings.outbound, peers.select(&:outbound_enabled), "outbound"),
+                   sync_direction(settings.inbound, peers.select(&:inbound_enabled), "inbound"),
+                   node("sync.transports", "Transports", "", chips: WarpEngine::Sync::Transports.keys,
+                                                             status: WarpEngine::Sync::Transports.validate!.any? ? "warn" : "ok",
+                                                             hint: WarpEngine::Sync::Transports.validate!.join("; ").presence),
+                   node("sync.events", "Event log", settings.events? ? "#{settings.verbose_events? ? 'verbose' : 'on'}, kept #{settings.event_retention_days} days" : "off",
+                        status: settings.events? ? "ok" : "off") ]
       children << sync_failures if settings.events?
-      group("sync", "Sync", icon: :send, intro: "On: releases are pushed to other engines", children: children)
+      intro = [ ("pushes to its peers" if settings.outbound.enabled?), ("accepts their pushes" if settings.inbound.enabled?) ].compact.join(" and ")
+      group("sync", "Sync", icon: :send, intro: "On: #{intro}", children: children)
+    end
+
+    def sync_direction(direction, peers, name)
+      return node("sync.#{name}", name.capitalize, "off", status: "off") unless direction.enabled?
+
+      lines = peers.map do |peer|
+        status = name == "outbound" ? (peer.last_error.present? ? "warn" : (peer.last_synced_at ? "ok" : "info")) : (peer.inbound_token_id ? "ok" : "warn")
+        chips = if name == "outbound"
+          [ peer.transport, peer.last_synced_at ? ago(peer.last_synced_at).sub("updated", "pushed") : "no push yet" ]
+        else
+          [ peer.inbound_token ? "token #{peer.inbound_token.token_prefix}…" : "no token issued" ]
+        end
+        node("sync.#{name}.#{peer.id}", peer.label, name == "outbound" ? peer.target : "", status: status, mono: true, chips: chips,
+                                                    hint: name == "outbound" ? peer.last_error.presence&.truncate(160) : nil)
+      end
+      filters = direction.class.lists.filter_map do |list|
+        values = Array(direction.public_send(list))
+        "#{list}: #{values.join(', ')}" if values.any?
+      end
+      filters.unshift("software_switch: #{direction.software_switch}") if direction.software_switch
+      filters << "protect_local" if direction.respond_to?(:protect_local?) && direction.protect_local?
+      lines << node("sync.#{name}.filters", "Filters", filters.any? ? "" : "none", chips: filters)
+      node("sync.#{name}", name.capitalize, peers.any? ? "#{peers.size} peer(s)" : "no peer", status: peers.any? ? "ok" : "warn",
+                                            children: lines)
     end
 
     def sync_failures

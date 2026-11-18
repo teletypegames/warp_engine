@@ -19,13 +19,13 @@ ActiveAdmin.register_page "Sync Runner" do
     form = WarpEngine::SyncRunnerForm.new(params)
     return redirect_to admin_sync_runner_path(form.to_params.merge(preview: 1)) if params[:preview].present?
 
-    result = WarpEngine::SyncService.new.run(form.criteria, servers: form.servers)
-    if result.servers.empty?
-      redirect_to admin_sync_runner_path(form.to_params), alert: "Choose at least one active sync server."
+    result = WarpEngine::SyncService.new.run(form.criteria, peers: form.peers)
+    if result.peers.empty?
+      redirect_to admin_sync_runner_path(form.to_params), alert: "Choose at least one peer that takes outbound pushes."
     else
       redirect_to admin_sync_runner_path(form.to_params),
                   notice: "#{result.queued} push(es) queued: #{result.releases.size} release(s) to " \
-                          "#{result.servers.map(&:label).join(', ')}. Follow them under Sync Events."
+                          "#{result.peers.map(&:label).join(', ')}. Follow them under Sync Events."
     end
   rescue WarpEngine::SyncService::DisabledError, ArgumentError => e
     redirect_to admin_sync_runner_path(form&.to_params || {}), alert: e.message

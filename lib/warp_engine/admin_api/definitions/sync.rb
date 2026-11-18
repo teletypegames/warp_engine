@@ -1,9 +1,10 @@
 module WarpEngine
   module AdminApi
     module Definitions
-      # The +sync_servers+ and +sync_events+ resources of WarpEngine::Sync: the
-      # engines the releases are pushed to, and the log of the pushes. The
-      # token of a server is write-only.
+      # The +sync_peers+ and +sync_events+ resources of WarpEngine::Sync: the
+      # partners this engine syncs with in either direction, and the log. A
+      # peer's secret is write-only; its inbound token is shown once, in the
+      # answer that issued it.
       module Sync
         # Short name of AdminApi::Schema.
         S = AdminApi::Schema
@@ -12,100 +13,139 @@ module WarpEngine
 
         module_function
 
-        # Declares the +sync_servers+ and +sync_events+ resources on +api+.
+        # Declares the +sync_peers+ and +sync_events+ resources on +api+.
         def define(api)
-          sync_servers(api)
+          sync_peers(api)
           sync_events(api)
         end
 
-        # Declares the +sync_servers+ resource on +api+: list, get, create,
+        # Declares the +sync_peers+ resource on +api+: list, get, create,
         # update (an empty or missing +secret+ keeps the stored one), delete
-        # (soft), <tt>POST /sync_servers/:id/check</tt> (does the other engine
-        # accept the token), <tt>POST /sync_servers/:id/push</tt> (queue the
-        # releases it may be missing) and <tt>POST /sync_servers/run</tt> (the
-        # same for several servers); both take WarpEngine::Sync::Criteria
-        # (a full sync, without the configured filters, narrowed) and +dryRun+,
-        # and answer 409 while sync is off.
-        def sync_servers(api)
-          api.resource(:sync_servers, label: "Sync servers") do |r|
-            r.list "/sync_servers", summary: "The engines the releases are pushed to", item: X.sync_server,
-                   filters: { active: S.boolean }, sort: { label: :label, lastSyncedAt: :last_synced_at } do |ctx|
-              scope = WarpEngine::SyncServer.kept
-              scope = scope.where(active: ctx[:active]) if ctx.key?(:active)
-              ctx.list(scope, Admin::SyncServerSerializer)
+        # (soft; revokes its inbound token), <tt>POST /sync_peers/:id/check</tt>
+        # (does the other side take us), <tt>POST /sync_peers/:id/inbound_token</tt>
+        # (issue a new inbound token, shown once), <tt>POST /sync_peers/:id/push</tt>
+        # (queue the releases it may be missing) and <tt>POST /sync_peers/run</tt>
+        # (the same for several peers); both pushes take WarpEngine::Sync::Criteria
+        # and +dryRun+, and answer 409 while outbound sync is off.
+        def sync_peers(api)
+          api.resource(:sync_peers, label: "Sync peers") do |r|
+            r.list "/sync_peers", summary: "The engines this one syncs with", item: X.sync_peer,
+                   filters: { outboundEnabled: S.boolean, inboundEnabled: S.boolean, transport: S.string },
+                   sort: { label: :label, lastSyncedAt: :last_synced_at } do |ctx|
+              scope = WarpEngine::SyncPeer.kept
+              scope = scope.where(outbound_enabled: ctx[:outboundEnabled]) if ctx.key?(:outboundEnabled)
+              scope = scope.where(inbound_enabled: ctx[:inboundEnabled]) if ctx.key?(:inboundEnabled)
+              scope = scope.where(transport: ctx[:transport]) if ctx[:transport].present?
+              ctx.list(scope, Admin::SyncPeerSerializer)
             end
 
-            r.get "/sync_servers/:id", summary: "One sync server", item: X.sync_server do |ctx|
-              ctx.ok(Admin::SyncServerSerializer.render_as_hash(server(ctx.id)))
+            r.get "/sync_peers/:id", summary: "One sync peer", item: X.sync_peer do |ctx|
+              ctx.ok(Admin::SyncPeerSerializer.render_as_hash(peer(ctx.id)))
             end
 
-            r.create "/sync_servers", summary: "Add a sync server", body: X.sync_server_body,
-                     required: %i[label host secret], item: X.sync_server do |ctx|
-              record = WarpEngine::SyncServer.new(ctx.attributes)
-              ctx.created(Admin::SyncServerSerializer.render_as_hash(ctx.save!(record)))
+            r.create "/sync_peers", summary: "Add a sync peer", body: X.sync_peer_body, required: %i[label],
+                                    item: X.sync_peer do |ctx|
+              record = WarpEngine::SyncPeer.new(ctx.attributes)
+              ctx.created(Admin::SyncPeerSerializer.render_as_hash(ctx.save!(record)))
             end
 
-            r.update "/sync_servers/:id", summary: "Change a sync server", body: X.sync_server_body,
-                     item: X.sync_server do |ctx|
-              record = server(ctx.id)
+            r.update "/sync_peers/:id", summary: "Change a sync peer", body: X.sync_peer_body, item: X.sync_peer do |ctx|
+              record = peer(ctx.id)
               record.assign_attributes(ctx.attributes)
-              ctx.ok(Admin::SyncServerSerializer.render_as_hash(ctx.save!(record)))
+              ctx.ok(Admin::SyncPeerSerializer.render_as_hash(ctx.save!(record)))
             end
 
-            r.delete "/sync_servers/:id", summary: "Delete a sync server (soft)" do |ctx|
-              server(ctx.id).soft_delete!
+            r.delete "/sync_peers/:id", summary: "Delete a sync peer (soft) and revoke its inbound token" do |ctx|
+              record = peer(ctx.id)
+              record.inbound_token&.revoke!
+              record.soft_delete!
               ctx.no_content
             end
 
-            r.action :post, "/sync_servers/:id/check", name: :check, summary: "Ask the server whether it accepts the token",
-                     item: X.sync_check do |ctx|
-              result = WarpEngine::SyncService.new.check(server(ctx.id))
+            r.action :post, "/sync_peers/:id/check", name: :check, summary: "Ask the peer's transport whether the other side takes us",
+                                                     item: X.sync_check do |ctx|
+              result = WarpEngine::SyncService.new.check(peer(ctx.id))
               ctx.ok({ ok: result.ok, status: result.status, version: result.version, message: result.message })
             end
 
-            r.action :post, "/sync_servers/:id/push", name: :push,
-                     summary: "Queue releases for the server: the newest allowed of every software, or every one with all",
-                     item: X.sync_push, body: X.sync_run_body do |ctx|
-              ctx.ok(run(ctx, [ server(ctx.id) ]))
+            r.action :post, "/sync_peers/:id/inbound_token", name: :inbound_token, status: 201,
+                     summary: "Issue a new inbound token for the peer (the old one stops working); shown in this answer only",
+                     item: X.sync_inbound_token do |ctx|
+              record = peer(ctx.id)
+              raise Error.conflict("#{record.label} does not push here (inboundEnabled is false)") unless record.inbound_enabled
+
+              token = record.issue_inbound_token!
+              ctx.created({ tokenPrefix: token.token_prefix, plainToken: token.plain_token })
             end
 
-            r.action :post, "/sync_servers/run", name: :run,
-                     summary: "Queue releases for every active server, or the ones in serverIds",
+            r.action :post, "/sync_peers/:id/push", name: :push,
+                     summary: "Queue releases for the peer: the newest allowed of every software, or every one with all",
+                     item: X.sync_push, body: X.sync_run_body do |ctx|
+              ctx.ok(run(ctx, [ peer(ctx.id) ]))
+            end
+
+            r.action :post, "/sync_peers/run", name: :run,
+                     summary: "Queue releases for every outbound peer, or the ones in peerIds",
                      item: X.sync_push,
-                     body: S.object(X.sync_run_body[:properties].merge(serverIds: S.array(S.integer, "Default: every active server"))) do |ctx|
-              ids = Array(ctx[:serverIds]).map(&:to_i)
-              servers = ids.any? ? WarpEngine::SyncServer.active.where(id: ids).to_a : WarpEngine::SyncServer.active.to_a
-              ctx.ok(run(ctx, servers))
+                     body: S.object(X.sync_run_body[:properties].merge(peerIds: S.array(S.integer, "Default: every outbound peer"))) do |ctx|
+              ids = Array(ctx[:peerIds]).map(&:to_i)
+              peers = ids.any? ? WarpEngine::SyncPeer.outbound.where(id: ids).to_a : WarpEngine::SyncPeer.outbound.to_a
+              ctx.ok(run(ctx, peers))
             end
           end
         end
 
         # Declares the read-only +sync_events+ resource on +api+: list (newest
-        # first) and get.
+        # first), get, a software's events and its sync state per peer.
         def sync_events(api)
           api.resource(:sync_events, label: "Sync events") do |r|
             r.list "/sync_events", summary: "The sync log, newest first", item: X.sync_event,
-                   filters: { syncServerId: S.integer, direction: S.enum(WarpEngine::SyncEvent::DIRECTIONS),
-                              status: S.enum(WarpEngine::SyncEvent::STATUSES), software: S.string },
+                   filters: { syncPeerId: S.integer, softwareId: S.integer, direction: S.enum(WarpEngine::SyncEvent::DIRECTIONS),
+                              status: S.enum(WarpEngine::SyncEvent::STATUSES), software: S.string("Software name") },
                    sort: { createdAt: :created_at }, default_sort: "-createdAt" do |ctx|
-              scope = WarpEngine::SyncEvent.all
-              scope = scope.where(sync_server_id: ctx[:syncServerId]) if ctx.key?(:syncServerId)
-              scope = scope.where(direction: ctx[:direction]) if ctx[:direction].present?
-              scope = scope.where(status: ctx[:status]) if ctx[:status].present?
-              scope = scope.where(software_name: ctx[:software]) if ctx[:software].present?
-              ctx.list(scope, Admin::SyncEventSerializer)
+              ctx.list(events(ctx, WarpEngine::SyncEvent.all), Admin::SyncEventSerializer)
             end
 
             r.get "/sync_events/:id", summary: "One sync event", item: X.sync_event do |ctx|
               ctx.ok(Admin::SyncEventSerializer.render_as_hash(WarpEngine::SyncEvent.find(ctx.id)))
             end
+
+            r.action :get, "/softwares/:softwareId/sync_events", name: :for_software, many: true,
+                     summary: "The newest 100 sync events of one software", item: X.sync_event,
+                     query: { direction: S.enum(WarpEngine::SyncEvent::DIRECTIONS) } do |ctx|
+              software = WarpEngine::Software.kept.find(ctx[:softwareId])
+              scope = software.sync_events.limit(100)
+              scope = scope.where(direction: ctx[:direction]) if ctx[:direction].present?
+              ctx.ok(Admin::SyncEventSerializer.render_as_hash(scope.to_a))
+            end
+
+            r.action :get, "/softwares/:softwareId/sync_status", name: :status, many: true,
+                     summary: "The sync state of one software: per peer and direction, the newest event and why it would not go",
+                     item: X.sync_status do |ctx|
+              software = WarpEngine::Software.kept.find(ctx[:softwareId])
+              lines = WarpEngine::SyncService.new.status(software)
+              ctx.ok(lines.map do |line|
+                { peerId: line.peer.id, peer: line.peer.label, direction: line.direction, reason: line.reason,
+                  event: line.event && Admin::SyncEventSerializer.render_as_hash(line.event) }
+              end)
+            end
           end
         end
 
-        # Plans (with +dryRun+) or queues a run to +servers+ from the body of
+        # Narrows the events +scope+ by the filters of +ctx+.
+        def events(ctx, scope)
+          scope = scope.where(sync_peer_id: ctx[:syncPeerId]) if ctx.key?(:syncPeerId)
+          scope = scope.where(software_id: ctx[:softwareId]) if ctx.key?(:softwareId)
+          scope = scope.where(direction: ctx[:direction]) if ctx[:direction].present?
+          scope = scope.where(status: ctx[:status]) if ctx[:status].present?
+          scope = scope.where(software_name: ctx[:software]) if ctx[:software].present?
+          scope
+        end
+
+        # Plans (with +dryRun+) or queues a run to +peers+ from the body of
         # +ctx+ and returns the SyncPush answer. Raises a 400 Error for an
-        # unknown channel and a 409 Error while sync is off.
-        def run(ctx, servers)
+        # unknown channel and a 409 Error while outbound sync is off.
+        def run(ctx, peers)
           criteria = WarpEngine::Sync::Criteria.build(
             mode: ctx[:all] == true ? "all" : "latest", filtered: ctx.key?(:filtered) ? ctx[:filtered] : true,
             channels: ctx[:channels], softwares: ctx[:softwares].presence || ctx[:software], platforms: ctx[:platforms],
@@ -115,11 +155,11 @@ module WarpEngine
           service = WarpEngine::SyncService.new
           if ctx[:dryRun] == true
             plan = service.plan(criteria)
-            return push_answer(plan.releases, servers, plan.skipped, dry_run: true)
+            return push_answer(plan.releases, peers, plan.skipped, dry_run: true)
           end
 
-          result = service.run(criteria, servers: servers)
-          push_answer(result.releases, result.servers, result.skipped, dry_run: false)
+          result = service.run(criteria, peers: peers)
+          push_answer(result.releases, result.peers, result.skipped, dry_run: false)
         rescue ArgumentError => e
           raise Error.bad_request(e.message)
         rescue WarpEngine::SyncService::DisabledError => e
@@ -127,16 +167,16 @@ module WarpEngine
         end
 
         # The SyncPush answer: the +releases+ (software and version), the
-        # +servers+ (ids), the pushes queued (none on a dry run) and the
+        # +peers+ (ids), the pushes queued (none on a dry run) and the
         # +skipped+ lines.
-        def push_answer(releases, servers, skipped, dry_run:)
-          { dryRun: dry_run, queued: dry_run ? 0 : releases.size * servers.size, servers: servers.map(&:id),
+        def push_answer(releases, peers, skipped, dry_run:)
+          { dryRun: dry_run, queued: dry_run ? 0 : releases.size * peers.size, peers: peers.map(&:id),
             releases: releases.map { |release| { software: release.software.name, version: release.version } },
             skipped: skipped }
         end
 
-        # The kept WarpEngine::SyncServer +id+. Raises ActiveRecord::RecordNotFound.
-        def server(id) = WarpEngine::SyncServer.kept.find(id)
+        # The kept WarpEngine::SyncPeer +id+. Raises ActiveRecord::RecordNotFound.
+        def peer(id) = WarpEngine::SyncPeer.kept.find(id)
       end
     end
   end

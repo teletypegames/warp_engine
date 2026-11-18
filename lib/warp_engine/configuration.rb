@@ -47,6 +47,8 @@ module WarpEngine
     #                                 (default empty)
     # [store_name]                    the display name of this catalog in the store registry (default +nil+:
     #                                 the host name of its address)
+    # [sync_transports]               the sync transports the host registered: a Hash of key to class name
+    #                                 (see WarpEngine::Sync::Transports; default empty)
     # [store_registry]                what <tt>GET /api/stores</tt> lists: +:own+ (default, this catalog alone), an
     #                                 Array of +name+/+catalog_url+ Hashes and +:own+, +:none+, or an adapter
     #                                 object (see WarpEngine::StoreRegistry)
@@ -78,7 +80,8 @@ module WarpEngine
                   :outlets,
                   :outlet_types,
                   :store_name,
-                  :store_registry
+                  :store_registry,
+                  :sync_transports
 
     # Replaces the WarpEngine::AdminApi::Configuration returned by #admin_api.
     attr_writer :admin_api
@@ -141,6 +144,7 @@ module WarpEngine
       @outlet_types                  = {}
       @store_name                    = nil
       @store_registry                = :own
+      @sync_transports               = {}
       @platforms                     = {}
       @runtimes                      = {}
       @runtime_versions              = {}

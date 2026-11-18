@@ -1,8 +1,8 @@
 module WarpEngine
   # The form of the Sync Runner admin page: reads the request +params+ into
-  # the chosen servers and a WarpEngine::Sync::Criteria, and offers the
+  # the chosen peers and a WarpEngine::Sync::Criteria, and offers the
   # choices the page lists. Without params it stands for the defaults: every
-  # active server, the newest release, the configured filters and channels.
+  # outbound peer, the newest release, the configured filters and channels.
   class SyncRunnerForm
     # [params] the request params (ActionController::Parameters or a Hash)
     def initialize(params)
@@ -13,20 +13,21 @@ module WarpEngine
     # Returns +true+ when the form was sent (the params carry a mode).
     def submitted? = @params.key?("mode")
 
-    # Returns the active WarpEngine::SyncServer records to choose from, by label.
-    def available_servers = @available_servers ||= WarpEngine::SyncServer.active.order(:label).to_a
+    # Returns the WarpEngine::SyncPeer records that take outbound pushes, to
+    # choose from, by label.
+    def available_peers = @available_peers ||= WarpEngine::SyncPeer.outbound.order(:label).to_a
 
-    # Returns the chosen servers: those ticked, or every active one before the
-    # form was sent.
-    def servers
-      return available_servers unless submitted?
+    # Returns the chosen peers: those ticked (or named by +peer_ids+ in a
+    # link), or every outbound one before the form was sent.
+    def peers
+      return available_peers unless submitted? || @params.key?("peer_ids")
 
-      ids = Array(@params["server_ids"]).map(&:to_i)
-      available_servers.select { |server| ids.include?(server.id) }
+      ids = Array(@params["peer_ids"]).map(&:to_i)
+      available_peers.select { |peer| ids.include?(peer.id) }
     end
 
-    # Returns +true+ when +server+ is ticked.
-    def server_checked?(server) = servers.include?(server)
+    # Returns +true+ when +peer+ is ticked.
+    def peer_checked?(peer) = peers.include?(peer)
 
     # Returns the WarpEngine::Sync::Criteria of the params. Raises
     # ArgumentError for an unknown channel or a sent form without one.
@@ -61,9 +62,9 @@ module WarpEngine
     # Returns the configured filter lists that are not empty, as
     # <tt>"name: values"</tt> lines, with the per-software switch first.
     def configured_filters
-      config = WarpEngine::Sync.config
+      config = WarpEngine::Sync.config.outbound
       lines = config.software_switch ? [ "software_switch: #{config.software_switch}" ] : []
-      lines + (WarpEngine::Sync::Configuration::LISTS - [ :allowed_channels ]).filter_map do |name|
+      lines + (WarpEngine::Sync::Outbound.lists - [ :allowed_channels ]).filter_map do |name|
         values = Array(config.public_send(name))
         "#{name}: #{values.join(', ')}" if values.any?
       end
@@ -74,7 +75,7 @@ module WarpEngine
       shown = shown_criteria
       { mode: shown.mode, filtered: shown.filtered ? "1" : "0", skip_existing: shown.skip_existing ? "1" : "0",
         channels: shown.channels,
-        server_ids: servers.map(&:id), softwares: shown.softwares.join(", "), platforms: shown.platforms,
+        peer_ids: peers.map(&:id), softwares: shown.softwares.join(", "), platforms: shown.platforms,
         categories: shown.categories, statuses: shown.statuses }
     end
   end

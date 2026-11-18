@@ -4,16 +4,23 @@ module WarpEngine
   # set on every save, never by hand). Has
   # many kept +downloads+ and +release_assets+ (editable as nested
   # attributes). A release of a download-only platform may not have an +html+
-  # asset. Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
+  # asset. Its +origin+ says where it was published from: +ci+ (this engine's
+  # CI, or by hand) or +sync+ (a WarpEngine::SyncPeer pushed it, +sync_peer+).
+  # Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
   # software's platform.
   class Release < ApplicationRecord
     self.table_name = "releases"
+
+    # Where a release can come from: this engine's CI (or by hand), or a sync peer.
+    ORIGINS = %w[ci sync].freeze
 
     include SoftDeletable
     include OutletRefreshing
 
     belongs_to :software
     belongs_to :runtime_version, optional: true
+    belongs_to :sync_peer, optional: true, inverse_of: :releases
+    has_many :sync_events, -> { order(created_at: :desc, id: :desc) }, inverse_of: :release
     has_many :downloads, -> { kept }
     has_many :release_assets, -> { kept }
 
@@ -23,10 +30,14 @@ module WarpEngine
     validates :version, uniqueness: { scope: :software_id }
 
     validates :channel, inclusion: { in: WarpEngine::Channels::ALL }
+    validates :origin, inclusion: { in: ORIGINS }
 
     validate :download_only_platform_cannot_be_web_playable
 
     before_validation { self.channel = WarpEngine::Channels.for(version) }
+
+    # Returns +true+ when a sync peer pushed this release.
+    def synced? = origin == "sync"
 
     scope :listed, -> { where.not(channel: WarpEngine::Channels::DEV) }
     scope :in_channels, ->(channels) { where(channel: Array(channels)) }

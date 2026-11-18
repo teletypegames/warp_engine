@@ -7,7 +7,7 @@ RSpec.describe WarpEngine::Sync::Filter do
   let(:software) { build(:software, name: "blessingofra", platform: "c64", status: "released", category: "game") }
   let(:release) { build(:release, software: software, version: "1.2.0") }
 
-  def reason(**settings) = described_class.new(sync_config(**settings)).reason(release)
+  def reason(**settings) = described_class.new(sync_config(**settings).outbound).reason(release)
 
   it "lets a stable release go with the defaults" do
     expect(reason).to be_nil
@@ -66,7 +66,7 @@ RSpec.describe WarpEngine::Sync::Filter do
   end
 
   it "keeps the required kinds whatever the kind lists say" do
-    filter = described_class.new(sync_config(allowed_kinds: %w[html], denied_kinds: %w[cartridge]))
+    filter = described_class.new(sync_config(allowed_kinds: %w[html], denied_kinds: %w[cartridge]).outbound)
     kinds = filter.kind_specs(WarpEngine::Platform.find!("c64")).map(&:name)
 
     expect(kinds).to include("cartridge")
@@ -75,17 +75,19 @@ RSpec.describe WarpEngine::Sync::Filter do
   end
 
   describe WarpEngine::Sync::Configuration do
-    it "is off with stable only by default" do
+    it "is off in both directions with stable only by default" do
       config = described_class.new
 
-      expect(config).not_to be_enabled
-      expect(config.allowed_channels).to eq(%w[stable])
+      expect(config.outbound).not_to be_enabled
+      expect(config.inbound).not_to be_enabled
+      expect(config.outbound.allowed_channels).to eq(%w[stable])
+      expect(config.inbound).to be_protect_local
       expect(config).to be_events
     end
 
     it "refuses unknown platforms, channels, kinds and switch values" do
-      expect { sync_config(allowed_platforms: %w[amiga9]).validate! }.to raise_error(ArgumentError, /platform amiga9/)
-      expect { sync_config(allowed_channels: %w[nightly]).validate! }.to raise_error(ArgumentError, /channel nightly/)
+      expect { sync_config(allowed_platforms: %w[amiga9]).validate! }.to raise_error(ArgumentError, /outbound allowed_platforms: unknown platform amiga9/)
+      expect { sync_config(inbound: { allowed_channels: %w[nightly] }).validate! }.to raise_error(ArgumentError, /inbound .*channel nightly/)
       expect { sync_config(denied_kinds: %w[floppy]).validate! }.to raise_error(ArgumentError, /asset kind floppy/)
       expect { sync_config(software_switch: :maybe).validate! }.to raise_error(ArgumentError, /software_switch/)
     end
@@ -98,25 +100,35 @@ RSpec.describe WarpEngine::Sync::Filter do
   end
 
   describe WarpEngine::Configuration::SyncDSL do
-    it "writes the sync block into the configuration" do
+    it "writes the two directions into the configuration" do
       WarpEngine.configure do
         sync do
-          enabled true
-          software_switch :opt_out
-          denied_softwares %w[*-test]
-          allowed_platforms :c64, :plus4
           events :verbose
-          timeout "30"
+          outbound do
+            enabled true
+            software_switch :opt_out
+            denied_softwares %w[*-test]
+            allowed_platforms :c64, :plus4
+            timeout "30"
+          end
+          inbound do
+            enabled true
+            allowed_channels %w[stable beta]
+            protect_local false
+          end
         end
       end
       config = WarpEngine.config.sync
 
-      expect(config).to be_enabled
-      expect(config.software_switch).to eq(:opt_out)
-      expect(config.denied_softwares).to eq(%w[*-test])
-      expect(config.allowed_platforms).to eq(%w[c64 plus4])
       expect(config).to be_verbose_events
-      expect(config.timeout).to eq(30)
+      expect(config.outbound).to have_attributes(enabled: true, software_switch: :opt_out, denied_softwares: %w[*-test],
+                                                 allowed_platforms: %w[c64 plus4], timeout: 30)
+      expect(config.inbound).to have_attributes(enabled: true, allowed_channels: %w[stable beta], protect_local: false)
+    end
+
+    it "points a 4.x setting to its new place, and refuses one a direction lacks" do
+      expect { WarpEngine.configure { sync { enabled true } } }.to raise_error(ArgumentError, /moved into the outbound block/)
+      expect { WarpEngine.configure { sync { inbound { software_switch :opt_in } } } }.to raise_error(ArgumentError, /inbound has no software_switch/)
     end
   end
 end

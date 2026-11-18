@@ -1,24 +1,28 @@
 module WarpEngine
   module Sync
-    # Decides whether a release goes to the sync servers, and which of its
-    # files, from a WarpEngine::Sync::Configuration. In order: the channel,
+    # Decides whether a release passes a sync direction, and which of its
+    # files, from the direction's settings (WarpEngine::Sync::Outbound or
+    # WarpEngine::Sync::Inbound). In order: the channel,
     # the software switch, the +denied_*+ lists (softwares, categories,
     # platforms, statuses), then the +allowed_*+ lists axis by axis (software
     # name or category, platform, status): every axis with a list must
     # match, and on the first axis the name and the category are either-or.
     class Filter
-      # [config] the WarpEngine::Sync::Configuration, by default WarpEngine::Sync.config
-      def initialize(config = Sync.config)
+      # [config] the direction's settings, by default WarpEngine::Sync.config.outbound
+      def initialize(config = Sync.config.outbound)
         @config = config
       end
 
-      # Returns why +release+ does not go, as a sentence, or +nil+ when it
-      # goes. Does not look at whether sync is enabled.
-      def reason(release)
-        software = release.software
+      # Returns why +release+ does not pass, as a sentence, or +nil+ when it
+      # does. Does not look at whether the direction is enabled.
+      def reason(release) = reason_for(release.software, release.version)
+
+      # Returns why the +version+ of +software+ (anything answering +name+,
+      # +platform+, +category+ and +status+) does not pass, or +nil+.
+      def reason_for(software, version)
         return "the release has no software" if software.nil?
 
-        channel = WarpEngine::Channels.for(release.version)
+        channel = WarpEngine::Channels.for(version)
         return "the #{channel} channel is not in allowed_channels" unless list(:allowed_channels).include?(channel)
 
         switch_reason(software) || denied_reason(software) || allowed_reason(software)
@@ -35,8 +39,8 @@ module WarpEngine
 
       # Returns +true+ when the kind lists of +config+ let the files of +kind+ go.
       def self.kind_allowed?(kind, config)
-        allowed = Array(config.allowed_kinds).map(&:to_s)
-        return false if Array(config.denied_kinds).map(&:to_s).include?(kind.to_s)
+        allowed = Array(config.try(:allowed_kinds)).map(&:to_s)
+        return false if Array(config.try(:denied_kinds)).map(&:to_s).include?(kind.to_s)
 
         allowed.empty? || allowed.include?(kind.to_s)
       end

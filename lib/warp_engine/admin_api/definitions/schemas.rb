@@ -253,18 +253,34 @@ module WarpEngine
           }, required: %i[id name tokenPrefix ownerType ownerId scopes unrestricted expiresAt lastUsedAt createdAt updatedAt])
         end
 
-        # The +SyncServer+ schema, an engine the releases are pushed to.
-        def sync_server
-          named("SyncServer", { id: S.id, label: S.string, host: S.string, active: S.boolean,
-                                secretPrefix: S.nullable(S.string("The first characters of the token")),
-                                lastSyncedAt: S.nullable(S.datetime), lastError: text, **timestamps })
+        # The +SyncPeer+ schema, an engine (or place) this one syncs with.
+        def sync_peer
+          named("SyncPeer", { id: S.id, label: S.string, transport: S.enum(WarpEngine::Sync::Transports.keys),
+                              transportOptions: S.object({}, additional: true, description: "The transport's settings, e.g. host"),
+                              secretPrefix: S.nullable(S.string("The first characters of the secret")),
+                              outboundEnabled: S.boolean, inboundEnabled: S.boolean,
+                              inboundTokenPrefix: S.nullable(S.string("The token it pushes here with")),
+                              lastSyncedAt: S.nullable(S.datetime), lastError: text, **timestamps })
         end
 
-        # The body of adding or changing a sync server.
-        def sync_server_body
-          S.object({ label: S.string, host: S.string("Base URL of the other engine, its mount included"),
-                     secret: S.string("A token with the sync scope it issued; write-only, empty keeps the stored one"),
-                     active: S.boolean })
+        # The body of adding or changing a sync peer.
+        def sync_peer_body
+          S.object({ label: S.string, transport: S.enum(WarpEngine::Sync::Transports.keys, "Default: http"),
+                     transportOptions: S.object({}, additional: true, description: "The transport's settings (http: host)"),
+                     secret: S.string("The transport's secret (http: the token the other engine issued); write-only, empty keeps the stored one"),
+                     outboundEnabled: S.boolean("Push our releases to it"), inboundEnabled: S.boolean("Accept its pushes") })
+        end
+
+        # The +SyncInboundToken+ schema: a new inbound token, shown once.
+        def sync_inbound_token
+          named("SyncInboundToken", { tokenPrefix: S.string, plainToken: S.string("Shown in this answer only") })
+        end
+
+        # The +SyncStatus+ schema: one peer and direction of a software's sync state.
+        def sync_status
+          named("SyncStatus", { peerId: S.integer, peer: S.string, direction: S.enum(WarpEngine::SyncEvent::DIRECTIONS),
+                                reason: S.nullable(S.string("Why the newest release would not go (outbound)")),
+                                event: { anyOf: [ S.ref("SyncEvent"), { type: "null" } ] } })
         end
 
         # The +SyncCheck+ schema: whether the other engine accepts the token.
@@ -275,7 +291,7 @@ module WarpEngine
         # The +SyncPush+ schema: the releases a run sends, to which servers, how
         # many pushes were queued (none on a dry run) and which releases were skipped.
         def sync_push
-          named("SyncPush", { dryRun: S.boolean, queued: S.integer, servers: S.array(S.integer),
+          named("SyncPush", { dryRun: S.boolean, queued: S.integer, peers: S.array(S.integer),
                               releases: S.array(S.object({ software: S.string, version: S.string }, required: %i[software version])),
                               skipped: S.array(S.string) })
         end
@@ -289,7 +305,7 @@ module WarpEngine
             channels: S.array(S.enum(WarpEngine::Channels::ALL), "Default: the configured allowed_channels"),
             softwares: list.call("Software names, * as a wildcard"), software: S.string("One software, by name"),
             platforms: list.call("Platform names"), categories: list.call("Category keys"), statuses: list.call("Status keys"),
-            skipExisting: S.boolean("Leave out what the server already has, asked when each push runs (default true)"),
+            skipExisting: S.boolean("Leave out what the peer already has, asked when each push runs (default true)"),
             dryRun: S.boolean("Only answer what would go")
           })
         end
@@ -297,7 +313,7 @@ module WarpEngine
         # The +SyncEvent+ schema, one line of the sync log.
         def sync_event
           named("SyncEvent", {
-            id: S.id, syncServerId: S.nullable(S.integer), direction: S.enum(WarpEngine::SyncEvent::DIRECTIONS),
+            id: S.id, syncPeerId: S.nullable(S.integer), softwareId: S.nullable(S.integer), direction: S.enum(WarpEngine::SyncEvent::DIRECTIONS),
             status: S.enum(WarpEngine::SyncEvent::STATUSES), softwareName: text, platform: text, version: text,
             releaseId: S.nullable(S.integer), step: text, httpStatus: S.nullable(S.integer), message: text,
             filesCount: S.nullable(S.integer), bytes: S.nullable(S.integer), durationMs: S.nullable(S.integer),
@@ -346,7 +362,7 @@ module WarpEngine
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
             runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,
-            sync_server, sync_check, sync_push, sync_event ]
+            sync_peer, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
         end
       end
     end

@@ -19,11 +19,11 @@ module WarpEngine
       # Builds Criteria from loose values: +mode+ <tt>"latest"</tt> unless
       # <tt>"all"</tt>, +filtered+ and +skip_existing+ true unless false or
       # <tt>"0"</tt>, +channels+
-      # by default WarpEngine::Sync::Configuration#allowed_channels, the lists
+      # by default the outbound +allowed_channels+, the lists
       # from Arrays or comma or space separated strings. Raises ArgumentError
       # for an unknown channel.
       def self.build(mode: "latest", filtered: true, channels: nil, softwares: nil, platforms: nil, categories: nil,
-                     statuses: nil, skip_existing: true, config: Sync.config)
+                     statuses: nil, skip_existing: true, config: Sync.config.outbound)
         chosen = list(channels).presence || Array(config.allowed_channels).map(&:to_s)
         unknown = chosen - WarpEngine::Channels::ALL
         raise ArgumentError, "unknown channel #{unknown.join(', ')}" if unknown.any?
@@ -53,7 +53,7 @@ module WarpEngine
       # Returns the WarpEngine::Sync::Filter of the run: the configured one
       # with #channels when #filtered, else one that holds nothing back
       # but the channel.
-      def filter(config = Sync.config)
+      def filter(config = Sync.config.outbound)
         Filter.new(filtered ? config.with(allowed_channels: channels) : config.permissive(channels: channels))
       end
 

@@ -7,7 +7,7 @@ module WarpEngine
   # (and the MCP dependency when enabled) after boot, and enqueues a
   # WarpEngine::OutletRefreshJob for the materialized outlets of a platform on
   # every <tt>warp_engine.publish</tt> notification, and hands the release to
-  # WarpEngine::SyncService#dispatch while sync is enabled (WarpEngine::Sync;
+  # WarpEngine::SyncService#dispatch while outbound sync is on (WarpEngine::Sync;
   # a failure there is logged, the publish stands), whose settings it checks
   # after boot. It registers the
   # <tt>application/wasm</tt> MIME type the runtimes' files need, unless the
@@ -40,7 +40,7 @@ module WarpEngine
     initializer "warp_engine.sync" do
       ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
         release = payload[:release]
-        if WarpEngine::Sync.enabled? && release.is_a?(WarpEngine::Release)
+        if WarpEngine::Sync.outbound? && release.is_a?(WarpEngine::Release)
           WarpEngine::SyncService.new.dispatch(release, source: payload[:source] || :ci)
         end
       rescue StandardError => e

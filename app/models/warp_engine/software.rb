@@ -7,7 +7,7 @@ module WarpEngine
   # shelf) and an optional polymorphic +owner+, the publisher.
   #
   # Has its gallery (+software_images+, +images+), kept +releases+ and their
-  # +downloads+, kept +external_links+ and its +pipeline+; images, links and
+  # +downloads+, kept +external_links+, its +pipeline+ and its +sync_events+; images, links and
   # releases are editable as nested attributes. Filter scopes:
   # +with_statuses+, +with_platform+, +with_category+, +with_owner+ (each a
   # no-op for a blank value) and +search+ (title or name contains the text).
@@ -26,6 +26,7 @@ module WarpEngine
     has_many :downloads, through: :releases
     has_many :external_links, -> { kept }, foreign_key: :software_id
     has_one :pipeline, -> { kept }, foreign_key: :software_id
+    has_many :sync_events, -> { order(created_at: :desc, id: :desc) }, foreign_key: :software_id, inverse_of: :software
 
     accepts_nested_attributes_for :software_images, allow_destroy: true
     accepts_nested_attributes_for :external_links, allow_destroy: true

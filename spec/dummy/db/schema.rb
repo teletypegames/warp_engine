@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_18_171937) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_204541) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -118,8 +118,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_171937) do
     t.string "commit_sha", limit: 64
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
+    t.string "origin", limit: 8, default: "ci", null: false
     t.bigint "runtime_version_id", unsigned: true
     t.bigint "software_id", unsigned: true
+    t.bigint "sync_peer_id", unsigned: true
     t.datetime "updated_at", precision: 3
     t.string "version", limit: 64
     t.string "web_binding", limit: 32
@@ -222,30 +224,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_171937) do
     t.text "message"
     t.string "platform", limit: 32
     t.bigint "release_id", unsigned: true
+    t.bigint "software_id", unsigned: true
     t.string "software_name"
     t.string "status", limit: 16, null: false
     t.string "step"
-    t.bigint "sync_server_id", unsigned: true
+    t.bigint "sync_peer_id", unsigned: true
     t.string "token_prefix", limit: 12
     t.datetime "updated_at", precision: 3
     t.string "version", limit: 128
     t.index ["created_at"], name: "idx_sync_events_created_at"
+    t.index ["software_id", "created_at"], name: "idx_sync_events_software_id_created"
     t.index ["software_name", "created_at"], name: "idx_sync_events_software_created"
-    t.index ["sync_server_id", "created_at"], name: "idx_sync_events_server_created"
+    t.index ["sync_peer_id", "created_at"], name: "idx_sync_events_peer_created"
   end
 
-  create_table "sync_servers", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
-    t.boolean "active", default: true, null: false
+  create_table "sync_peers", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
-    t.string "host", null: false
+    t.boolean "inbound_enabled", default: true, null: false
+    t.bigint "inbound_token_id", unsigned: true
     t.string "label", limit: 128, null: false
     t.text "last_error"
     t.datetime "last_synced_at", precision: 3
-    t.text "secret", null: false
+    t.boolean "outbound_enabled", default: true, null: false
+    t.text "secret"
     t.string "secret_prefix", limit: 12
+    t.string "transport", limit: 32, default: "http", null: false
+    t.json "transport_options"
     t.datetime "updated_at", precision: 3
-    t.index ["deleted_at"], name: "idx_sync_servers_deleted_at"
+    t.index ["deleted_at"], name: "idx_sync_peers_deleted_at"
   end
 
   create_table "test_owners", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -263,5 +270,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_171937) do
   add_foreign_key "runtime_components", "runtime_versions", name: "fk_runtime_versions_components", on_delete: :cascade
   add_foreign_key "software_images", "images"
   add_foreign_key "software_images", "softwares", on_delete: :cascade
-  add_foreign_key "sync_events", "sync_servers", name: "fk_sync_servers_events", on_delete: :nullify
+  add_foreign_key "sync_events", "sync_peers", name: "fk_sync_peers_events", on_delete: :nullify
 end

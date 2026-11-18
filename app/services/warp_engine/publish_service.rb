@@ -3,8 +3,9 @@ module WarpEngine
   # catalog records, and announces the result.
   class PublishService
     # The ActiveSupport::Notifications event instrumented after every publish,
-    # with +platform+, +name+, +version+, +software+, +release+ and +source+
-    # (WarpEngine::Sync::SOURCES) in the payload.
+    # with +platform+, +name+, +version+, +software+, +release+, +source+
+    # (WarpEngine::Sync::SOURCES) and +peer+ (the WarpEngine::SyncPeer of a
+    # sync, else +nil+) in the payload.
     NOTIFICATION = "warp_engine.publish".freeze
 
     # A version older than the newest one published would become the latest
@@ -17,16 +18,21 @@ module WarpEngine
     # then instruments NOTIFICATION.
     #
     # [source] where the upload came from: +:ci+ (default) or +:sync+, another
-    #          engine (WarpEngine::Sync), whose releases are not pushed on
+    #          engine (WarpEngine::Sync), whose releases are not pushed on;
+    #          stored as the release's +origin+
+    # [peer]   the WarpEngine::SyncPeer that pushed it, for +:sync+
     #
     # Returns the WarpEngine::Release. Raises StaleVersionError when the version
     # is older than the newest one published, ArgumentError for an unknown
     # platform, and WarpEngine::Platforms::MissingAssetsError when a required
     # asset was not uploaded.
-    def publish(input, source: :ci)
+    def publish(input, source: :ci, peer: nil)
       refuse_stale!(input)
       release = WarpEngine::Platform.find!(input.platform).publish(input.name, input.version)
       release.update!(commit_sha: input.commit) if input.try(:commit).present? && release.respond_to?(:commit_sha)
+      if release.respond_to?(:origin) && release.persisted?
+        release.update_columns(origin: source.to_s == "sync" ? "sync" : "ci", sync_peer_id: source.to_s == "sync" ? peer&.id : nil)
+      end
 
       ActiveSupport::Notifications.instrument(
         NOTIFICATION,
@@ -35,7 +41,8 @@ module WarpEngine
         version:  input.version,
         software: release.respond_to?(:software) ? release.software : nil,
         release:  release,
-        source:   source.to_sym
+        source:   source.to_sym,
+        peer:     peer
       )
 
       release

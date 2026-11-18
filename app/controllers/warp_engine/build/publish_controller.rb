@@ -34,9 +34,12 @@ module WarpEngine
       # Validates the input (WarpEngine::PublishInputDto), publishes through
       # WarpEngine::PublishService (creating or updating the software, its release
       # and release assets) and gives an unowned software to the token's owner.
-      # A token with the +sync+ scope (another engine, WarpEngine::Sync)
-      # publishes with source +:sync+, so the release is not pushed on, and
-      # the outcome is logged as an inbound WarpEngine::SyncEvent.
+      # A token with the +sync+ scope (a WarpEngine::SyncPeer) must pass
+      # WarpEngine::SyncInboundService (403 when inbound sync or the peer is
+      # off or the lists refuse, 409 when +protect_local+ keeps a version the
+      # CI published here); it publishes with origin +sync+, so the release is
+      # not pushed on, and the outcome is logged as an inbound
+      # WarpEngine::SyncEvent.
       # Renders <tt>{ "published": true, "name", "platform", "version" }</tt>.
       # Responds 401 without a valid credential, 400 for invalid input, 403 when
       # the token does not own the software, 422 with +missing+ kinds when a
@@ -58,7 +61,13 @@ module WarpEngine
           return render json: { error: "Forbidden" }, status: :forbidden
         end
 
-        release = WarpEngine::PublishService.new.publish(input, source: sync_request? ? :sync : :ci)
+        if sync_request? && (refusal = inbound.refuse_publish(token: current_application_token, input: input))
+          log_inbound(input, status: refusal.status, message: refusal.message)
+          return render json: { error: refusal.message }, status: refusal.status
+        end
+
+        release = WarpEngine::PublishService.new.publish(input, source: sync_request? ? :sync : :ci,
+                                                                peer: sync_request? ? inbound.peer_of(current_application_token) : nil)
         claim_software_ownership(input.name)
         log_inbound(input, release: release, status: 200)
 
@@ -73,12 +82,15 @@ module WarpEngine
 
       private
 
+      def inbound = @inbound ||= WarpEngine::SyncInboundService.new
+
       def log_inbound(input, status:, release: nil, message: nil)
         return unless sync_request?
 
         WarpEngine::SyncService.new.record_inbound(name: input.name, platform: input.platform, version: input.version,
                                                    release: release, http_status: status, message: message,
-                                                   token: current_application_token)
+                                                   token: current_application_token,
+                                                   peer: inbound.peer_of(current_application_token))
       end
     end
   end

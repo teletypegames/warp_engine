@@ -57,11 +57,12 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   FTP). Off unless configured.
 - **Assembly64 (optional, 1.11)**: the catalog as an Assembly64 search server, so a
   C64 Ultimate finds and runs its titles from the menu. Off unless configured.
-- **Sync (optional, 4.5)**: the releases of one engine pushed to others, over
-  the same `/build/upload` and `/build/publish` endpoints a CI uses, with a token
-  the other side gave the `sync` scope. Filters by software, category, platform,
-  status, channel and asset kind, a per-software switch and an event log. Off
-  unless configured. See *Sync*.
+- **Sync (optional, 4.5; 5.0)**: releases copied between engines — outbound to the
+  peers this engine pushes to, inbound from the peers it accepts — each direction with
+  its own filters (software, category, platform, status, channel, asset kind), a
+  per-software switch, protection of what the CI published here, an event log linked to
+  each software, and transports behind one interface (`http`: another engine's `/build`
+  endpoints, a host may add its own). Off unless configured. See *Sync*.
 - **Publish events**: every published release emits
   `ActiveSupport::Notifications` (`warp_engine.publish`), so hosts can react
   to new builds without model callbacks.
@@ -1739,45 +1740,69 @@ its own account of who fetched what without reaching into `DownloadService`.
 
 ## Sync
 
-One engine can push its releases to others (4.5). The other engine needs
-nothing new: the push goes to its `POST /build/upload` and `POST /build/publish`,
-the endpoints its own CI uses, with a token it issued with the `sync` scope. That
-token opens those two endpoints only, is always `unrestricted` (it takes no
-software for its owner) and is never written to a pipeline's secrets; the
-receiving side needs `application_tokens from: :database`.
-
-On the sending side a `WarpEngine::SyncServer` (admin: *Sync Servers*; Admin API:
-`sync_servers`) holds a `label`, the other engine's `host` (its base URL with the
-mount; `https://` outside development and test) and that token as `secret`,
-stored encrypted with a key derived from `secret_key_base`. Sync is configured
-in the initializer:
+Engines copy releases to one another (4.5; peers, directions and transports since
+5.0). Each partner is a `WarpEngine::SyncPeer` (admin: *Sync Peers*; Admin API:
+`sync_peers`), and sync runs in two directions, each switched on and filtered on its
+own in the initializer:
 
 ```ruby
 WarpEngine.configure do
   sync do
-    enabled true
-    software_switch :opt_out           # false (default), :opt_out or :opt_in
-    allowed_softwares  %w[blessingofra* thread-of-ariadne]
-    denied_softwares   %w[*-test]
-    allowed_categories %w[game demo]
-    denied_categories  %w[tool]
-    allowed_platforms  %w[c64 plus4 dos]
-    denied_platforms   %w[electron]
-    allowed_statuses   %w[released]
-    denied_statuses    %w[development]
-    allowed_kinds      %w[cartridge html docs]
-    denied_kinds       %w[win_x64 mac_universal]
-    allowed_channels   %w[stable]      # the default
-    events             true            # false, true or :verbose
+    events true                         # false, true or :verbose
     event_retention_days 90
-    timeout            120             # seconds per request
+
+    outbound do                         # this engine pushes its releases to its peers
+      enabled true
+      software_switch :opt_out          # false (default), :opt_out or :opt_in
+      allowed_softwares  %w[blessingofra* thread-of-ariadne]
+      denied_softwares   %w[*-test]
+      allowed_categories %w[game demo]
+      denied_categories  %w[tool]
+      allowed_platforms  %w[c64 plus4 dos]
+      denied_platforms   %w[electron]
+      allowed_statuses   %w[released]
+      denied_statuses    %w[development]
+      allowed_kinds      %w[cartridge html docs]
+      denied_kinds       %w[win_x64 mac_universal]
+      allowed_channels   %w[stable]     # the default
+      timeout            120            # seconds per request
+    end
+
+    inbound do                          # its peers may push their releases here
+      enabled true
+      allowed_platforms  %w[c64]
+      denied_softwares   %w[*-test]
+      allowed_channels   %w[stable]     # the default
+      protect_local      true           # the default: sync never overwrites what our CI published
+    end
   end
 end
 ```
 
-After every publish that did not itself come by sync, the release goes to every
-active server, through `WarpEngine::SyncPushJob` on the host's job backend. A
-release goes when:
+Both directions are off by default.
+
+### Peers
+
+A peer record describes both sides of one partnership:
+
+- **outbound** (`outbound_enabled`): how its releases reach it — its `transport`
+  (`http` by default), the transport's `transport_options` (`host` for `http`) and its
+  `secret` (for `http`: the token the other engine issued for us), stored encrypted with
+  a key derived from `secret_key_base`;
+- **inbound** (`inbound_enabled`): the `sync` token this engine issued to it (*Issue
+  inbound token* on its page, `POST /sync_peers/:id/inbound_token`, or
+  `rake "warp_engine:sync:inbound_token[label]" FILE=…`), owned by the peer. It is shown
+  once; the other engine stores it as the secret of the peer that points back here.
+
+A `sync` token opens `POST /build/upload` and `POST /build/publish` only, is always
+`unrestricted`, belongs to a peer and is never written to a pipeline. The receiving side
+needs `application_tokens from: :database`.
+
+### Outbound
+
+After every publish of a release this engine made itself, the release goes to every peer
+that takes outbound pushes, through `WarpEngine::SyncPushJob` on the host's job backend.
+A release goes when:
 
 1. its channel is in `allowed_channels` (only `stable` by default);
 2. the per-software switch lets it (`software_switch :opt_out`: every software
@@ -1789,37 +1814,58 @@ release goes when:
    matches no list of that axis.
 
 The kind lists do not hold a release back; they choose its files. A platform's
-required kinds always go, as the other side refuses the publish without them.
-The files are the ones the CI uploaded, still in the release's folder, plus
-`name-version.metadata.json`; an unpacked kind whose zip is gone is zipped again.
-A server that does not answer is tried again, five times in all; a 409 (the
-other side has a newer version) is logged as skipped, not as an error.
+required kinds always go. The files are the ones the CI uploaded, still in the release's
+folder, plus `name-version.metadata.json` (`WarpEngine::Sync::Package`); a file missing
+under its own name (a software renamed since) comes from the path its release asset
+records, and an unpacked kind whose zip is gone is zipped again. A peer that does not
+answer is tried again, five times in all; a refusal on purpose (403: its inbound settings,
+409: a newer or its own version) is logged as skipped, not as an error.
 
-A release that came by sync is published with `source: :sync` and is not pushed
-on, so two engines may push to each other. The receiving side logs it as an
-inbound `WarpEngine::SyncEvent`, with the prefix of the token it came with.
+### Inbound
 
-Unknown platforms, channels or kinds in the lists stop the boot; a list that
-leaves out a kind some platform requires is logged as a warning.
+A push with a peer's token is taken only while `inbound` is on, the peer is kept and
+`inbound_enabled`, and the release passes the inbound lists: the name and channel when
+a file is uploaded, the platform, category (from the uploaded metadata) and status at the
+publish. A refusal answers 403 with the reason. With `protect_local` (the default) a
+version this engine's CI published is not overwritten (409). The release is published
+with `origin` `sync` and its `sync_peer`, so it is never pushed on: two engines may
+push to each other.
 
-A new server only gets the releases published after it was added. What it may be
-missing is sent by hand (4.6), in one of two modes: the newest allowed release of
-each software, or every allowed release, oldest version first (a *full sync*; the
-other side would refuse an older version after a newer one). A run either applies
-the configured filters or leaves them out (then every software goes with every kind
-of file, whatever the lists and the per-software switch say), sends the channels it
-is given (by default `allowed_channels`), and can be narrowed further by software
-names (`*` wildcards), platforms, categories and statuses
-(`WarpEngine::Sync::Criteria`).
+### Transports
 
-- **Sync Runner** (admin page, *WarpEngine › Sync Runner*): choose the servers, the
-  mode, the channels, the configured filters on or off and the narrowings;
+How a package reaches a peer is its transport, a `WarpEngine::Sync::Transport`: the
+engine ships `http` (`WarpEngine::Sync::Transports::Http`: another WarpEngine's `/build`
+endpoints, what it has read from its public `GET /api/softwares/:name/builds`). A transport
+names itself (`key`, `label`), describes its settings (`options`: the admin draws the
+peer form from them) and implements `check`, `existing` and `deliver`. A host registers
+its own:
+
+```ruby
+WarpEngine.configure do
+  register_sync_transport :rsync, "MyStudio::RsyncTransport"
+end
+```
+
+### Running it by hand
+
+A new peer only gets the releases published after it was added. What it may be missing
+is sent by hand, in one of two modes: the newest allowed release of each software, or
+every allowed release, oldest version first (a *full sync*). A run either applies the
+configured outbound filters or leaves them out (then every software goes with every kind
+of file), sends the channels it is given, can be narrowed by software names, platforms,
+categories and statuses (`WarpEngine::Sync::Criteria`), and by default skips what the
+peer already has (the transport's `existing`). Releases that came by sync are never sent.
+
+- **Sync Runner** (admin page): peers, mode, channels, filters on or off, narrowings;
   *Preview* lists what would go and what is held back, *Run* queues the pushes.
-- **A server's page**: *Push latest releases* and *Full sync*, with the configured
-  filters, and a link to the runner with that server chosen.
-- **Admin API**: `POST /sync_servers/:id/push` and `POST /sync_servers/run` (every
-  active server, or `serverIds`), with `all`, `filtered`, `channels`, `softwares`,
-  `platforms`, `categories`, `statuses` and `dryRun`.
+- **A peer's page**: *Check connection*, *Push latest releases*, *Full sync*, a link to
+  the runner.
+- **A software's page**: its state per peer and direction, why its newest release would
+  not go, *Push now*, its events. A release's page shows its origin and events.
+- **Admin API**: `POST /sync_peers/:id/push`, `POST /sync_peers/run` (`peerIds`), with
+  `all`, `filtered`, `channels`, `softwares`, `platforms`, `categories`, `statuses`,
+  `skipExisting` and `dryRun`; `GET /softwares/:softwareId/sync_status` and
+  `GET /softwares/:softwareId/sync_events`.
 - **rake**:
 
 ```bash
@@ -1828,29 +1874,16 @@ bin/rails "warp_engine:sync:push[other-engine,mygame]"         # of one software
 ALL=1 bin/rails "warp_engine:sync:push[other-engine]"          # full sync
 ALL=1 FILTERED=0 CHANNELS=stable,beta bin/rails "warp_engine:sync:push[other-engine]"
 PLATFORMS=c64,plus4 DRY_RUN=1 bin/rails "warp_engine:sync:push[other-engine]"
-ALL_SERVERS=1 bin/rails warp_engine:sync:push                   # every active server
-bin/rails "warp_engine:sync:check[other-engine]"               # does it accept the token
+FORCE=1 ALL_PEERS=1 bin/rails warp_engine:sync:push             # every outbound peer, send again what they have
+bin/rails "warp_engine:sync:check[other-engine]"               # does the other side take us
+FILE=/run/secrets/token bin/rails "warp_engine:sync:inbound_token[other-engine]"
 ```
 
-A run skips what the other side has (4.7): before its uploads each push asks the
-server's `GET /api/softwares/:name/builds` (public, no token sent) and sends nothing
-when the server holds that version with every kind of file the push would bring; it
-is logged as skipped, *already on the server*. A version the server holds with
-fewer kinds is sent, and a question that goes unanswered does not stop the push.
-Untick *Skip what the server already has* on the runner (`skipExisting: false` in
-the Admin API, `FORCE=1` for rake) to send them again. The automatic push after a
-publish never skips: a version published again goes out again. A version older
-than the server's newest is still refused there (409) and logged as skipped. A push queued without the configured filters
-keeps that choice, so the filters do not hold it back when the job runs.
-
-The check posts an upload without a file: an accepted token answers 400, a refused
-one 401, and nothing is written.
-
-With `events` on, every push and every inbound publish is a `WarpEngine::SyncEvent`
-(admin: *Sync Events*; Admin API: `sync_events`); `:verbose` logs the releases a
-filter held back too. `WarpEngine::SyncEventPruneJob` deletes the events older than
-`event_retention_days`; the engine does not schedule it, add it to the host's
-recurring tasks (or run `rake warp_engine:sync:prune`).
+With `events` on, every push and every inbound publish is a `WarpEngine::SyncEvent`, linked
+to its peer, software and release (admin: *Sync Events*; Admin API: `sync_events`);
+`:verbose` logs the releases a filter held back too. `WarpEngine::SyncEventPruneJob`
+deletes the events older than `event_retention_days`; the engine does not schedule it,
+add it to the host's recurring tasks (or run `rake warp_engine:sync:prune`).
 
 Sync copies releases, nothing else: deleting a release, editing a software in the
 admin, its images and the runtimes are not carried over.
@@ -2046,6 +2079,39 @@ admin_api do
   public_docs_url "/api/swagger?spec=Admin%20API"
 end
 ```
+
+## Upgrading to 5.0
+
+Sync has two directions and its partners are peers.
+
+- Run the migrations: `sync_servers` becomes `sync_peers` (the `host` moves into
+  `transport_options`, `active` becomes `outbound_enabled`), `sync_events` gets
+  `sync_peer_id` (was `sync_server_id`) and `software_id` (filled in by name), `releases`
+  get `origin` (`ci` for every existing one) and `sync_peer_id`.
+- The initializer: the sync settings move into `outbound do … end`; naming one in the
+  `sync` block raises with where it went.
+
+  ```ruby
+  sync do
+    outbound do
+      enabled true
+      allowed_platforms %w[c64]
+    end
+  end
+  ```
+
+- A receiving engine now has to switch inbound on (`sync { inbound { enabled true } }`),
+  and a `sync` token must belong to a peer: create a peer for each engine that pushes
+  here (outbound off if you do not push back), issue its inbound token and give it to that
+  engine. Older `sync` tokens owned by other records are refused (403). Releases that came
+  by sync before 5.0 have `origin` `ci`; mark them `sync` if `protect_local` should not
+  guard them.
+- Renamed: `WarpEngine::SyncServer` → `WarpEngine::SyncPeer`, the admin *Sync Servers* →
+  *Sync Peers*, Admin API `sync_servers` → `sync_peers` (`serverIds` → `peerIds`, `servers`
+  → `peers`), rake `ALL_SERVERS` → `ALL_PEERS`, `Sync::Client` → `Sync::Transports::Http`,
+  `Sync::ConnectionError` → `Sync::Transport::Unreachable`, `Sync.enabled?` →
+  `Sync.outbound?` / `Sync.inbound?`. No aliases.
+- The `warp_engine.publish` payload carries `peer`.
 
 ## Upgrading to 4.8
 

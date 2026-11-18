@@ -8,7 +8,7 @@ RSpec.describe WarpEngine::SyncPushService do
   include SyncHelpers
 
   let(:tmpdir) { Dir.mktmpdir }
-  let(:server) { WarpEngine::SyncServer.create!(label: "Other", host: "https://other.example/warp", secret: "other-token") }
+  let(:server) { sync_peer(label: "Other", host: "https://other.example/warp", secret: "other-token") }
   let(:software) { create(:software, name: "game", platform: "c64", status: "released") }
   let(:release) { create(:release, software: software, version: "1.0") }
   let(:folder) { File.join(tmpdir, "game", "1.0") }
@@ -114,7 +114,7 @@ RSpec.describe WarpEngine::SyncPushService do
 
       result = described_class.new.push(release, server, skip_existing: true)
 
-      expect(result).to have_attributes(status: "skipped", message: "already on the server (cartridge, win_x64)")
+      expect(result).to have_attributes(status: "skipped", message: "already on the peer (cartridge, win_x64)")
       expect(uploads).to be_empty
     end
 
@@ -155,7 +155,7 @@ RSpec.describe WarpEngine::SyncPushService do
     WebMock.reset!
     stub_request(:post, %r{/build/upload}).to_raise(Errno::ECONNREFUSED)
 
-    expect { described_class.new.push(release, server) }.to raise_error(WarpEngine::Sync::ConnectionError)
+    expect { described_class.new.push(release, server) }.to raise_error(WarpEngine::Sync::Transport::Unreachable)
     expect(WarpEngine::SyncEvent.last).to have_attributes(status: "failed")
   end
 end

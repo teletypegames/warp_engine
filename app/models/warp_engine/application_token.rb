@@ -7,8 +7,8 @@ module WarpEngine
   #
   # +scopes+ says what the token may do: +update+ and +upload+ for the CI's
   # <tt>/build</tt> endpoints, +sync+ for another engine pushing its releases
-  # here (WarpEngine::Sync; upload and publish only, and always
-  # +unrestricted+), +catalog+ for a signed-in client, and the Admin API
+  # here (WarpEngine::Sync; upload and publish only, always +unrestricted+,
+  # and owned by the WarpEngine::SyncPeer it was issued to), +catalog+ for a signed-in client, and the Admin API
   # scopes. The polymorphic +owner+ must be of a class the host
   # configured (application token, access token or Admin API owner class), and
   # admin scopes need the Admin API owner class. An +unrestricted+ token is
@@ -27,6 +27,9 @@ module WarpEngine
     # <tt>POST /build/upload</tt> and <tt>POST /build/publish</tt> like
     # UPLOAD_SCOPE and UPDATE_SCOPE, and marks the publish as coming by sync.
     SYNC_SCOPE = "sync".freeze
+
+    # The owner class of every sync token (see WarpEngine::SyncPeer#issue_inbound_token!).
+    SYNC_OWNER_TYPE = "WarpEngine::SyncPeer".freeze
 
     # Scope of a client signed in through the device grant, read by the catalog
     # API.
@@ -154,7 +157,10 @@ module WarpEngine
     end
 
     def sync_needs_unrestricted
-      errors.add(:scopes, "sync needs an unrestricted token") if sync? && !unrestricted?
+      return unless sync?
+
+      errors.add(:scopes, "sync needs an unrestricted token") unless unrestricted?
+      errors.add(:owner_type, "of a sync token must be #{SYNC_OWNER_TYPE}") unless owner_type == SYNC_OWNER_TYPE
     end
 
     def generate_token
@@ -166,7 +172,9 @@ module WarpEngine
     end
 
     def owner_type_matches_configuration
-      permitted = permitted_owner_types
+      return if owner_type == SYNC_OWNER_TYPE
+
+      permitted = permitted_owner_types - [ SYNC_OWNER_TYPE ]
       if permitted.empty?
         errors.add(:base, "application_token_owner_class is not configured")
       elsif !permitted.include?(owner_type)

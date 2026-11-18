@@ -269,3 +269,18 @@
     });
   }
 })();
+
+(function() {
+  function showTransport(select) {
+    var chosen = select.value;
+    document.querySelectorAll('[data-we-transport]').forEach(function(fieldset) {
+      var on = fieldset.getAttribute('data-we-transport') === chosen;
+      fieldset.style.display = on ? '' : 'none';
+      fieldset.querySelectorAll('input, select, textarea').forEach(function(input) { input.disabled = !on; });
+    });
+  }
+
+  document.addEventListener('change', function(event) {
+    if (event.target.matches && event.target.matches('[data-we-transport-select]')) showTransport(event.target);
+  });
+})();

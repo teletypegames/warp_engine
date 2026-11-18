@@ -10,6 +10,7 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
     id_column
     column(:software) { |r| link_to r.software.title, admin_software_path(r.software) }
     column :version
+    column(:origin) { |r| r.synced? ? status_tag("from #{r.sync_peer&.label || 'sync'}", class: "no") : status_tag("ci", class: "yes") }
     column(:assets) { |r| r.release_assets.map(&:kind).sort.join(", ") }
     column :created_at
     actions only: [ :show ]
@@ -28,6 +29,13 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
       row :id
       row(:software) { |r| link_to r.software.title, admin_software_path(r.software) }
       row :version
+      row(:origin) do |r|
+        if r.synced?
+          r.sync_peer ? link_to("from #{r.sync_peer.label} (sync)", admin_sync_peer_path(r.sync_peer)) : "sync"
+        else
+          "ci (published here)"
+        end
+      end
       row("Plays in") do |r|
         if r.runtime_version
           link_to("#{r.web_binding} · #{r.runtime_version.label}", admin_runtime_path(r.runtime_version))
@@ -47,6 +55,19 @@ ActiveAdmin.register WarpEngine::Release, as: "Release" do
         end
       else
         para "No assets for this release.", class: "we-muted"
+      end
+    end
+
+    if WarpEngine::Sync.config.events? && resource.sync_events.exists?
+      panel "Sync" do
+        table_for resource.sync_events.includes(:sync_peer).limit(20) do
+          column("When", &:created_at)
+          column("Peer") { |event| event.sync_peer ? link_to(event.sync_peer.label, admin_sync_peer_path(event.sync_peer)) : "-" }
+          column("Direction", &:direction)
+          column("Status") { |event| status_tag event.status, class: event.succeeded? ? "yes" : (event.failed? ? "no" : nil) }
+          column("Step", &:step)
+          column("Message") { |event| event.message.to_s.truncate(100) }
+        end
       end
     end
 
