@@ -22,7 +22,7 @@ RSpec.describe "The electron pipeline" do
   end
 
   it "leaves the Windows installer out where Wine cannot start" do
-    expect(steps["windows"]["commands"].join).to include('if [ "$(getconf PAGESIZE)" != 4096 ]', "exit 0")
+    expect(steps["windows"]["commands"].join).to include("if ! wine cmd /c exit", "exit 0")
   end
 
   it "reads the version from package.json" do
