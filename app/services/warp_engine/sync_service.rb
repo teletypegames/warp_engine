@@ -12,10 +12,17 @@ module WarpEngine
     # +message+ for a person.
     CheckResult = ::Data.define(:ok, :status, :version, :message)
 
-    # The outcome of #backfill: the WarpEngine::SyncEvent records (or +nil+s
-    # while the events are off) of the +queued+ pushes, and the +skipped+
-    # releases as <tt>"name version: reason"</tt> lines.
-    BackfillResult = ::Data.define(:queued, :skipped)
+    # What #plan found: the +releases+ to send, in the order they go, and the
+    # +skipped+ ones as <tt>"name version: reason"</tt> lines.
+    Plan = ::Data.define(:releases, :skipped)
+
+    # The outcome of #run: the +releases+ queued to each of the +servers+, the
+    # +skipped+ lines of the Plan, and the WarpEngine::SyncEvent of each push
+    # (+nil+ entries while the events are off).
+    RunResult = ::Data.define(:releases, :servers, :skipped, :events) do
+      # Returns how many pushes were queued.
+      def queued = releases.size * servers.size
+    end
 
     # [config] the WarpEngine::Sync::Configuration, by default WarpEngine::Sync.config
     def initialize(config: Sync.config)
@@ -44,27 +51,53 @@ module WarpEngine
       []
     end
 
-    # Queues pushes to +server+ of what it may be missing: the newest release
-    # the filters let go of every kept software (or only of the software named
-    # +software+), or with +all+ every such release, oldest version first so
-    # the other side does not refuse the older ones as stale.
+    # Returns what a run with +criteria+ (WarpEngine::Sync::Criteria) would
+    # send, as a Plan: per kept software the narrowings leave in, in name
+    # order, the newest release that passes the criteria's filter, or with
+    # +all+ every such release, oldest version first so the other side does not refuse
+    # the older ones as stale. Does not look at whether sync is enabled.
+    def plan(criteria)
+      filter = criteria.filter(@config)
+      releases = []
+      skipped = []
+      Software.kept.includes(:releases).order(:name).each do |software|
+        next if criteria.reason(software)
+
+        allowed, held = ordered(software.releases.to_a).partition { |release| filter.allowed?(release) }
+        skipped.concat(held.map { |release| "#{software.name} #{release.version}: #{filter.reason(release)}" }) if criteria.all?
+        picked = criteria.all? ? allowed : allowed.last(1)
+        skipped << "#{software.name}: #{held.any? ? filter.reason(held.last) : 'no release published'}" if picked.empty? && !criteria.all?
+        releases.concat(picked)
+      end
+      Plan.new(releases: releases, skipped: skipped)
+    end
+
+    # Queues the pushes of #plan for +criteria+ to each of +servers+ (the
+    # active ones by default). The pushes keep the criteria, so a push
+    # without the configured filters is not held back by them later.
     #
-    # Returns a BackfillResult. Raises DisabledError while sync is off and
-    # ActiveRecord::RecordNotFound for an unknown +software+.
-    def backfill(server, software: nil, all: false)
+    # Returns a RunResult. Raises DisabledError while sync is off.
+    def run(criteria, servers: SyncServer.active.to_a)
       raise DisabledError, "sync is not enabled" unless @config.enabled?
 
-      queued = []
-      skipped = []
-      softwares(software).each do |record|
-        candidates = ordered(record.releases.to_a)
-        allowed, held = candidates.partition { |release| @filter.allowed?(release) }
-        skipped.concat(held.map { |release| "#{record.name} #{release.version}: #{@filter.reason(release)}" }) if all
-        picked = all ? allowed : allowed.last(1)
-        skipped << "#{record.name}: no release the filters let go" if picked.empty? && !all
-        picked.each { |release| queued << enqueue(release, server) }
+      planned = plan(criteria)
+      targets = Array(servers).select { |server| server.active && server.deleted_at.nil? }
+      events = targets.flat_map do |server|
+        planned.releases.map { |release| enqueue(release, server, criteria: criteria) }
       end
-      BackfillResult.new(queued: queued, skipped: skipped)
+      RunResult.new(releases: planned.releases, servers: targets, skipped: planned.skipped, events: events)
+    end
+
+    # Queues pushes to +server+ of what it may be missing: the newest release
+    # the filters let go of every kept software (or only of the software named
+    # +software+), or with +all+ every such release (#run with default
+    # criteria).
+    #
+    # Returns a RunResult. Raises DisabledError while sync is off and
+    # ActiveRecord::RecordNotFound for an unknown +software+.
+    def backfill(server, software: nil, all: false)
+      Software.kept.find_by!(name: software) if software.present?
+      run(Sync::Criteria.build(mode: all ? "all" : "latest", softwares: software, config: @config), servers: [ server ])
     end
 
     # Records a publish another engine pushed here with its sync token
@@ -106,21 +139,15 @@ module WarpEngine
 
     private
 
-    def enqueue(release, server)
+    def enqueue(release, server, criteria: nil)
       event = SyncEvent.log(direction: "outbound", status: "queued", sync_server: server, **SyncEvent.release_attributes(release))
-      SyncPushJob.perform_later(release.id, server.id, event&.id)
+      SyncPushJob.perform_later(release.id, server.id, event&.id, criteria&.to_h&.transform_keys(&:to_s))
       event
     end
 
     def log_skipped(release, server, reason)
       SyncEvent.log(direction: "outbound", status: "skipped", sync_server: server, message: reason,
                     **SyncEvent.release_attributes(release))
-    end
-
-    def softwares(name)
-      return [ Software.kept.find_by!(name: name) ] if name.present?
-
-      Software.kept.includes(:releases).order(:name).to_a
     end
 
     def ordered(releases)

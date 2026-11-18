@@ -1802,20 +1802,43 @@ inbound `WarpEngine::SyncEvent`, with the prefix of the token it came with.
 Unknown platforms, channels or kinds in the lists stop the boot; a list that
 leaves out a kind some platform requires is logged as a warning.
 
-A new server only gets the releases published after it was added. To send what
-it may be missing:
+A new server only gets the releases published after it was added. What it may be
+missing is sent by hand (4.6), in one of two modes: the newest allowed release of
+each software, or every allowed release, oldest version first (a *full sync*; the
+other side would refuse an older version after a newer one). A run either applies
+the configured filters or leaves them out (then every software goes with every kind
+of file, whatever the lists and the per-software switch say), sends the channels it
+is given (by default `allowed_channels`), and can be narrowed further by software
+names (`*` wildcards), platforms, categories and statuses
+(`WarpEngine::Sync::Criteria`).
+
+- **Sync Runner** (admin page, *WarpEngine › Sync Runner*): choose the servers, the
+  mode, the channels, the configured filters on or off and the narrowings;
+  *Preview* lists what would go and what is held back, *Run* queues the pushes.
+- **A server's page**: *Push latest releases* and *Full sync*, with the configured
+  filters, and a link to the runner with that server chosen.
+- **Admin API**: `POST /sync_servers/:id/push` and `POST /sync_servers/run` (every
+  active server, or `serverIds`), with `all`, `filtered`, `channels`, `softwares`,
+  `platforms`, `categories`, `statuses` and `dryRun`.
+- **rake**:
 
 ```bash
-bin/rails "warp_engine:sync:push[other-engine]"            # newest allowed release of every software
-bin/rails "warp_engine:sync:push[other-engine,mygame]"     # of one software
-ALL=1 bin/rails "warp_engine:sync:push[other-engine]"      # every allowed release, oldest first
-bin/rails "warp_engine:sync:check[other-engine]"           # does it accept the token
+bin/rails "warp_engine:sync:push[other-engine]"                # newest allowed release of every software
+bin/rails "warp_engine:sync:push[other-engine,mygame]"         # of one software
+ALL=1 bin/rails "warp_engine:sync:push[other-engine]"          # full sync
+ALL=1 FILTERED=0 CHANNELS=stable,beta bin/rails "warp_engine:sync:push[other-engine]"
+PLATFORMS=c64,plus4 DRY_RUN=1 bin/rails "warp_engine:sync:push[other-engine]"
+ALL_SERVERS=1 bin/rails warp_engine:sync:push                   # every active server
+bin/rails "warp_engine:sync:check[other-engine]"               # does it accept the token
 ```
 
-The admin page of a server has the same as buttons (*Check connection*, *Push
-latest releases*), the Admin API as `POST /sync_servers/:id/check` and
-`POST /sync_servers/:id/push`. The check posts an upload without a file: an
-accepted token answers 400, a refused one 401, and nothing is written.
+A run does not look at what the other side has: a release it holds already is
+uploaded again and published over itself, and one older than its newest is refused
+there (409) and logged as skipped. A push queued without the configured filters
+keeps that choice, so the filters do not hold it back when the job runs.
+
+The check posts an upload without a file: an accepted token answers 400, a refused
+one 401, and nothing is written.
 
 With `events` on, every push and every inbound publish is a `WarpEngine::SyncEvent`
 (admin: *Sync Events*; Admin API: `sync_events`); `:verbose` logs the releases a
@@ -1993,6 +2016,14 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.6
+
+Nothing to change in a host. New: the Sync Runner admin page, *Full sync* on a sync
+server's page, `POST /sync_servers/run` and the run options of
+`POST /sync_servers/:id/push` and `rake warp_engine:sync:push` (see *Sync*).
+`SyncService#backfill` now answers a `RunResult` (`queued` is a count, `releases`
+the releases).
 
 ## Upgrading to 4.5
 

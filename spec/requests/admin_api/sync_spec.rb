@@ -40,6 +40,29 @@ RSpec.describe "Admin API sync", type: :request do
     expect(enqueued_jobs.map { |job| job["job_class"] }).to include("WarpEngine::SyncPushJob")
   end
 
+  it "previews and runs a full sync without the configured filters to every active server" do
+    sync_config(denied_softwares: %w[game])
+    WarpEngine::SyncServer.create!(label: "One", host: "https://one.example", secret: "x")
+    WarpEngine::SyncServer.create!(label: "Two", host: "https://two.example", secret: "y")
+    software = create(:software, name: "game", platform: "c64")
+    %w[1.0 1.1].each { |version| create(:release, software: software, version: version) }
+
+    api_post "/sync_servers/run", { all: true, dryRun: true }
+    expect(json["data"]).to include("dryRun" => true, "queued" => 0, "releases" => [])
+
+    api_post "/sync_servers/run", { all: true, filtered: false }
+    expect(json["data"]).to include("dryRun" => false, "queued" => 4)
+    expect(json["data"]["releases"].map { |release| release["version"] }).to eq(%w[1.0 1.1])
+  end
+
+  it "answers 400 to an unknown channel" do
+    server = WarpEngine::SyncServer.create!(label: "Other", host: "https://other.example", secret: "x")
+
+    api_post "/sync_servers/#{server.id}/push", { channels: %w[nightly] }
+
+    expect(response).to have_http_status(:bad_request)
+  end
+
   it "answers 409 to a push while sync is off" do
     sync_config(enabled: false)
     server = WarpEngine::SyncServer.create!(label: "Other", host: "https://other.example", secret: "x")

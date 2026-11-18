@@ -53,6 +53,19 @@ ActiveAdmin.register WarpEngine::SyncServer, as: "Sync Server" do
     end
   end
 
+  action_item :full_sync, only: :show do
+    if WarpEngine::Sync.enabled? && resource.active
+      link_to "Full sync", push_admin_sync_server_path(resource, all: 1), method: :post,
+              data: { confirm: "Queue a push of every allowed release of every software to #{resource.label}, oldest first? " \
+                               "This can be a lot of uploads." }
+    end
+  end
+
+  action_item :runner, only: :show do
+    link_to "Sync Runner", admin_sync_runner_path(server_ids: [ resource.id ], mode: "latest", filtered: "1",
+                                                  channels: WarpEngine::Sync.config.allowed_channels)
+  end
+
   member_action :check, method: :post do
     result = WarpEngine::SyncService.new.check(resource)
     version = result.version ? " (WarpEngine #{result.version})" : ""
@@ -64,8 +77,10 @@ ActiveAdmin.register WarpEngine::SyncServer, as: "Sync Server" do
   end
 
   member_action :push, method: :post do
-    WarpEngine::SyncBackfillJob.perform_later(resource.id)
-    redirect_to resource_path(resource), notice: "The pushes to #{resource.label} are being queued."
+    all = params[:all].present?
+    WarpEngine::SyncBackfillJob.perform_later(resource.id, nil, all)
+    redirect_to resource_path(resource), notice: "The #{all ? 'full sync' : 'pushes of the latest releases'} to #{resource.label} " \
+                                                 "is being queued; follow it under Recent events."
   end
 
   show do

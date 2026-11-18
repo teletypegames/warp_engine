@@ -21,8 +21,11 @@ module WarpEngine
         # Declares the +sync_servers+ resource on +api+: list, get, create,
         # update (an empty or missing +secret+ keeps the stored one), delete
         # (soft), <tt>POST /sync_servers/:id/check</tt> (does the other engine
-        # accept the token) and <tt>POST /sync_servers/:id/push</tt> (queue the
-        # releases it may be missing; 409 while sync is off).
+        # accept the token), <tt>POST /sync_servers/:id/push</tt> (queue the
+        # releases it may be missing) and <tt>POST /sync_servers/run</tt> (the
+        # same for several servers); both take WarpEngine::Sync::Criteria
+        # (a full sync, without the configured filters, narrowed) and +dryRun+,
+        # and answer 409 while sync is off.
         def sync_servers(api)
           api.resource(:sync_servers, label: "Sync servers") do |r|
             r.list "/sync_servers", summary: "The engines the releases are pushed to", item: X.sync_server,
@@ -61,15 +64,18 @@ module WarpEngine
             end
 
             r.action :post, "/sync_servers/:id/push", name: :push,
-                     summary: "Queue the newest allowed release of every software (or every one with all)",
+                     summary: "Queue releases for the server: the newest allowed of every software, or every one with all",
+                     item: X.sync_push, body: X.sync_run_body do |ctx|
+              ctx.ok(run(ctx, [ server(ctx.id) ]))
+            end
+
+            r.action :post, "/sync_servers/run", name: :run,
+                     summary: "Queue releases for every active server, or the ones in serverIds",
                      item: X.sync_push,
-                     body: S.object({ software: S.string("Only this software, by name"),
-                                      all: S.boolean("Every allowed release, oldest first") }) do |ctx|
-              result = WarpEngine::SyncService.new.backfill(server(ctx.id), software: ctx[:software].presence,
-                                                                            all: ctx[:all] == true)
-              ctx.ok({ queued: result.queued.size, skipped: result.skipped })
-            rescue WarpEngine::SyncService::DisabledError => e
-              raise Error.conflict(e.message)
+                     body: S.object(X.sync_run_body[:properties].merge(serverIds: S.array(S.integer, "Default: every active server"))) do |ctx|
+              ids = Array(ctx[:serverIds]).map(&:to_i)
+              servers = ids.any? ? WarpEngine::SyncServer.active.where(id: ids).to_a : WarpEngine::SyncServer.active.to_a
+              ctx.ok(run(ctx, servers))
             end
           end
         end
@@ -94,6 +100,38 @@ module WarpEngine
               ctx.ok(Admin::SyncEventSerializer.render_as_hash(WarpEngine::SyncEvent.find(ctx.id)))
             end
           end
+        end
+
+        # Plans (with +dryRun+) or queues a run to +servers+ from the body of
+        # +ctx+ and returns the SyncPush answer. Raises a 400 Error for an
+        # unknown channel and a 409 Error while sync is off.
+        def run(ctx, servers)
+          criteria = WarpEngine::Sync::Criteria.build(
+            mode: ctx[:all] == true ? "all" : "latest", filtered: ctx.key?(:filtered) ? ctx[:filtered] : true,
+            channels: ctx[:channels], softwares: ctx[:softwares].presence || ctx[:software], platforms: ctx[:platforms],
+            categories: ctx[:categories], statuses: ctx[:statuses]
+          )
+          service = WarpEngine::SyncService.new
+          if ctx[:dryRun] == true
+            plan = service.plan(criteria)
+            return push_answer(plan.releases, servers, plan.skipped, dry_run: true)
+          end
+
+          result = service.run(criteria, servers: servers)
+          push_answer(result.releases, result.servers, result.skipped, dry_run: false)
+        rescue ArgumentError => e
+          raise Error.bad_request(e.message)
+        rescue WarpEngine::SyncService::DisabledError => e
+          raise Error.conflict(e.message)
+        end
+
+        # The SyncPush answer: the +releases+ (software and version), the
+        # +servers+ (ids), the pushes queued (none on a dry run) and the
+        # +skipped+ lines.
+        def push_answer(releases, servers, skipped, dry_run:)
+          { dryRun: dry_run, queued: dry_run ? 0 : releases.size * servers.size, servers: servers.map(&:id),
+            releases: releases.map { |release| { software: release.software.name, version: release.version } },
+            skipped: skipped }
         end
 
         # The kept WarpEngine::SyncServer +id+. Raises ActiveRecord::RecordNotFound.

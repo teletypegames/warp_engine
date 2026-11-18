@@ -51,6 +51,21 @@ module WarpEngine
         @allowed_channels = [ WarpEngine::Channels::STABLE ]
       end
 
+      # Returns a copy with +overrides+ (setting name to value) applied.
+      def with(**overrides)
+        dup.tap do |copy|
+          LISTS.each { |list| copy.public_send(:"#{list}=", Array(public_send(list)).dup) }
+          overrides.each { |name, value| copy.public_send(:"#{name}=", value) }
+        end
+      end
+
+      # Returns a copy that holds nothing back: no switch, no lists, every
+      # kind, only the +channels+ (default every channel).
+      def permissive(channels: WarpEngine::Channels::ALL)
+        with(software_switch: false, **(LISTS - [ :allowed_channels ]).to_h { |list| [ list, [] ] },
+             allowed_channels: Array(channels).map(&:to_s))
+      end
+
       # Whether sync is on.
       def enabled? = enabled == true
 

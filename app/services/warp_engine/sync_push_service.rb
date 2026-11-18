@@ -21,7 +21,9 @@ module WarpEngine
     end
 
     # Pushes +release+ to +server+, logging on +event+ (a queued
-    # WarpEngine::SyncEvent, or +nil+ to start one) as attempt +attempt+.
+    # WarpEngine::SyncEvent, or +nil+ to start one) as attempt +attempt+,
+    # through +filter+ (a WarpEngine::Sync::Filter; by default the configured
+    # one), which also chooses the files.
     #
     # Returns a Result: +skipped+ when sync is off, the server inactive, the
     # filters hold the release back, it has no files, or the other side has a
@@ -29,7 +31,8 @@ module WarpEngine
     # the publish; +succeeded+ otherwise. Raises
     # WarpEngine::Sync::ConnectionError (after logging it) when the server
     # does not answer, so the job tries again.
-    def push(release, server, event: nil, attempt: 1)
+    def push(release, server, event: nil, attempt: 1, filter: nil)
+      @filter = filter if filter
       event ||= SyncEvent.log(direction: "outbound", status: "queued", sync_server: server, **SyncEvent.release_attributes(release))
       @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       @files_count = 0

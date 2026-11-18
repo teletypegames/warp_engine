@@ -1,5 +1,6 @@
 require "warp_engine/sync/configuration"
 require "warp_engine/sync/filter"
+require "warp_engine/sync/criteria"
 require "warp_engine/sync/secret_box"
 require "warp_engine/sync/client"
 

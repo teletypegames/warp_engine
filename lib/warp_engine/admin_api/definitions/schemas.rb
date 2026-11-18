@@ -272,9 +272,25 @@ module WarpEngine
           named("SyncCheck", { ok: S.boolean, status: S.nullable(S.integer), version: text, message: S.string })
         end
 
-        # The +SyncPush+ schema: how many pushes were queued and which releases were skipped.
+        # The +SyncPush+ schema: the releases a run sends, to which servers, how
+        # many pushes were queued (none on a dry run) and which releases were skipped.
         def sync_push
-          named("SyncPush", { queued: S.integer, skipped: S.array(S.string) })
+          named("SyncPush", { dryRun: S.boolean, queued: S.integer, servers: S.array(S.integer),
+                              releases: S.array(S.object({ software: S.string, version: S.string }, required: %i[software version])),
+                              skipped: S.array(S.string) })
+        end
+
+        # The body of a sync run (WarpEngine::Sync::Criteria).
+        def sync_run_body
+          list = ->(description) { S.array(S.string, description) }
+          S.object({
+            all: S.boolean("Every allowed release, oldest first (a full sync); default: the newest of each software"),
+            filtered: S.boolean("Apply the configured filters (default true); without them every software and kind goes"),
+            channels: S.array(S.enum(WarpEngine::Channels::ALL), "Default: the configured allowed_channels"),
+            softwares: list.call("Software names, * as a wildcard"), software: S.string("One software, by name"),
+            platforms: list.call("Platform names"), categories: list.call("Category keys"), statuses: list.call("Status keys"),
+            dryRun: S.boolean("Only answer what would go")
+          })
         end
 
         # The +SyncEvent+ schema, one line of the sync log.

@@ -1,0 +1,143 @@
+<%
+  shown = form.shown_criteria
+  enabled = WarpEngine::Sync.enabled?
+  filters = form.configured_filters
+%>
+<div class="we-sr">
+  <style>
+    .we-sr{--we-page:rgb(var(--c-page,255 255 255));--we-surface:rgb(var(--c-surface,250 250 250));--we-raised:rgb(var(--c-raised,244 244 245));--we-line:rgb(var(--c-line,228 228 231));--we-line-strong:rgb(var(--c-line-strong,212 212 216));--we-fg:rgb(var(--c-fg,24 24 27));--we-muted:rgb(var(--c-fg-muted,82 82 91));--we-subtle:rgb(var(--c-fg-subtle,113 113 122));--we-accent:rgb(var(--c-accent,21 128 61));--we-accent-fg:rgb(var(--c-accent-fg,255 255 255));--we-warn:rgb(var(--c-warn,180 83 9));--we-warn-bg:rgb(var(--c-warn,180 83 9) / .15);--we-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:var(--we-fg);font-family:ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:1.45;display:flex;flex-direction:column;gap:16px;max-width:1080px}
+    .we-sr *{box-sizing:border-box}
+    .we-sr p{margin:0}
+    .we-sr-intro{color:var(--we-muted);max-width:760px}
+    .we-sr-note{background:var(--we-warn-bg);border:1px solid var(--we-warn);border-radius:8px;padding:10px 14px}
+    .we-sr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+    .we-sr-card{background:var(--we-surface);border:1px solid var(--we-line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0;margin:0}
+    .we-sr-card legend,.we-sr-h{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--we-subtle);padding:0}
+    .we-sr-opts{display:flex;flex-wrap:wrap;gap:6px 14px}
+    .we-sr-opt{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:400 !important;margin:0 !important;float:none !important;width:auto !important}
+    .we-sr-opt input{margin:0}
+    .we-sr-stack{display:flex;flex-direction:column;gap:6px}
+    .we-sr-hint{font-size:12.5px;color:var(--we-muted)}
+    .we-sr-mono{font-family:var(--we-mono);font-size:12.5px;overflow-wrap:anywhere}
+    .we-sr-chips{display:flex;flex-wrap:wrap;gap:6px}
+    .we-sr-chip{font-family:var(--we-mono);font-size:12px;border:1px solid var(--we-line);border-radius:4px;padding:1px 6px;background:var(--we-page)}
+    .we-sr input[type=text]{width:100%;padding:6px 10px;border:1px solid var(--we-line-strong);border-radius:6px;background:var(--we-page);color:var(--we-fg);font-family:var(--we-mono);font-size:13px}
+    .we-sr-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .we-sr-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:6px;font-size:13.5px;font-weight:600;cursor:pointer;text-shadow:none !important;background-image:none !important;box-shadow:none !important;border:1px solid var(--we-line-strong);background:var(--we-page);color:var(--we-fg)}
+    .we-sr-btn-primary{background:var(--we-accent);border-color:transparent;color:var(--we-accent-fg)}
+    .we-sr-btn[disabled]{opacity:.5;cursor:not-allowed}
+    .we-sr-table{width:100%;border-collapse:collapse}
+    .we-sr-table th{background:var(--we-raised);padding:7px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--we-muted);border-bottom:1px solid var(--we-line-strong)}
+    .we-sr-table td{padding:7px 10px;border-bottom:1px solid var(--we-line);font-size:13px}
+    .we-sr details summary{cursor:pointer;color:var(--we-muted)}
+    .we-sr details ul{margin:8px 0 0;padding-left:18px;font-family:var(--we-mono);font-size:12.5px;color:var(--we-muted)}
+  </style>
+
+  <p class="we-sr-intro">Send releases to the sync servers by hand: the newest release of each software, or every release (a full sync). The configured filters of the initializer apply unless you switch them off here; the choices below narrow the run further. <strong>Preview</strong> shows what would go, <strong>Run</strong> queues the pushes; follow them under <%= link_to "Sync Events", admin_sync_events_path %>.</p>
+
+  <% unless enabled %>
+    <p class="we-sr-note">Sync is off. Set <span class="we-sr-mono">enabled true</span> in the sync block of the initializer to run it; until then the page only previews.</p>
+  <% end %>
+  <% if error %><p class="we-sr-note"><%= error %></p><% end %>
+
+  <%= form_tag admin_sync_runner_run_path, method: :post, class: "we-sr-stack", id: "we-sync-runner" do %>
+    <div class="we-sr-grid">
+      <fieldset class="we-sr-card">
+        <legend>Servers</legend>
+        <% if form.available_servers.empty? %>
+          <p class="we-sr-hint">No active sync server. Add one under <%= link_to "Sync Servers", admin_sync_servers_path %>.</p>
+        <% else %>
+          <div class="we-sr-stack">
+            <% form.available_servers.each do |server| %>
+              <label class="we-sr-opt">
+                <%= check_box_tag "server_ids[]", server.id, form.server_checked?(server), id: "we-sr-server-#{server.id}" %>
+                <span><%= server.label %> <span class="we-sr-mono we-sr-hint"><%= server.base_url %></span></span>
+              </label>
+            <% end %>
+          </div>
+        <% end %>
+      </fieldset>
+
+      <fieldset class="we-sr-card">
+        <legend>What goes</legend>
+        <div class="we-sr-stack">
+          <label class="we-sr-opt"><%= radio_button_tag :mode, "latest", shown.mode == "latest" %> <span>Newest release of each software</span></label>
+          <label class="we-sr-opt"><%= radio_button_tag :mode, "all", shown.mode == "all" %> <span>Every release, oldest first (full sync)</span></label>
+        </div>
+        <div class="we-sr-h">Channels</div>
+        <div class="we-sr-opts">
+          <% WarpEngine::Channels::ALL.each do |channel| %>
+            <label class="we-sr-opt"><%= check_box_tag "channels[]", channel, shown.channels.include?(channel), id: "we-sr-channel-#{channel}" %> <span><%= channel %></span></label>
+          <% end %>
+        </div>
+      </fieldset>
+
+      <fieldset class="we-sr-card">
+        <legend>Configured filters</legend>
+        <%= hidden_field_tag :filtered, "0", id: nil %>
+        <label class="we-sr-opt"><%= check_box_tag :filtered, "1", shown.filtered, id: "we-sr-filtered" %> <span>Apply them</span></label>
+        <% if filters.any? %>
+          <div class="we-sr-chips"><% filters.each do |line| %><span class="we-sr-chip"><%= line %></span><% end %></div>
+        <% else %>
+          <p class="we-sr-hint">None are set: every software and every kind goes either way.</p>
+        <% end %>
+        <p class="we-sr-hint">Switched off, every software goes with every kind of file, whatever the lists and the per-software switch say. The channels above still apply.</p>
+      </fieldset>
+    </div>
+
+    <fieldset class="we-sr-card">
+      <legend>Narrow down (optional)</legend>
+      <label class="we-sr-stack">
+        <span class="we-sr-h">Softwares</span>
+        <%= text_field_tag :softwares, shown.softwares.join(", "), placeholder: "blessingofra, thread-*", autocomplete: "off" %>
+        <span class="we-sr-hint">Names separated by commas, * as a wildcard. Empty: every software.</span>
+      </label>
+      <% [ [ "Platforms", :platforms, form.platforms, shown.platforms ],
+           [ "Categories", :categories, form.categories, shown.categories ],
+           [ "Statuses", :statuses, form.statuses, shown.statuses ] ].each do |title, name, values, chosen| %>
+        <% next if values.empty? %>
+        <div class="we-sr-h"><%= title %></div>
+        <div class="we-sr-opts">
+          <% values.each do |value| %>
+            <label class="we-sr-opt"><%= check_box_tag "#{name}[]", value, chosen.include?(value), id: "we-sr-#{name}-#{value}" %> <span class="we-sr-mono"><%= value %></span></label>
+          <% end %>
+        </div>
+      <% end %>
+      <p class="we-sr-hint">Nothing ticked on an axis means no narrowing there.</p>
+    </fieldset>
+
+    <div class="we-sr-actions">
+      <button type="submit" class="we-sr-btn" name="preview" value="1">Preview</button>
+      <button type="submit" class="we-sr-btn we-sr-btn-primary" <%= "disabled" unless enabled && form.available_servers.any? %>
+              data-confirm="Queue these pushes to the chosen servers?">Run</button>
+    </div>
+  <% end %>
+
+  <% if plan %>
+    <div class="we-sr-card">
+      <div class="we-sr-h">Preview</div>
+      <p><strong><%= plan.releases.size %></strong> release(s) to <strong><%= form.servers.size %></strong> server(s): <%= shown.summary %>.</p>
+      <% if plan.releases.any? %>
+        <table class="we-sr-table">
+          <thead><tr><th>Software</th><th>Version</th><th>Platform</th><th>Channel</th></tr></thead>
+          <tbody>
+            <% plan.releases.each do |release| %>
+              <tr>
+                <td><%= link_to release.software.name, admin_software_path(release.software) %></td>
+                <td class="we-sr-mono"><%= release.version %></td>
+                <td><%= release.software.platform %></td>
+                <td><%= WarpEngine::Channels.for(release.version) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+      <% if plan.skipped.any? %>
+        <details>
+          <summary><%= plan.skipped.size %> held back</summary>
+          <ul><% plan.skipped.each do |line| %><li><%= line %></li><% end %></ul>
+        </details>
+      <% end %>
+    </div>
+  <% end %>
+</div>
