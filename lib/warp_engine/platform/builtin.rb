@@ -66,7 +66,8 @@ module WarpEngine
       kind :win_x64
       kind :mac_x64, built: false
       kind :mac_arm64, built: false
-      version_source "sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' package.json 2>/dev/null | head -n 1"
+      version_source "sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' package.json 2>/dev/null | head -n 1",
+                     file: "package.json"
     end
 
     define :dos do

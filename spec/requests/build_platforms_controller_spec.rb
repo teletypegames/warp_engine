@@ -23,7 +23,7 @@ RSpec.describe "Build platforms endpoint", type: :request do
     expect(json).to include("name" => "c64", "label" => "C64", "releaseRule" => nil, "tooling" => {})
     expect(json["kinds"].first).to include("name" => "cartridge", "upload" => "NAME-VERSION.prg", "required" => true)
     expect(json["metadata"]).to include("format" => "json", "file" => "metadata.json")
-    expect(json["version"]).to eq("source" => "metadata", "command" => nil)
+    expect(json["version"]).to eq("source" => "metadata", "command" => nil, "file" => nil)
     expect(json["web"].first).to include("key" => "emulatorjs", "runtime" => "emulatorjs", "default" => true)
     expect(json["ci"]).to eq("adapter" => "Woodpecker", "served" => true, "builder" => "registry.example/c64-builder:1",
                              "marker" => { "file" => ".woodpecker.yaml", "content" => "platform: c64\n" })

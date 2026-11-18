@@ -37,11 +37,14 @@ module WarpEngine
     # [ci_template]    the CI-neutral pipeline template: a builtin name or a path
     # [ci_variables]   extra variables the template sees
     # [version_source] the shell command that prints the version of the source
+    # [version_file]   the file that command reads, for the tools that write the
+    #                  version (a JSON file with a top-level +version+), or +nil+
     # [web_bindings]   the WebBinding list: the runtimes its releases play in
     Definition = ::Data.define(:name, :label, :kind_specs, :metadata, :release_rule, :shelf_folder,
-                               :ci_template, :ci_variables, :version_source, :web_bindings) do
-      # Builds a Definition; +web_bindings+ defaults to none.
-      def initialize(web_bindings: [], **attributes) = super
+                               :ci_template, :ci_variables, :version_source, :web_bindings,
+                               :version_file) do
+      # Builds a Definition; +web_bindings+ defaults to none, +version_file+ to +nil+.
+      def initialize(web_bindings: [], version_file: nil, **attributes) = super
 
       # Returns the names of every kind the platform publishes.
       def expected_kinds = kind_specs.map(&:name)
@@ -123,8 +126,13 @@ module WarpEngine
         @web_bindings << binding
       end
 
-      # Sets the shell command that prints the version of the source.
-      def version_source(command) = @version_source = command.to_s
+      # Sets the shell command that prints the version of the source, and the
+      # +file+ it reads when that is a JSON file with a top-level +version+ (so
+      # a tool releasing the software knows where to write the new version).
+      def version_source(command, file: nil)
+        @version_source = command.to_s
+        @version_file = file&.to_s
+      end
 
       # Sets the pipeline: the CI-neutral +template+ (a builtin name or a path;
       # default the platform name) and extra template +variables+.
@@ -137,7 +145,7 @@ module WarpEngine
       def build
         Definition.new(name: @name, label: @label, kind_specs: @kind_specs.freeze, metadata: @metadata,
                        release_rule: @release_rule, shelf_folder: @shelf_folder, ci_template: @ci[:template],
-                       ci_variables: @ci[:variables], version_source: @version_source,
+                       ci_variables: @ci[:variables], version_source: @version_source, version_file: @version_file,
                        web_bindings: Platform.with_default(@web_bindings).freeze)
       end
     end

@@ -46,7 +46,8 @@ module WarpEngine
     # [metadata]       +format+ (+json+, +lua+ or +custom+), +file+ (the file a
     #                  developer edits, or +nil+) and +keys+
     # [version]        +source+: +metadata+ (the +version+ of metadata.json) or
-    #                  +command+, with the +command+ when it is one
+    #                  +command+, with the +command+ when it is one and the
+    #                  +file+ it reads (a JSON file with a top-level +version+) or +nil+
     # [releaseRule]    the forced CI release rule (+tag+), or +nil+
     # [web]            the enabled web bindings: +key+, +runtime+, +label+,
     #                  +payload+, +default+, +params+ (the runtime's parameter names
@@ -124,7 +125,9 @@ module WarpEngine
 
     def version(platform)
       command = platform.version_source
-      command ? { "source" => "command", "command" => command } : { "source" => "metadata", "command" => nil }
+      return { "source" => "metadata", "command" => nil, "file" => nil } unless command
+
+      { "source" => "command", "command" => command, "file" => platform.version_file }
     end
 
     def web_binding(binding)

@@ -124,6 +124,10 @@ module WarpEngine
     # for the default (the +version+ of <tt>metadata.json</tt>).
     def version_source = legacy_registration&.version_source.presence || definition.version_source
 
+    # Returns the JSON file the version source reads (Definition#version_file),
+    # or +nil+.
+    def version_file = legacy_registration&.version_source.presence ? nil : definition.version_file
+
     # Returns the folder spec of asset +kind+ on a +folders+ shelf, read from the
     # release +metadata+, or +nil+ when the platform has none.
     def shelf_folder(metadata, kind) = definition.shelf_folder&.call(metadata, kind)

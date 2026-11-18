@@ -40,6 +40,12 @@ RSpec.describe "The electron pipeline" do
     expect(uploaded_files(calls)).to contain_exactly("mystore-3.4.0-linux-x64.zip", "mystore-3.4.0.metadata.json")
   end
 
+  it "tells the tools that the version lives in package.json" do
+    description = WarpEngine::PlatformDescriptionService.new.describe(WarpEngine::Platform.find("electron"))
+
+    expect(description["version"]).to include("source" => "command", "file" => "package.json")
+  end
+
   it "expects the macOS kinds without building them" do
     platform = WarpEngine::Platform.find("electron")
 
