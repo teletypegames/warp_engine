@@ -30,13 +30,14 @@ module WarpEngine
         @timeout = timeout.to_i
       end
 
-      # Uploads the file at +path+ for the release +version+ of +name+, with
-      # its SHA-256 +sha256+ for the other side to check. Returns a Response.
+      # Uploads the file at +path+ for the release +version+ of +name+, under
+      # +filename+ (default: its own name), with its SHA-256 +sha256+ for the
+      # other side to check. Returns a Response.
       # Raises WarpEngine::Sync::ConnectionError when the host does not answer.
-      def upload(name:, version:, path:, sha256:)
+      def upload(name:, version:, path:, sha256:, filename: nil)
         boundary = "warp-engine-sync-#{SecureRandom.hex(12)}"
         File.open(path, "rb") do |file|
-          head = "--#{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{File.basename(path)}\"\r\n" \
+          head = "--#{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{filename || File.basename(path)}\"\r\n" \
                  "Content-Type: application/octet-stream\r\n\r\n"
           tail = "\r\n--#{boundary}--\r\n"
           request = Net::HTTP::Post.new(uri("/build/upload", name: name, version: version, sha256: sha256))

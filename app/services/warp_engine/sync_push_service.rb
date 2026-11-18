@@ -7,6 +7,10 @@ module WarpEngine
   # sync filters let go, and <tt>name-version.metadata.json</tt> on a JSON
   # platform) to <tt>POST /build/upload</tt>, then <tt>POST /build/publish</tt>.
   # A kind served unpacked whose zip is gone is zipped again from its folder.
+  # A file not under its upload name (a release of a software renamed since)
+  # is taken from the path its WarpEngine::ReleaseAsset records, and the
+  # metadata from the folder's <tt>*-version.metadata.json</tt>; both are sent
+  # under the names the other side expects.
   # The push is logged on its WarpEngine::SyncEvent and the server's
   # +last_synced_at+ / +last_error+.
   class SyncPushService
@@ -74,9 +78,9 @@ module WarpEngine
       with_files(release, software) do |paths|
         return finish(event, server, status: "skipped", message: "no uploaded file of the release is left") if paths.empty?
 
-        paths.each do |path|
-          @step = "upload:#{File.basename(path)}"
-          response = client.upload(name: software.name, version: release.version, path: path,
+        paths.each do |path, filename|
+          @step = "upload:#{filename}"
+          response = client.upload(name: software.name, version: release.version, path: path, filename: filename,
                                    sha256: Digest::SHA256.file(path).hexdigest)
           return finish(event, server, status: "failed", response: response) unless response.success?
 
@@ -112,35 +116,61 @@ module WarpEngine
 
     def kinds_to_send(release, software)
       platform = WarpEngine::Platform.find!(software.platform)
-      upload = Publish::Upload.new(name: software.name, version: release.version,
-                                   root: WarpEngine::ReleaseLayout.absolute_directory(software.name, release.version))
-      @filter.kind_specs(platform).select do |spec|
-        File.file?(upload.path(spec.upload_name(upload.versioned))) ||
-          (spec.kind.unpacked? && File.directory?(upload.path(spec.asset_name(upload.versioned))))
-      end.map(&:name)
+      upload = upload_of(release, software)
+      assets = asset_paths(release)
+      @filter.kind_specs(platform).select { |spec| source_of(spec, upload, assets) }.map(&:name)
     end
 
     def with_files(release, software)
       platform = WarpEngine::Platform.find!(software.platform)
-      upload = Publish::Upload.new(name: software.name, version: release.version,
-                                   root: WarpEngine::ReleaseLayout.absolute_directory(software.name, release.version))
+      upload = upload_of(release, software)
+      assets = asset_paths(release)
       Dir.mktmpdir("warp-engine-sync") do |tmp|
-        paths = @filter.kind_specs(platform).filter_map { |spec| file_of(spec, upload, tmp) }
-        metadata = upload.path("#{upload.versioned}.metadata.json")
-        paths << metadata if %w[json].include?(platform.definition.metadata.to_s) && File.file?(metadata)
-        yield paths.uniq
+        files = @filter.kind_specs(platform).filter_map { |spec| file_of(spec, upload, assets, tmp) }
+        metadata = metadata_of(upload) if %w[json].include?(platform.definition.metadata.to_s)
+        files << [ metadata, "#{upload.versioned}.metadata.json" ] if metadata
+        yield files.uniq(&:last)
       end
     end
 
-    def file_of(spec, upload, tmp)
-      path = upload.path(spec.upload_name(upload.versioned))
-      return path if File.file?(path)
-      return nil unless spec.kind.unpacked?
+    def upload_of(release, software)
+      Publish::Upload.new(name: software.name, version: release.version,
+                          root: WarpEngine::ReleaseLayout.absolute_directory(software.name, release.version))
+    end
 
-      folder = upload.path(spec.asset_name(upload.versioned))
-      return nil unless File.directory?(folder)
+    def asset_paths(release)
+      assets = release.release_assets
+      assets = assets.kept if assets.respond_to?(:kept)
+      assets.to_h { |asset| [ asset.kind.to_s, asset.path.to_s ] }
+    end
 
-      zip_folder(folder, File.join(tmp, spec.upload_name(upload.versioned)))
+    def source_of(spec, upload, assets)
+      expected = upload.path(spec.upload_name(upload.versioned))
+      return expected if File.file?(expected)
+
+      recorded = assets[spec.name]
+      if spec.kind.unpacked?
+        folder = [ upload.path(spec.asset_name(upload.versioned)), recorded ].compact.find { |path| File.directory?(path) }
+        return folder
+      end
+      recorded if recorded && File.file?(recorded)
+    end
+
+    def file_of(spec, upload, assets, tmp)
+      source = source_of(spec, upload, assets)
+      return nil if source.nil?
+
+      name = spec.upload_name(upload.versioned)
+      return [ source, name ] if File.file?(source)
+
+      [ zip_folder(source, File.join(tmp, name)), name ]
+    end
+
+    def metadata_of(upload)
+      expected = upload.path("#{upload.versioned}.metadata.json")
+      return expected if File.file?(expected)
+
+      Dir.glob(File.join(upload.root, "*-#{upload.version}.metadata.json")).min
     end
 
     def zip_folder(folder, target)

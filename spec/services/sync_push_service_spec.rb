@@ -65,6 +65,17 @@ RSpec.describe WarpEngine::SyncPushService do
     expect(uploads).to include("game-1.0.html.zip")
   end
 
+  it "sends the files of a renamed software under the names the other side expects" do
+    FileUtils.rm_f(Dir.glob(File.join(folder, "*")))
+    File.write(File.join(folder, "old-1.0.prg"), "prg")
+    File.write(File.join(folder, "old-1.0.metadata.json"), "{}")
+    WarpEngine::ReleaseAsset.create!(release: release, kind: "cartridge", path: File.join(folder, "old-1.0.prg"))
+    stub_publish
+
+    expect(described_class.new.push(release, server).status).to eq("succeeded")
+    expect(uploads).to contain_exactly("game-1.0.prg", "game-1.0.metadata.json")
+  end
+
   it "counts a newer version on the other side as skipped" do
     stub_publish(status: 409, body: { error: "game 1.0 is older than 1.1" })
 
