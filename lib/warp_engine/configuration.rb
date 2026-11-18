@@ -52,6 +52,11 @@ module WarpEngine
     # [store_registry]                what <tt>GET /api/stores</tt> lists: +:own+ (default, this catalog alone), an
     #                                 Array of +name+/+catalog_url+ Hashes and +:own+, +:none+, or an adapter
     #                                 object (see WarpEngine::StoreRegistry)
+    # [profile]                       what kind of engine this is, told to the developer tools by
+    #                                 <tt>GET /.well-known/warp-engine</tt>: +:server+ (default, a catalog people
+    #                                 sign in to) or +:local+ (one developer's machine, signed in with a token file)
+    # [sync_target]                   the address of the engine this one means to sync to, told to the developer
+    #                                 tools so they can offer the pairing; +nil+ (default) for none
     attr_accessor :site_url,
                   :file_container_path,
                   :update_secret,
@@ -81,7 +86,14 @@ module WarpEngine
                   :outlet_types,
                   :store_name,
                   :store_registry,
-                  :sync_transports
+                  :sync_transports,
+                  :sync_target
+
+    # The profile, +:server+ or +:local+ (see PROFILES); the writer refuses anything else.
+    attr_reader :profile
+
+    # The values #profile may take.
+    PROFILES = %i[server local].freeze
 
     # Replaces the WarpEngine::AdminApi::Configuration returned by #admin_api.
     attr_writer :admin_api
@@ -145,6 +157,8 @@ module WarpEngine
       @store_name                    = nil
       @store_registry                = :own
       @sync_transports               = {}
+      @profile                       = :server
+      @sync_target                   = nil
       @platforms                     = {}
       @runtimes                      = {}
       @runtime_versions              = {}
@@ -255,6 +269,17 @@ module WarpEngine
     def forge(type, **options)
       @forge_settings = { type: type.to_s, **options }
     end
+
+    # Sets #profile. Raises ArgumentError for a value not in PROFILES.
+    def profile=(value)
+      profile = value.to_s.to_sym
+      raise ArgumentError, "profile must be one of #{PROFILES.join(', ')}, not #{value.inspect}" unless PROFILES.include?(profile)
+
+      @profile = profile
+    end
+
+    # Returns whether #profile is +:local+.
+    def local? = profile == :local
 
     # Returns the WarpEngine::AdminApi::Configuration, creating it with its
     # defaults on first use.

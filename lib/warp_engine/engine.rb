@@ -23,6 +23,12 @@ module WarpEngine
       Rails.autoloaders.main.ignore(Engine.root.join("app/admin"))
     end
 
+    initializer "warp_engine.portable_migrations" do
+      require "warp_engine/portable_migrations"
+      ActiveSupport.on_load(:active_record_sqlite3adapter) { WarpEngine::PortableMigrations.install(self) }
+      ActiveSupport.on_load(:active_record_postgresqladapter) { WarpEngine::PortableMigrations.install(self) }
+    end
+
     initializer "warp_engine.append_migrations" do |app|
       unless app.root.to_s.start_with?(root.to_s)
         config.paths["db/migrate"].expanded.each do |path|

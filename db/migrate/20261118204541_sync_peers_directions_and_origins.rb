@@ -26,8 +26,8 @@ class SyncPeersDirectionsAndOrigins < ActiveRecord::Migration[8.1]
     add_index :sync_events, [ :software_id, :created_at ], name: "idx_sync_events_software_id_created"
     add_foreign_key :sync_events, :sync_peers, name: "fk_sync_peers_events", on_delete: :nullify
     execute <<~SQL
-      UPDATE sync_events JOIN softwares ON softwares.name = sync_events.software_name
-      SET sync_events.software_id = softwares.id
+      UPDATE sync_events
+      SET software_id = (SELECT softwares.id FROM softwares WHERE softwares.name = sync_events.software_name)
     SQL
 
     change_table :releases, bulk: true do |t|

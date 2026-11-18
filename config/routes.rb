@@ -1,4 +1,6 @@
 WarpEngine::Engine.routes.draw do
+  get ".well-known/warp-engine", to: "well_known#show", format: false
+
   WarpEngine::Outlets.draw_routes(self)
 
   namespace :api do

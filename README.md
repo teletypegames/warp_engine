@@ -2005,6 +2005,46 @@ admin_api do
 end
 ```
 
+## Local engines and `/.well-known/warp-engine` (5.2)
+
+`GET /.well-known/warp-engine` (public) tells a developer tool what answers at an
+address before it signs in:
+
+```json
+{ "engine": "warp-engine", "version": "5.2.0", "api": 2, "name": "Local",
+  "profile": "local", "signIn": ["token-file"], "adminApi": "/api/admin/v1",
+  "admin": false, "sync": { "inbound": false, "target": "https://orbit.teletypegames.org" } }
+```
+
+- `profile` — `server` (the default: a catalog people sign in to with the tool sign-in) or
+  `local` (one developer's machine; the tool reads a token file instead);
+- `adminApi` — the Admin API prefix, `null` when it is off; `admin` — whether an ActiveAdmin
+  UI is loaded;
+- `sync.inbound` — whether this engine takes syncs; `sync.target` — the engine this one means
+  to sync to, so a tool can offer the pairing.
+
+```ruby
+WarpEngine.configure do
+  profile :local
+  sync_target "https://orbit.teletypegames.org"
+end
+```
+
+[engines/warp-engine-local](https://git.teletypegames.org/engines/warp-engine-local) is such a
+host: one container, SQLite, a token file, the admin web UI optional.
+
+### Other databases
+
+The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only column options
+`unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
+the same migrations run there; the `charset`/`collation` table options are ignored by those
+adapters anyway.
+
+## Upgrading to 5.2
+
+Nothing to change: `profile`, `sync_target` and `/.well-known/warp-engine` are new, and the
+migrations run on SQLite too (one data migration of 5.0 lost its MySQL-only `UPDATE … JOIN`).
+
 ## Upgrading to 5.1
 
 Nothing to change in a host. New: the `rsync` sync transport; a peer that uses it needs

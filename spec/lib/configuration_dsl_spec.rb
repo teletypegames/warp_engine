@@ -19,6 +19,21 @@ RSpec.describe WarpEngine::Configuration::DSL do
     WarpEngine.config.site_url = previous
   end
 
+  it "sets the profile and the sync target, and refuses an unknown profile" do
+    expect(config.profile).to eq(:server)
+    expect(config).not_to be_local
+
+    apply do
+      profile :local
+      sync_target "https://orbit.example"
+    end
+
+    expect(config.profile).to eq(:local)
+    expect(config).to be_local
+    expect(config.sync_target).to eq("https://orbit.example")
+    expect { apply { profile :laptop } }.to raise_error(ArgumentError, /profile must be one of server, local/)
+  end
+
   it "sets the plain settings and the paired ones" do
     resolver = ->(request) { request }
 
