@@ -335,6 +335,11 @@ Rails.application.config.to_prepare do
     # catalog_page_size     48
     # catalog_max_page_size 200
 
+    # Which stores a graphical client offers on its first run (see "Store registry").
+    # By default this catalog alone, named by the host name of its address.
+    # store_name "My Studio"
+    # store_registry [ :own, { name: "Friends' Games", catalog_url: "https://friends.example" } ]
+
     # Flat, versionless copies of a platform's latest builds (see "Shelves"),
     # and the other outlets (see "Outlets"). None by default.
     # shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16
@@ -1505,6 +1510,39 @@ form; `build_from_upload` is what "upload a new image" on that form calls.
 **The `images` table stays where it is.** Moving the model out of the engine did
 not touch it: the engine no longer creates it (the install generator does, as
 host code), and `software_images.image_id` still points at the same rows.
+
+## Store registry
+
+`GET /api/stores` is the registry the [WarpEngine Client](https://wiki.teletypegames.org/stores/warp-engine-client)
+reads on its first run: which catalogs it can install. A record is a name and a catalog
+address and nothing else — how a store behaves is fixed in each installed client:
+
+```json
+[ { "name": "My Studio", "catalogUrl": "https://games.mystudio.example" } ]
+```
+
+By default the list is this catalog alone, under `store_name` or, without it, the host
+name of its address. So a client built for your catalog (`make dist STORES_API=https://games.mystudio.example/api/stores`,
+or a branded build, which reads its catalog's registry on its own) offers your store and
+nobody else's. `GET /api/service` names the registry's address under `stores`, and the
+SysInfo page shows which registry is in use.
+
+```ruby
+store_name "My Studio"
+
+# a fixed list; :own stands for this catalog
+store_registry [ :own, { name: "Friends' Games", catalog_url: "https://friends.example" } ]
+
+# the host's own records: an object answering stores(catalog_url:) with
+# WarpEngine::StoreRegistry::Entry objects or name/catalog_url Hashes
+store_registry StoreDirectory.new
+
+# no registry: GET /api/stores answers 404, /api/service reports stores: null
+store_registry :none
+```
+
+Records without a name or an http(s) catalog address are left out. The endpoint is
+public: a client has nobody to sign in as before it has a store.
 
 ## Access
 

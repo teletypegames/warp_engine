@@ -26,6 +26,9 @@ module WarpEngine
         shelf (`shelf`) and the served outlets such as `assembly64`, each with its `key`,
         `type` and `platforms` and what its type adds (a shelf its `kinds`, `layout`, `index`
         file and the `urls` it is served at; an Assembly64 outlet its `hosts`, `path` and `repo`).
+
+        `stores` is null where the host turned the store registry off; otherwise its `url`
+        is the registry a graphical client offers stores from.
       DESC
       returns code: 200, desc: "The descriptor" do
         property :engine, String, desc: "Always 'warp_engine'"
@@ -48,6 +51,9 @@ module WarpEngine
           property :mcpUrl, String, desc: "Its MCP endpoint, or null where MCP is off"
           property :schemes, Array, desc: "Authorization schemes; always bearer"
         end
+        property :stores, Hash, desc: "The store registry, or null where it is off" do
+          property :url, String, desc: "Address of GET /api/stores"
+        end
         property :outlets, Array, desc: "The outlets of this deployment, the catalog API first" do
           property :key, String, desc: "The outlet key"
           property :type, String, desc: "wecp, shelf, assembly64 or a type the host registered"
@@ -60,7 +66,8 @@ module WarpEngine
       # shape version and catalog paging limits, whether the catalog is gated, the
       # device sign-in endpoints (+auth+, +null+ without client identity), the
       # Admin API addresses (+admin+, +null+ while it is off) and the outlet
-      # descriptors (WarpEngine::Outlets.descriptors).
+      # descriptors (WarpEngine::Outlets.descriptors) and the store registry
+      # address (+stores+, +null+ while it is off).
       # Needs no credential.
       def show
         render json: {
@@ -76,6 +83,7 @@ module WarpEngine
           catalog: { gated: !WarpEngine::AccessPolicy.open? },
           auth:    auth_descriptor,
           admin:   admin_descriptor,
+          stores:  WarpEngine::StoreRegistry.enabled? ? { url: warp_engine.api_stores_url } : nil,
           outlets: WarpEngine::Outlets.descriptors
         }
       end

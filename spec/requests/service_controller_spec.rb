@@ -40,6 +40,15 @@ RSpec.describe "GET /api/service", type: :request do
     expect(outlets.last).to include("hosts" => [ "a64.example" ], "path" => "/leet/search", "platforms" => [ "c64" ])
   end
 
+  it "names the store registry, or null where it is off" do
+    get "/api/service"
+    expect(JSON.parse(response.body)["stores"]).to eq("url" => "http://www.example.com/api/stores")
+
+    allow(WarpEngine.config).to receive(:store_registry).and_return(:none)
+    get "/api/service"
+    expect(JSON.parse(response.body)["stores"]).to be_nil
+  end
+
   it "reports an open catalog as ungated and offering no sign-in" do
     get "/api/service"
 

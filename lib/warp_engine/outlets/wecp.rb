@@ -14,6 +14,7 @@ module WarpEngine
     # [<tt>POST /api/auth/device</tt>, <tt>POST /api/auth/device/token</tt>, <tt>DELETE /api/auth/token</tt>]
     #                                             the device sign-in
     # [<tt>GET /api/software</tt>]                the catalog, with +highlighted+, +facets+ and +vocabulary+ beside it
+    # [<tt>GET /api/stores</tt>]                  the store registry (WarpEngine::StoreRegistry)
     # [<tt>GET /api/download?path=</tt>]          a file, counted
     # [<tt>GET /file/*path</tt>]                  a file or a web build
     # [<tt>GET /play/:name/:version(/:binding)</tt>] the web player page of a release in a runtime
@@ -41,6 +42,7 @@ module WarpEngine
             mapper.get "software/facets",      to: "software_facets#show"
             mapper.get "software/vocabulary",  to: "software_vocabulary#show"
             mapper.get "download",             to: "downloads#show"
+            mapper.get "stores",               to: "stores#index", as: :stores
           end
 
           mapper.get "file/*path", to: "files#show", format: false, as: :file

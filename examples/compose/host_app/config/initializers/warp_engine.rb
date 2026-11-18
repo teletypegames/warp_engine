@@ -38,6 +38,7 @@ TOOLING = {
 Rails.application.config.to_prepare do
   WarpEngine.configure do
     site_url ENV.fetch("SITE_URL", "http://localhost:8080")
+    store_name ENV.fetch("STORE_NAME", "My Studio")
     file_container_path ENV.fetch("FILE_CONTAINER_PATH", "/softwares")
     update_secret ENV["UPDATE_SECRET"]
     application_tokens from: :database, owner: "AdminUser"

@@ -34,6 +34,7 @@ services:
       RAILS_ENV: development
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-warpengine}
       SITE_URL: http://localhost:${APP_PORT:-8080}
+      STORE_NAME: ${STORE_NAME:-My Studio}
       UPDATE_SECRET: ${UPDATE_SECRET:-example-update-secret}
       FILE_CONTAINER_PATH: /softwares
       IMAGE_CONTAINER_PATH: /images

@@ -45,6 +45,11 @@ module WarpEngine
     #                                 +type+ and the type's options (see WarpEngine::Outlets; default empty)
     # [outlet_types]                  the outlet types the host registered: a Hash of type name to class name
     #                                 (default empty)
+    # [store_name]                    the display name of this catalog in the store registry (default +nil+:
+    #                                 the host name of its address)
+    # [store_registry]                what <tt>GET /api/stores</tt> lists: +:own+ (default, this catalog alone), an
+    #                                 Array of +name+/+catalog_url+ Hashes and +:own+, +:none+, or an adapter
+    #                                 object (see WarpEngine::StoreRegistry)
     attr_accessor :site_url,
                   :file_container_path,
                   :update_secret,
@@ -71,7 +76,9 @@ module WarpEngine
                   :dev_release_keep_branches,
                   :additional_resources,
                   :outlets,
-                  :outlet_types
+                  :outlet_types,
+                  :store_name,
+                  :store_registry
 
     # Replaces the WarpEngine::AdminApi::Configuration returned by #admin_api.
     attr_writer :admin_api
@@ -129,6 +136,8 @@ module WarpEngine
       @additional_resources          = []
       @outlets                       = []
       @outlet_types                  = {}
+      @store_name                    = nil
+      @store_registry                = :own
       @platforms                     = {}
       @runtimes                      = {}
       @runtime_versions              = {}

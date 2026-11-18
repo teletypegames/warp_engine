@@ -204,8 +204,24 @@ module WarpEngine
                                                       children: [
                                                         node("adapters.storage", "Storage", storage_kind, status: "ok", chips: [ storage_class ]),
                                                         node("adapters.images", "Images", images_kind, status: "ok", chips: [ images_class, "model #{config.image_class_name}" ]),
-                                                        access
+                                                        access,
+                                                        store_registry
                                                       ])
+    end
+
+    def store_registry
+      registry = WarpEngine::StoreRegistry.current
+      case registry
+      when nil
+        node("adapters.stores", "Store registry", "off: GET /api/stores answers 404", status: "off")
+      when WarpEngine::StoreRegistry::Own
+        name = config.store_name.presence || "the host name of its address"
+        node("adapters.stores", "Store registry", "this catalog alone, as #{name}", status: "ok")
+      when WarpEngine::StoreRegistry::Fixed
+        node("adapters.stores", "Store registry", "a fixed list", status: "ok", chips: [ "#{registry.entries.size} entries" ])
+      else
+        node("adapters.stores", "Store registry", "host-supplied", status: "ok", chips: [ registry.class.name ])
+      end
     end
 
     def identity
