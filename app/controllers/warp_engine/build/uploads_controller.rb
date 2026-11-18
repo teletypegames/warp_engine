@@ -8,12 +8,15 @@ module WarpEngine
     class UploadsController < ApiController
       include UpdateAuthentication
 
+      # The scopes that may upload: the CI's and another engine's.
+      UPLOAD_SCOPES = [ WarpEngine::ApplicationToken::UPLOAD_SCOPE, WarpEngine::ApplicationToken::SYNC_SCOPE ].freeze
+
       resource_description do
         short "Build artifact upload"
       end
 
       api :POST, "/build/upload", "Upload a build artifact into the folder of its release"
-      header "X-Update-Secret", "Shared secret or application token (upload scope)", required: true
+      header "X-Update-Secret", "Shared secret or application token (upload or sync scope)", required: true
       param :name, String, required: true, desc: "Software name (filename must be prefixed with <name>-<version>)"
       param :version, String, required: true, desc: "Version string"
       param :file, File, required: true, desc: "Artifact file (multipart)"
@@ -33,12 +36,13 @@ module WarpEngine
       #
       # Stores the file in the release's folder (WarpEngine::ReleaseLayout)
       # through WarpEngine::FileManagerService and renders
-      # <tt>{ "file", "size", "sha256" }</tt>. Responds 401 without a valid
-      # credential, 400 for invalid input (WarpEngine::UploadInputDto), 403 when
-      # the token does not own the software, 413 above +max_upload_size+ and 422
-      # on a digest mismatch.
+      # <tt>{ "file", "size", "sha256" }</tt>. A token with the +upload+ or the
+      # +sync+ scope is accepted. Responds 401 without a valid credential, 400
+      # for invalid input (WarpEngine::UploadInputDto), 403 when the token does
+      # not own the software, 413 above +max_upload_size+ and 422 on a digest
+      # mismatch.
       def create
-        unless update_authorized?(required_scope: WarpEngine::ApplicationToken::UPLOAD_SCOPE)
+        unless update_authorized?(required_scope: UPLOAD_SCOPES)
           return render json: { error: "Unauthorized" }, status: :unauthorized
         end
 

@@ -14,9 +14,11 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
   catalog_sql = %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"catalog"'))
   admin_sql = WarpEngine::ApplicationToken::ADMIN_SCOPES
               .map { |s| %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"#{s}"')) }.join(" OR ")
-  scope("Publishing") { |scope| scope.where("NOT #{catalog_sql} AND NOT (#{admin_sql})") }
+  sync_sql = %(JSON_CONTAINS(COALESCE(scopes, '[]'), '"sync"'))
+  scope("Publishing") { |scope| scope.where("NOT #{catalog_sql} AND NOT (#{admin_sql}) AND NOT #{sync_sql}") }
   scope("Clients")    { |scope| scope.where(catalog_sql) }
   scope("Admin API")  { |scope| scope.where(admin_sql) }
+  scope("Sync")       { |scope| scope.where(sync_sql) }
 
   index do
     id_column
@@ -52,7 +54,7 @@ ActiveAdmin.register WarpEngine::ApplicationToken, as: "Application Token" do
       end
       f.input :name
       f.input :scopes_string, label: "Scopes (comma separated)",
-              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload, the "catalog" scope for a client reading the API. Client tokens are normally issued by device sign-in rather than created here. "admin:read", "admin:write" and "admin:tokens" open the Admin API at /api/admin/v1; only an admin owner may hold them.)
+              hint: %(The "update" scope is required for /build/publish, the "upload" scope for /build/upload, the "catalog" scope for a client reading the API. Client tokens are normally issued by device sign-in rather than created here. "admin:read", "admin:write" and "admin:tokens" open the Admin API at /api/admin/v1; only an admin owner may hold them. "sync" lets another WarpEngine push its releases here (upload and publish only); a sync token is always unrestricted and is not written to any pipeline.)
       f.input :unrestricted, hint: "Internal token: exempt from owner isolation (enforce_software_ownership)."
       f.input :expires_at, hint: "Leave empty for a token that never expires."
     end

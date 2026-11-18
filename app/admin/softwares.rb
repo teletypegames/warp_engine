@@ -2,7 +2,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
   permit_params do
     [
       :name, :title, :author, :desc, :story,
-      :license, :platform, :status, :category, :highlighted, :shelf_name,
+      :license, :platform, :status, :category, :highlighted, :shelf_name, :sync_enabled,
       { software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ] },
       { external_links_attributes: [ :id, :label, :url, :_destroy ] },
       { releases_attributes: [ :id, :version, :_destroy,
@@ -70,6 +70,20 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     end
   end
 
+  sidebar "Sync", only: :show, if: -> { WarpEngine::Sync.enabled? && WarpEngine::Sync.config.events? } do
+    events = WarpEngine::SyncEvent.where(software_name: resource.name).recent.includes(:sync_server).limit(8)
+    if events.any?
+      table_for events do
+        column("When") { |event| event.created_at&.strftime("%m-%d %H:%M") }
+        column("Server") { |event| event.inbound? ? "inbound" : event.sync_server&.label }
+        column("Version", &:version)
+        column("Status") { |event| status_tag event.status, class: event.succeeded? ? "yes" : (event.failed? ? "no" : nil) }
+      end
+    else
+      para "No sync events", class: "we-muted"
+    end
+  end
+
   sidebar "Download Statistics", only: :show do
     sw = resource
     stats = WarpEngine::DownloadStatsService.new.for_software(sw)
@@ -113,6 +127,16 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         f.input :license
         f.input :desc,  as: :text, input_html: { rows: 4 }
         f.input :story, as: :text, input_html: { rows: 8 }
+      end
+
+      if WarpEngine::Sync.config.software_switch?
+        opt_in = WarpEngine::Sync.config.software_switch == :opt_in
+        f.inputs "Sync" do
+          f.input :sync_enabled, as: :select, label: "Sync to other engines",
+                  collection: [ [ "Default (#{opt_in ? 'off' : 'on'})", "" ], [ "On", true ], [ "Off", false ] ],
+                  include_blank: false,
+                  hint: "Whether the releases of this software go to the sync servers. The denied_* lists of the sync settings still win."
+        end
       end
 
       f.inputs "Images" do

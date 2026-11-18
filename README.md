@@ -57,6 +57,11 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   FTP). Off unless configured.
 - **Assembly64 (optional, 1.11)**: the catalog as an Assembly64 search server, so a
   C64 Ultimate finds and runs its titles from the menu. Off unless configured.
+- **Sync (optional, 4.5)**: the releases of one engine pushed to others, over
+  the same `/build/upload` and `/build/publish` endpoints a CI uses, with a token
+  the other side gave the `sync` scope. Filters by software, category, platform,
+  status, channel and asset kind, a per-software switch and an event log. Off
+  unless configured. See *Sync*.
 - **Publish events**: every published release emits
   `ActiveSupport::Notifications` (`warp_engine.publish`), so hosts can react
   to new builds without model callbacks.
@@ -1721,6 +1726,7 @@ ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
   payload[:platform]  # "godot"
   payload[:name]      # "mygame"
   payload[:version]   # "1.2.0"
+  payload[:source]    # :ci, or :sync when another engine pushed it (4.5)
 end
 ```
 
@@ -1730,6 +1736,95 @@ Hosts that must support older engine versions can feature-detect with
 Downloads emit one too — `warp_engine.download`, with `path`, `asset`,
 `release`, `software`, `subject` and the `Download` record — so a host can keep
 its own account of who fetched what without reaching into `DownloadService`.
+
+## Sync
+
+One engine can push its releases to others (4.5). The other engine needs
+nothing new: the push goes to its `POST /build/upload` and `POST /build/publish`,
+the endpoints its own CI uses, with a token it issued with the `sync` scope. That
+token opens those two endpoints only, is always `unrestricted` (it takes no
+software for its owner) and is never written to a pipeline's secrets; the
+receiving side needs `application_tokens from: :database`.
+
+On the sending side a `WarpEngine::SyncServer` (admin: *Sync Servers*; Admin API:
+`sync_servers`) holds a `label`, the other engine's `host` (its base URL with the
+mount; `https://` outside development and test) and that token as `secret`,
+stored encrypted with a key derived from `secret_key_base`. Sync is configured
+in the initializer:
+
+```ruby
+WarpEngine.configure do
+  sync do
+    enabled true
+    software_switch :opt_out           # false (default), :opt_out or :opt_in
+    allowed_softwares  %w[blessingofra* thread-of-ariadne]
+    denied_softwares   %w[*-test]
+    allowed_categories %w[game demo]
+    denied_categories  %w[tool]
+    allowed_platforms  %w[c64 plus4 dos]
+    denied_platforms   %w[electron]
+    allowed_statuses   %w[released]
+    denied_statuses    %w[development]
+    allowed_kinds      %w[cartridge html docs]
+    denied_kinds       %w[win_x64 mac_universal]
+    allowed_channels   %w[stable]      # the default
+    events             true            # false, true or :verbose
+    event_retention_days 90
+    timeout            120             # seconds per request
+  end
+end
+```
+
+After every publish that did not itself come by sync, the release goes to every
+active server, through `WarpEngine::SyncPushJob` on the host's job backend. A
+release goes when:
+
+1. its channel is in `allowed_channels` (only `stable` by default);
+2. the per-software switch lets it (`software_switch :opt_out`: every software
+   unless switched off on its admin page; `:opt_in`: none unless switched on);
+3. neither its name (`*` wildcards) nor its category, platform or status is in
+   a `denied_*` list;
+4. on every axis with an `allowed_*` list it matches: the name *or* the
+   category, the platform, the status. A software without a category or status
+   matches no list of that axis.
+
+The kind lists do not hold a release back; they choose its files. A platform's
+required kinds always go, as the other side refuses the publish without them.
+The files are the ones the CI uploaded, still in the release's folder, plus
+`name-version.metadata.json`; an unpacked kind whose zip is gone is zipped again.
+A server that does not answer is tried again, five times in all; a 409 (the
+other side has a newer version) is logged as skipped, not as an error.
+
+A release that came by sync is published with `source: :sync` and is not pushed
+on, so two engines may push to each other. The receiving side logs it as an
+inbound `WarpEngine::SyncEvent`, with the prefix of the token it came with.
+
+Unknown platforms, channels or kinds in the lists stop the boot; a list that
+leaves out a kind some platform requires is logged as a warning.
+
+A new server only gets the releases published after it was added. To send what
+it may be missing:
+
+```bash
+bin/rails "warp_engine:sync:push[other-engine]"            # newest allowed release of every software
+bin/rails "warp_engine:sync:push[other-engine,mygame]"     # of one software
+ALL=1 bin/rails "warp_engine:sync:push[other-engine]"      # every allowed release, oldest first
+bin/rails "warp_engine:sync:check[other-engine]"           # does it accept the token
+```
+
+The admin page of a server has the same as buttons (*Check connection*, *Push
+latest releases*), the Admin API as `POST /sync_servers/:id/check` and
+`POST /sync_servers/:id/push`. The check posts an upload without a file: an
+accepted token answers 400, a refused one 401, and nothing is written.
+
+With `events` on, every push and every inbound publish is a `WarpEngine::SyncEvent`
+(admin: *Sync Events*; Admin API: `sync_events`); `:verbose` logs the releases a
+filter held back too. `WarpEngine::SyncEventPruneJob` deletes the events older than
+`event_retention_days`; the engine does not schedule it, add it to the host's
+recurring tasks (or run `rake warp_engine:sync:prune`).
+
+Sync copies releases, nothing else: deleting a release, editing a software in the
+admin, its images and the runtimes are not carried over.
 
 ## Public API
 
@@ -1898,6 +1993,18 @@ end
 claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
+
+## Upgrading to 4.5
+
+- Run the migrations: they add the `sync_servers` and `sync_events` tables and
+  `softwares.sync_enabled`. Sync stays off until the initializer turns it on (see
+  *Sync*).
+- New token scope `sync`. A token holding it is made `unrestricted` on save and is
+  not written to any pipeline secret; in the Admin API only an unrestricted caller
+  can issue one.
+- The `warp_engine.publish` payload carries `source` (`:ci` or `:sync`), and
+  `PublishService#publish` takes a `source:` keyword (default `:ci`).
+- To prune the sync log, schedule `WarpEngine::SyncEventPruneJob`.
 
 ## Upgrading to 4.1.6
 

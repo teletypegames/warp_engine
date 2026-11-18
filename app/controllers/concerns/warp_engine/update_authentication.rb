@@ -3,9 +3,11 @@ module WarpEngine
   #
   # The credential travels in the <tt>X-Update-Secret</tt> header. With
   # <tt>application_token_source: :database</tt> it must be an active
-  # WarpEngine::ApplicationToken carrying the required scope (which then becomes
-  # +current_application_token+); otherwise it is compared in constant time with
-  # the configured +update_secret+. When +enforce_software_ownership+ is on, the
+  # WarpEngine::ApplicationToken carrying the required scope, or one of them
+  # when the action names several (which then becomes
+  # +current_application_token+; the private +sync_request?+ tells a token of
+  # another engine, WarpEngine::ApplicationToken::SYNC_SCOPE); otherwise it is
+  # compared in constant time with the configured +update_secret+. When +enforce_software_ownership+ is on, the
   # private helpers +software_ownership_authorized?+ and
   # +claim_software_ownership+ restrict a restricted token to the softwares its
   # owner owns, and give unowned softwares to that owner on first publish.
@@ -24,6 +26,10 @@ module WarpEngine
       when :database then database_token_authorized?(token, required_scope)
       else env_secret_authorized?(token)
       end
+    end
+
+    def sync_request?
+      current_application_token&.sync? == true
     end
 
     def env_secret_authorized?(token)

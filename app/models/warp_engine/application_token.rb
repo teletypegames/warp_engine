@@ -6,8 +6,10 @@ module WarpEngine
   # exists only on the instance that created it (#plain_token).
   #
   # +scopes+ says what the token may do: +update+ and +upload+ for the CI's
-  # <tt>/build</tt> endpoints, +catalog+ for a signed-in client, and the
-  # Admin API scopes. The polymorphic +owner+ must be of a class the host
+  # <tt>/build</tt> endpoints, +sync+ for another engine pushing its releases
+  # here (WarpEngine::Sync; upload and publish only, and always
+  # +unrestricted+), +catalog+ for a signed-in client, and the Admin API
+  # scopes. The polymorphic +owner+ must be of a class the host
   # configured (application token, access token or Admin API owner class), and
   # admin scopes need the Admin API owner class. An +unrestricted+ token is
   # exempt from software ownership checks. Revoking soft-deletes it
@@ -20,6 +22,11 @@ module WarpEngine
     UPDATE_SCOPE = "update".freeze
     # Scope for <tt>POST /build/upload</tt>.
     UPLOAD_SCOPE = "upload".freeze
+
+    # Scope of another WarpEngine pushing its releases here: opens
+    # <tt>POST /build/upload</tt> and <tt>POST /build/publish</tt> like
+    # UPLOAD_SCOPE and UPDATE_SCOPE, and marks the publish as coming by sync.
+    SYNC_SCOPE = "sync".freeze
 
     # Scope of a client signed in through the device grant, read by the catalog
     # API.
@@ -46,6 +53,7 @@ module WarpEngine
 
     before_validation :assign_owner_type, on: :create
     before_validation :generate_token, on: :create
+    before_validation :sync_tokens_are_unrestricted
     after_initialize { self.scopes = [] if new_record? && scopes.nil? }
 
     validates :name, presence: true
@@ -54,6 +62,7 @@ module WarpEngine
     validates :scopes, presence: true
     validate :owner_type_matches_configuration
     validate :admin_scopes_need_admin_owner
+    validate :sync_needs_unrestricted
 
     # Returns the SHA-256 hex digest of +token+, the form stored in
     # +token_digest+.
@@ -63,7 +72,8 @@ module WarpEngine
 
     # Finds the active token whose digest matches the plain +token+.
     #
-    # [required_scope] a scope the token must carry, or +nil+ for any
+    # [required_scope] a scope the token must carry, an Array of scopes of
+    #                  which it must carry one, or +nil+ for any
     #
     # Returns the WarpEngine::ApplicationToken, or +nil+ when +token+ is blank,
     # unknown, revoked, expired or lacks the scope.
@@ -72,7 +82,7 @@ module WarpEngine
 
       record = active.find_by(token_digest: digest(token))
       return nil if record.nil?
-      return nil if required_scope.present? && !Array(record.scopes).include?(required_scope)
+      return nil if required_scope.present? && !Array(record.scopes).intersect?(Array(required_scope))
 
       record
     end
@@ -81,6 +91,9 @@ module WarpEngine
     def admin?
       Array(scopes).intersect?(ADMIN_SCOPES)
     end
+
+    # Returns whether the token carries SYNC_SCOPE.
+    def sync? = Array(scopes).include?(SYNC_SCOPE)
 
     # Returns whether +expires_at+ is set and has passed.
     def expired?
@@ -134,6 +147,14 @@ module WarpEngine
       return if admin_owner_type.present? && owner_type == admin_owner_type
 
       errors.add(:scopes, "admin scopes need an owner of #{admin_owner_type.presence || 'the admin owner class'}")
+    end
+
+    def sync_tokens_are_unrestricted
+      self.unrestricted = true if sync? && new_record?
+    end
+
+    def sync_needs_unrestricted
+      errors.add(:scopes, "sync needs an unrestricted token") if sync? && !unrestricted?
     end
 
     def generate_token

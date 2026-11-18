@@ -253,6 +253,41 @@ module WarpEngine
           }, required: %i[id name tokenPrefix ownerType ownerId scopes unrestricted expiresAt lastUsedAt createdAt updatedAt])
         end
 
+        # The +SyncServer+ schema, an engine the releases are pushed to.
+        def sync_server
+          named("SyncServer", { id: S.id, label: S.string, host: S.string, active: S.boolean,
+                                secretPrefix: S.nullable(S.string("The first characters of the token")),
+                                lastSyncedAt: S.nullable(S.datetime), lastError: text, **timestamps })
+        end
+
+        # The body of adding or changing a sync server.
+        def sync_server_body
+          S.object({ label: S.string, host: S.string("Base URL of the other engine, its mount included"),
+                     secret: S.string("A token with the sync scope it issued; write-only, empty keeps the stored one"),
+                     active: S.boolean })
+        end
+
+        # The +SyncCheck+ schema: whether the other engine accepts the token.
+        def sync_check
+          named("SyncCheck", { ok: S.boolean, status: S.nullable(S.integer), version: text, message: S.string })
+        end
+
+        # The +SyncPush+ schema: how many pushes were queued and which releases were skipped.
+        def sync_push
+          named("SyncPush", { queued: S.integer, skipped: S.array(S.string) })
+        end
+
+        # The +SyncEvent+ schema, one line of the sync log.
+        def sync_event
+          named("SyncEvent", {
+            id: S.id, syncServerId: S.nullable(S.integer), direction: S.enum(WarpEngine::SyncEvent::DIRECTIONS),
+            status: S.enum(WarpEngine::SyncEvent::STATUSES), softwareName: text, platform: text, version: text,
+            releaseId: S.nullable(S.integer), step: text, httpStatus: S.nullable(S.integer), message: text,
+            filesCount: S.nullable(S.integer), bytes: S.nullable(S.integer), durationMs: S.nullable(S.integer),
+            attempt: S.nullable(S.integer), tokenPrefix: text, **timestamps
+          })
+        end
+
         # The body of issuing or changing an application token.
         def application_token_body
           S.object({
@@ -293,7 +328,8 @@ module WarpEngine
           [ software, release, release_asset, external_link, software_image, platform_link, software_status,
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
-            application_token, device_grant, principal, extra, scaffold ]
+            application_token, device_grant, principal, extra, scaffold, sync_server, sync_check, sync_push,
+            sync_event ]
         end
       end
     end

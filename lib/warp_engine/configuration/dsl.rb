@@ -1,4 +1,5 @@
 require "warp_engine/configuration/admin_api_dsl"
+require "warp_engine/configuration/sync_dsl"
 require "warp_engine/configuration/schema_dsl"
 require "warp_engine/configuration/additional_resource_dsl"
 require "warp_engine/configuration/ci_dsl"
@@ -120,6 +121,12 @@ module WarpEngine
       # admin API settings.
       def admin_api(&block)
         AdminApiDSL.new(@config.admin_api).instance_eval(&block)
+      end
+
+      # Evaluates +block+ with a WarpEngine::Configuration::SyncDSL on the
+      # sync settings (WarpEngine::Sync).
+      def sync(&block)
+        SyncDSL.new(@config.sync).instance_eval(&block)
       end
 
       # Adds host fields to an engine admin page.

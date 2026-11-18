@@ -14,6 +14,7 @@ module WarpEngine
           Definitions::Pipelines,
           Definitions::Files,
           Definitions::Runtimes,
+          Definitions::Sync,
           Definitions::Tokens
         ]
       end

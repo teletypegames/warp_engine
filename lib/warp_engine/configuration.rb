@@ -83,6 +83,9 @@ module WarpEngine
     # Replaces the WarpEngine::AdminApi::Configuration returned by #admin_api.
     attr_writer :admin_api
 
+    # Replaces the WarpEngine::Sync::Configuration returned by #sync.
+    attr_writer :sync
+
     # The registered non-builtin platforms: a Hash of name to
     # WarpEngine::Platform::Registration, filled by #register_platform.
     attr_reader :platforms
@@ -253,6 +256,12 @@ module WarpEngine
     # defaults on first use.
     def admin_api
       @admin_api ||= AdminApi::Configuration.new
+    end
+
+    # Returns the WarpEngine::Sync::Configuration, creating it with its
+    # defaults on first use.
+    def sync
+      @sync ||= Sync::Configuration.new
     end
 
     # Returns +true+ when the user agent string +ua+ matches one of

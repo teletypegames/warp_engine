@@ -92,7 +92,7 @@ module WarpEngine
     # Returns the groups of the tree, in page order: each a Node with an
     # +icon+, an +intro+ and its settings as children.
     def tree
-      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, runtimes, outlets, admin_api, extras ]
+      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, runtimes, outlets, sync, admin_api, extras ]
     end
 
     # Returns how many leaves of the tree have each status, as a Hash of
@@ -471,6 +471,42 @@ module WarpEngine
         node("#{key}.clients", "Clients", outlet.client_ids.any? ? "" : "any Client-Id", chips: outlet.client_ids),
         offer
       ])
+    end
+
+    def sync
+      settings = WarpEngine::Sync.config
+      unless settings.enabled?
+        return group("sync", "Sync", icon: :send, intro: "Off", children: [
+          node("sync.off", "Sync", "off", status: "off", hint: "Set enabled in the sync block of the initializer to push releases to other engines.")
+        ])
+      end
+
+      servers = WarpEngine::SyncServer.active.order(:label).map do |server|
+        status = server.last_error.present? ? "warn" : (server.last_synced_at ? "ok" : "info")
+        node("sync.server.#{server.id}", server.label, server.base_url, status: status, mono: true,
+                                                                        chips: [ server.last_synced_at ? ago(server.last_synced_at).sub("updated", "pushed") : "no push yet" ],
+                                                                        hint: server.last_error.presence&.truncate(160))
+      end
+      filters = WarpEngine::Sync::Configuration::LISTS.filter_map do |name|
+        values = Array(settings.public_send(name))
+        "#{name}: #{values.join(', ')}" if values.any?
+      end
+      children = [
+        node("sync.servers", "Servers", servers.any? ? "#{servers.size} active" : "none", status: servers.any? ? "ok" : "warn",
+                                                                                   children: servers,
+                                                                                   hint: servers.any? ? nil : "Add one under Sync Servers; nothing is pushed until then."),
+        node("sync.switch", "Per-software switch", settings.software_switch ? settings.software_switch.to_s : "off"),
+        node("sync.filters", "Filters", filters.any? ? "" : "none", chips: filters),
+        node("sync.events", "Event log", settings.events? ? "#{settings.verbose_events? ? 'verbose' : 'on'}, kept #{settings.event_retention_days} days" : "off",
+             status: settings.events? ? "ok" : "off")
+      ]
+      children << sync_failures if settings.events?
+      group("sync", "Sync", icon: :send, intro: "On: releases are pushed to other engines", children: children)
+    end
+
+    def sync_failures
+      failed = WarpEngine::SyncEvent.failed.where(created_at: 1.day.ago..).count
+      node("sync.failures", "Failed pushes, last 24 hours", failed.to_s, status: failed.positive? ? "warn" : "ok")
     end
 
     def admin_api

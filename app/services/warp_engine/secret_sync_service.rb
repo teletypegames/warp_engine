@@ -79,10 +79,14 @@ module WarpEngine
       end
     end
 
-    # The active pipelines +application_token+ may publish for: every one for an
-    # unrestricted token, else those of the kept softwares of its owner.
+    # The active pipelines +application_token+ may publish for: none for a
+    # sync token (WarpEngine::ApplicationToken#sync?, it belongs to another
+    # engine), every one for an unrestricted token, else those of the kept
+    # softwares of its owner.
     def pipelines_for_token(application_token)
-      if application_token.unrestricted?
+      if application_token.sync?
+        []
+      elsif application_token.unrestricted?
         Pipeline.active.to_a
       else
         software_ids = Software.kept.where(

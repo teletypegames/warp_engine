@@ -21,12 +21,13 @@ module WarpEngine
         end
 
         # Declares the +application_tokens+ resource on +api+: list, get, issue (the
-        # plain token is in that answer only), update, revoke (a token cannot revoke
-        # itself) and rotate. All go through WarpEngine::ApplicationTokenService.
+        # plain token is in that answer only; a +sync+ token is always unrestricted,
+        # so only an unrestricted caller may issue one), update, revoke (a token
+        # cannot revoke itself) and rotate. All go through WarpEngine::ApplicationTokenService.
         def application_tokens(api)
           api.resource(:application_tokens, label: "Application tokens", scope: TOKENS_SCOPE) do |r|
             r.list "/application_tokens", summary: "The live application tokens", item: X.application_token,
-                   filters: { state: S.enum(%w[active expired]), kind: S.enum(%w[publishing clients admin]) },
+                   filters: { state: S.enum(%w[active expired]), kind: S.enum(%w[publishing clients admin sync]) },
                    sort: { createdAt: :created_at, lastUsedAt: :last_used_at, name: :name },
                    default_sort: "-createdAt" do |ctx|
               ctx.list(filtered(ctx), Admin::ApplicationTokenSerializer)
@@ -39,7 +40,7 @@ module WarpEngine
             r.create "/application_tokens", summary: "Issue a token; the plain token is in this answer only",
                      body: X.application_token_body, required: %i[name scopes], item: X.application_token do |ctx|
               scopes = Array(ctx[:scopes]).map(&:to_s).uniq
-              unrestricted = ctx[:unrestricted] ? true : false
+              unrestricted = ctx[:unrestricted] || scopes.include?(WarpEngine::ApplicationToken::SYNC_SCOPE) ? true : false
               expires_at = granted_expiry(ctx)
               authorize_grant!(ctx.principal, scopes: scopes, unrestricted: unrestricted, expires_at: expires_at)
 
@@ -60,6 +61,7 @@ module WarpEngine
               token.name = ctx[:name] if ctx.key?(:name)
               token.scopes = Array(ctx[:scopes]).map(&:to_s).uniq if ctx.key?(:scopes)
               token.unrestricted = ctx[:unrestricted] ? true : false if ctx.key?(:unrestricted)
+              token.unrestricted = true if token.sync?
               token.expires_at = time(ctx[:expiresAt]) if ctx.key?(:expiresAt)
               authorize_grant!(ctx.principal, scopes: Array(token.scopes), unrestricted: token.unrestricted?,
                                               expires_at: token.expires_at)
@@ -115,7 +117,7 @@ module WarpEngine
         def token(id) = WarpEngine::ApplicationToken.active.find(id)
 
         # The kept tokens matching the +state+ (active, expired) and +kind+ (publishing, clients,
-        # admin) params of +ctx+.
+        # admin, sync) params of +ctx+.
         def filtered(ctx)
           scope = WarpEngine::ApplicationToken.kept
           scope = case ctx[:state]
@@ -126,7 +128,10 @@ module WarpEngine
           case ctx[:kind]
           when "clients"    then scope.where(contains(WarpEngine::ApplicationToken::CATALOG_SCOPE))
           when "admin"      then scope.where(admin_sql)
-          when "publishing" then scope.where("NOT #{contains(WarpEngine::ApplicationToken::CATALOG_SCOPE)} AND NOT (#{admin_sql})")
+          when "sync"       then scope.where(contains(WarpEngine::ApplicationToken::SYNC_SCOPE))
+          when "publishing"
+            scope.where("NOT #{contains(WarpEngine::ApplicationToken::CATALOG_SCOPE)} AND NOT (#{admin_sql}) " \
+                        "AND NOT #{contains(WarpEngine::ApplicationToken::SYNC_SCOPE)}")
           else scope
           end
         end

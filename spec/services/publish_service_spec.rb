@@ -32,16 +32,16 @@ RSpec.describe WarpEngine::PublishService do
 
       it "emits warp_engine.publish with the release in the payload" do
         payloads = []
-        ActiveSupport::Notifications.subscribe(described_class::NOTIFICATION) do |*, payload|
+        subscriber = ActiveSupport::Notifications.subscribe(described_class::NOTIFICATION) do |*, payload|
           payloads << payload
         end
 
         described_class.new.publish(input)
 
         expect(payloads.size).to eq(1)
-        expect(payloads.first).to include(platform: "tic80", name: "game", version: "1.0", release: release)
+        expect(payloads.first).to include(platform: "tic80", name: "game", version: "1.0", release: release, source: :ci)
       ensure
-        ActiveSupport::Notifications.unsubscribe(described_class::NOTIFICATION)
+        ActiveSupport::Notifications.unsubscribe(subscriber)
       end
 
       it "returns the release" do

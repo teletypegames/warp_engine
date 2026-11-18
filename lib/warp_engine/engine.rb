@@ -6,7 +6,10 @@ module WarpEngine
   # ActiveAdmin 3, linked by the host on ActiveAdmin 4, which has no registry), validates the outlets, shelves among them
   # (and the MCP dependency when enabled) after boot, and enqueues a
   # WarpEngine::OutletRefreshJob for the materialized outlets of a platform on
-  # every <tt>warp_engine.publish</tt> notification. It registers the
+  # every <tt>warp_engine.publish</tt> notification, and hands the release to
+  # WarpEngine::SyncService#dispatch while sync is enabled (WarpEngine::Sync;
+  # a failure there is logged, the publish stands), whose settings it checks
+  # after boot. It registers the
   # <tt>application/wasm</tt> MIME type the runtimes' files need, unless the
   # host did.
   class Engine < ::Rails::Engine
@@ -31,6 +34,18 @@ module WarpEngine
     config.after_initialize do
       WarpEngine::AdminApi::Mcp.ensure_available! if WarpEngine.config.admin_api.mcp?
       WarpEngine::Outlets.validate!
+      WarpEngine::Sync.config.validate!.each { |warning| Rails.logger.warn("[WarpEngine] #{warning}") }
+    end
+
+    initializer "warp_engine.sync" do
+      ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
+        release = payload[:release]
+        if WarpEngine::Sync.enabled? && release.is_a?(WarpEngine::Release)
+          WarpEngine::SyncService.new.dispatch(release, source: payload[:source] || :ci)
+        end
+      rescue StandardError => e
+        Rails.logger.error("[WarpEngine::Sync] dispatch failed: #{e.class}: #{e.message}")
+      end
     end
 
     initializer "warp_engine.outlets" do
