@@ -22,6 +22,16 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
     expect(JSONSchemer.openapi(json).validate.map { |e| e["error"] }).to be_empty
   end
 
+  it "resolves every reference it makes, as Redoc demands" do
+    get "/api/admin/v1/openapi.json", headers: auth
+
+    refs = response.body.scan(%r{"\$ref":"#/components/(\w+)/(\w+)"}).uniq
+    dangling = refs.reject { |kind, name| json.dig("components", kind, name) }
+
+    expect(refs).not_to be_empty
+    expect(dangling).to be_empty, "these refs point nowhere: #{dangling.map { |kind, name| "#{kind}/#{name}" }.join(', ')}"
+  end
+
   it "can be public, and comes as YAML too" do
     admin_config.openapi_requires_auth = false
 

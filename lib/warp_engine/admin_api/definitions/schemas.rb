@@ -345,8 +345,8 @@ module WarpEngine
           [ software, release, release_asset, external_link, software_image, platform_link, software_status,
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
-            application_token, device_grant, principal, extra, scaffold, sync_server, sync_check, sync_push,
-            sync_event ]
+            runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,
+            sync_server, sync_check, sync_push, sync_event ]
         end
       end
     end
