@@ -1,8 +1,15 @@
 class CatalogController < ApplicationController
   layout "catalog"
 
+  DESKTOP_DOWNLOADS = {
+    "linux_x64" => "Linux",
+    "win_x64" => "Windows",
+    "mac_arm64" => "macOS (Apple Silicon)",
+    "mac_x64" => "macOS (Intel)"
+  }.freeze
+
   def index
-    @games = catalog
+    @apps, @games = catalog.partition { |entry| entry.dig("software", "platform") == "electron" }
   end
 
   def show

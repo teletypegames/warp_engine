@@ -1,3 +1,22 @@
+<% if @apps.any? %>
+  <h1>Our apps</h1>
+  <ul>
+    <% @apps.each do |app| %>
+      <% software = app["software"] %>
+      <% assets = app.dig("latestRelease", "assets").to_a.select { |asset| CatalogController::DESKTOP_DOWNLOADS.key?(asset["kind"]) } %>
+      <li>
+        <a href="/games/<%= software["name"] %>"><strong><%= software["title"] %></strong></a>
+        <% if app["latestRelease"] %>· <%= app["latestRelease"]["version"] %><% end %>
+        <% if software["desc"].present? %><br><%= software["desc"] %><% end %>
+        <% if assets.any? %>
+          <br>Download for
+          <% assets.each_with_index do |asset, index| %><%= ", " if index.positive? %><a href="<%= download_path(asset) %>"><%= CatalogController::DESKTOP_DOWNLOADS[asset["kind"]] %></a><% end %>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>
+
 <h1>Games</h1>
 
 <% if @games.empty? %>
