@@ -33,7 +33,11 @@ module WarpEngine
     # [intro]    a group's one-line description, or +nil+
     # [icon]     a group's icon name, or +nil+
     # [children] the Node objects below it
-    Node = Struct.new(:key, :label, :value, :status, :chips, :hint, :mono, :intro, :icon, :children, keyword_init: true) do
+    # [links]    links shown after the value, each a Hash with a +label+ and
+    #            either an +href+ or a +route+ (a path helper of the engine's
+    #            routes, resolved by the page)
+    Node = Struct.new(:key, :label, :value, :status, :chips, :hint, :mono, :intro, :icon, :children, :links,
+                      keyword_init: true) do
       # Builds a Node with the defaults: no value, no chips, no children, and
       # the status +info+ for a leaf, +off+ for a branch (whose children then
       # decide its rolled status).
@@ -42,6 +46,7 @@ module WarpEngine
         self.value ||= ""
         self.chips ||= []
         self.children ||= []
+        self.links ||= []
         self.status ||= children.any? ? "off" : "info"
         self.mono ||= false
       end
@@ -525,10 +530,30 @@ module WarpEngine
         node("adminapi.paging", "Page size", "#{api.page_size}, at most #{api.max_page_size}"),
         node("adminapi.limit", "Rate limit", limit, status: api.rate_limit ? "ok" : "warn",
                                                     hint: api.rate_limit ? nil : "Without a rate limit a leaked token can hammer the API."),
-        node("adminapi.openapi", "OpenAPI document", api.openapi_requires_auth? ? "needs a token" : "public"),
-        node("adminapi.docs", "Docs page", api.docs_ui? ? "served" : "off", status: api.docs_ui? ? "info" : "off"),
+        node("adminapi.openapi", "OpenAPI document", api.openapi_requires_auth? ? "needs a token" : "public",
+             links: [ { label: "openapi.json", route: :api_admin_openapi_path } ]),
+        docs_node(api),
+        public_docs_node(api),
         mcp_node(api)
       ])
+    end
+
+    def docs_node(api)
+      return node("adminapi.docs", "Docs page", "off", status: "off", hint: "Turn it on with docs_ui in the admin_api block.") unless api.docs_ui?
+
+      node("adminapi.docs", "Docs page", "served", status: "ok", links: [ { label: "Open", route: :api_admin_docs_path } ],
+                                                   hint: api.openapi_requires_auth? ? "It needs an admin token, which a browser does not send; the reference below works here." : nil)
+    end
+
+    def public_docs_node(api)
+      return node("adminapi.public_docs", "Public reference", "none: the document needs a token", status: "off") if api.openapi_requires_auth?
+      if api.public_docs_url.blank?
+        return node("adminapi.public_docs", "Public reference", "not linked", status: "info",
+                                                                             hint: "Name the page everyone may read with public_docs_url in the admin_api block.")
+      end
+
+      node("adminapi.public_docs", "Public reference", api.public_docs_url, status: "ok", mono: true,
+                                                                           links: [ { label: "Open", href: api.public_docs_url } ])
     end
 
     def mcp_node(api)

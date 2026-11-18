@@ -20,6 +20,10 @@ module WarpEngine
       # Serves the Redoc documentation page when +true+.
       def docs_ui(value = true) = @settings.docs_ui = value
 
+      # Names the host's page that shows the public OpenAPI document to
+      # everyone (a Swagger UI, say); SysInfo links it while the document is public.
+      def public_docs_url(url) = @settings.public_docs_url = url.to_s
+
       # Serves the OpenAPI document without authentication when +true+.
       def public_openapi(value = true) = @settings.openapi_requires_auth = !value
 

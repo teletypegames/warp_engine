@@ -18,7 +18,7 @@
   <div class="we-si-row we-si-line" data-key="<%= node.key %>" data-status="<%= status %>" data-search="<%= search %>">
     <span class="we-si-st we-si-<%= status %>"><%= WarpEngine::AdminIcons.svg(status, stroke: 2.6) %><span class="we-si-sr"><%= status %></span></span>
     <span class="we-si-label"><%= node.label %></span>
-    <span class="we-si-value"><% if node.value.present? %><span class="<%= 'we-si-mono' if node.mono %>"><%= node.value %></span><% end %><% node.chips.each do |chip| %><span class="we-si-chip"><%= chip %></span><% end %></span>
+    <span class="we-si-value"><% if node.value.present? %><span class="<%= 'we-si-mono' if node.mono %>"><%= node.value %></span><% end %><% node.chips.each do |chip| %><span class="we-si-chip"><%= chip %></span><% end %><% node.links.each do |link| %><% href = link[:href] || (respond_to?(:warp_engine) && link[:route] ? warp_engine.public_send(link[:route]) : nil) %><% if href %><a class="we-si-link" href="<%= href %>" target="_blank" rel="noopener"><%= WarpEngine::AdminIcons.svg(:external, size: 13) %><%= link[:label] %></a><% end %><% end %></span>
     <span></span>
     <% if node.hint.present? %><span class="we-si-hint"><%= node.hint %></span><% end %>
   </div>

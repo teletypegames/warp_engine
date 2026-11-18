@@ -2023,6 +2023,35 @@ claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp 
   --header "Authorization: Bearer $TOKEN"
 ```
 
+
+### The reference on SysInfo (4.8)
+
+While the Admin API is on, the SysInfo admin page has an *Admin API reference*
+section below the configuration tree: the OpenAPI document drawn by the engine's
+own template (`WarpEngine::ApiReference`), in the admin's look, light and dark.
+Operations are grouped by resource and filterable; each one opens to its
+parameters, request body, success response and errors, the scope it needs and a
+`curl` line to copy. Types link to the schemas, listed at the end. Nothing is loaded
+from outside.
+
+The *Admin API* group of SysInfo links `openapi.json`, the docs page (`docs_ui`)
+and, while the document is public (`public_openapi`), the host's page that shows it
+to everyone:
+
+```ruby
+admin_api do
+  enable
+  public_openapi
+  docs_ui
+  public_docs_url "/api/swagger?spec=Admin%20API"
+end
+```
+
+## Upgrading to 4.8
+
+Nothing to change in a host. New: the Admin API reference on SysInfo, links in the
+SysInfo nodes, and the `public_docs_url` setting of the `admin_api` block.
+
 ## Upgrading to 4.7
 
 Nothing to change in a host. A manual sync run (the runner, the server page's

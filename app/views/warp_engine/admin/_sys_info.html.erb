@@ -79,6 +79,15 @@
     .we-si-kids .we-si-kids .we-si-line{padding-left:76px}
     .we-si-empty{padding:28px;text-align:center;color:var(--we-muted);border:1px dashed var(--we-line-strong);border-radius:8px}
     .we-si-foot{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:12px;color:var(--we-subtle);border-top:1px solid var(--we-line);padding-top:14px}
+    .we-si-link{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--we-accent);text-decoration:none}
+    .we-si-link:hover{text-decoration:underline;text-underline-offset:3px}
+    .we-si-ref{border:1px solid var(--we-line);border-radius:8px;background:var(--we-surface);overflow:hidden;position:relative}
+    .we-si-ref::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--we-info)}
+    .we-si-ref>summary{display:flex;align-items:center;gap:12px;padding:14px 16px 14px 20px;cursor:pointer;list-style:none}
+    .we-si-ref>summary::-webkit-details-marker{display:none}
+    .we-si-ref>summary:hover{background:var(--we-raised)}
+    .we-si-ref .we-si-gicon{background:var(--we-info-bg);color:var(--we-info)}
+    .we-si-ref-tools{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--we-line);font-size:12.5px;color:var(--we-muted)}
     .we-si [hidden]{display:none !important}
     @media (max-width:760px){.we-si-line{grid-template-columns:22px minmax(0,1fr)}.we-si-value,.we-si-hint{grid-column:2 / 3}.we-si-tally{display:none}}
   </style>
@@ -146,6 +155,12 @@
     <% end %>
     <div class="we-si-empty" data-empty hidden>Nothing matches. Clear the search or show all.</div>
   </section>
+
+  <% admin_api = WarpEngine.config.admin_api %>
+  <% if admin_api.enabled? && respond_to?(:warp_engine) %>
+    <%= render "warp_engine/admin/api_reference", admin_api: admin_api,
+               reference: WarpEngine::ApiReference.new(WarpEngine::AdminApi::OpenApi.document(server_url: request.base_url + warp_engine.api_admin_openapi_path.delete_suffix("/openapi.json"))) %>
+  <% end %>
 
   <footer class="we-si-foot">
     <span>Computed on every load from WarpEngine.config.</span>

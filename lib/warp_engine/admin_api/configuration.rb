@@ -23,7 +23,10 @@ module WarpEngine
       # [docs_ui]               serve the Redoc page (default +false+)
       # [mcp]                   serve the MCP endpoint (default +false+)
       # [mcp_exclude]           resource names left out of MCP
+      # [public_docs_url]       the host's page that shows the OpenAPI document to everyone
+      #                         (a Swagger UI, say), linked from SysInfo while the document is public
       attr_accessor :enabled,
+                    :public_docs_url,
                     :token_owner_class,
                     :authenticator,
                     :resources,
@@ -50,6 +53,7 @@ module WarpEngine
         @docs_ui               = false
         @mcp                   = false
         @mcp_exclude           = DEFAULT_MCP_EXCLUDE
+        @public_docs_url       = nil
       end
 
       # Whether the Admin API is on.

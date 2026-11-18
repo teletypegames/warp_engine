@@ -21,6 +21,34 @@ RSpec.describe WarpEngine::SysInfo do
                                             platforms: { "godot" => { builder: "registry.example/godot:4" } })
   end
 
+  describe "the Admin API reference links" do
+    before { WarpEngine.config.admin_api = WarpEngine::AdminApi::Configuration.new.tap { |c| c.enabled = true } }
+    after { WarpEngine.config.admin_api = nil }
+
+    it "links the docs page and the public reference while the document is public" do
+      WarpEngine.config.admin_api.docs_ui = true
+      WarpEngine.config.admin_api.openapi_requires_auth = false
+      WarpEngine.config.admin_api.public_docs_url = "/api/swagger?spec=Admin%20API"
+
+      expect(find("adminapi.docs")).to have_attributes(status: "ok", links: [ { label: "Open", route: :api_admin_docs_path } ])
+      expect(find("adminapi.public_docs")).to have_attributes(status: "ok", links: [ { label: "Open", href: "/api/swagger?spec=Admin%20API" } ])
+      expect(find("adminapi.openapi").links).to eq([ { label: "openapi.json", route: :api_admin_openapi_path } ])
+    end
+
+    it "links no public reference while the document needs a token" do
+      WarpEngine.config.admin_api.public_docs_url = "/api/swagger"
+
+      expect(find("adminapi.public_docs")).to have_attributes(status: "off", links: [])
+      expect(find("adminapi.docs")).to have_attributes(status: "off")
+    end
+
+    it "asks for the public page when the document is public but none is named" do
+      WarpEngine.config.admin_api.openapi_requires_auth = false
+
+      expect(find("adminapi.public_docs").hint).to include("public_docs_url")
+    end
+  end
+
   it "describes every part of the configuration as a group with an icon" do
     expect(info.tree.map(&:key)).to eq(%w[engine publishing adapters signin ci platforms runtimes outlets sync adminapi extras])
     expect(info.tree.map(&:icon)).to all(be_a(Symbol))
