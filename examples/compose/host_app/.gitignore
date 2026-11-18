@@ -1,8 +1,0 @@
-# Generated on first boot by the entrypoint (install generator + db:prepare).
-db/migrate/*_create_warp_engine_tables.rb
-db/migrate/*_create_images.rb
-db/schema.rb
-log/
-tmp/
-public/assets/
-Gemfile.lock
