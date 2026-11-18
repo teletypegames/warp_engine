@@ -21,6 +21,10 @@ RSpec.describe "The electron pipeline" do
                             "electron-builder --win nsis --x64", "mystore-$VERSION-linux-x64", "mystore-$VERSION-win-x64")
   end
 
+  it "leaves the Windows installer out where Wine cannot start" do
+    expect(steps["windows"]["commands"].join).to include('if [ "$(getconf PAGESIZE)" != 4096 ]', "exit 0")
+  end
+
   it "reads the version from package.json" do
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "package.json"), %({\n  "name": "mystore",\n  "version": "3.4.0",\n  "dependencies": {}\n}\n))

@@ -33,6 +33,11 @@ steps:
     commands:
       - |
         VERSION=$(cat .version)
+        if [ "$(getconf PAGESIZE)" != 4096 ]; then
+          echo "WARNING: $(getconf PAGESIZE)-byte memory pages (an emulated amd64 on Apple Silicon): Wine cannot start here,"
+          echo "         this release goes without the Windows installer. Build it on an x86_64 CI agent."
+          exit 0
+        fi
         [ -d node_modules ] || npm ci --no-audit --no-fund
         npm run build --if-present
         set -- --publish never -c.directories.output=.warp-dist

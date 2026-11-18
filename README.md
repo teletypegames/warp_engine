@@ -855,7 +855,8 @@ Apple's signing needs a Mac, so a macOS package is built there and uploaded with
 build to play.
 
 The Windows step needs an x86_64 CI agent: Wine does not start in an emulated amd64
-container on an Apple Silicon machine.
+container on an Apple Silicon machine (16 KB memory pages). There the step says so and
+leaves the Windows installer out, so the rest of the release still goes out.
 
 ### Platforms of your own
 
