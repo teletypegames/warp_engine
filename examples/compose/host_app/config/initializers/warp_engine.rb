@@ -1,6 +1,6 @@
 REGISTRY = ENV.fetch("WARP_REGISTRY", "git.teletypegames.org/build")
 TOOLING_HOST = ENV.fetch("WARP_TOOLING_HOST", "https://git.teletypegames.org")
-IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.17.3")
+IMAGES = ENV.fetch("WARP_IMAGES", "2026.11.18")
 
 TOOLS_IMAGE = "#{REGISTRY}/ci-tools@sha256:8bb7d77188d3d48ac8c2b1aeea3476f39f41f270e90bdc64ba7b4a35e8037519".freeze
 COMMODORE_PLAYER = "#{REGISTRY}/commodore-player:#{IMAGES}".freeze
@@ -14,7 +14,8 @@ BUILDERS = {
   plus4:      "#{REGISTRY}/plus4-builder:#{IMAGES}",
   ebitengine: "#{REGISTRY}/ebitengine-builder:#{IMAGES}",
   tic80:      "#{REGISTRY}/tic80pro:#{IMAGES}",
-  dos:        "#{REGISTRY}/dos-builder:#{IMAGES}"
+  dos:        "#{REGISTRY}/dos-builder:#{IMAGES}",
+  electron:   "#{REGISTRY}/electron-builder:#{IMAGES}"
 }.freeze
 
 WEB_SHELLS = {
@@ -32,7 +33,8 @@ TOOLING = {
   godot:      { template: "build/godot-tools",      demo: "demos/pong" },
   bevy:       { template: "build/bevy-tools",       demo: "demos/bevy-demo" },
   phaser:     { template: "build/phaser-tools",     demo: "demos/phaser-demo" },
-  dos:        { template: "build/dos-tools" }
+  dos:        { template: "build/dos-tools" },
+  electron:   { template: "build/electron-tools",   demo: "stores/warp-engine-client" }
 }.freeze
 
 Rails.application.config.to_prepare do
@@ -73,6 +75,7 @@ Rails.application.config.to_prepare do
       platform :ebitengine, builder: BUILDERS[:ebitengine], web_shell: WEB_SHELLS[:ebitengine]
       platform :tic80,      builder: BUILDERS[:tic80]
       platform :dos,        builder: BUILDERS[:dos],        forge_release: true
+      platform :electron,   builder: BUILDERS[:electron]
     end
   end
 end

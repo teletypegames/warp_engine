@@ -60,6 +60,15 @@ module WarpEngine
       kind :html, required: true
     end
 
+    define :electron do
+      label "Electron"
+      kind :linux_x64, required: true
+      kind :win_x64
+      kind :mac_x64, built: false
+      kind :mac_arm64, built: false
+      version_source "sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' package.json 2>/dev/null | head -n 1"
+    end
+
     define :dos do
       label "DOS"
       kind :cartridge, ext: ".zip", required: true

@@ -28,7 +28,7 @@ RSpec.describe WarpEngine::Platform do
     end
 
     it "names every builtin and only them in BUILTIN" do
-      expect(described_class::BUILTIN).to eq(%w[tic80 ebitengine love c64 plus4 godot bevy phaser dos])
+      expect(described_class::BUILTIN).to eq(%w[tic80 ebitengine love c64 plus4 godot bevy phaser electron dos])
     end
   end
 

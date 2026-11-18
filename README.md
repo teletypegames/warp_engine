@@ -164,7 +164,8 @@ newer set when you are ready:
 
 | Example of engine | Images (`git.teletypegames.org/build/…`) | Tag |
 | --- | --- | --- |
-| 4.1.6– | the same set, with the `tic80pro` that has `tic80-export` and its own native players | `2026.11.17.3` |
+| 4.3.0– | the same set, and `electron-builder` for the `electron` platform | `2026.11.18` |
+| 4.1.6–4.2.x | the same set, with the `tic80pro` that has `tic80-export` and its own native players | `2026.11.17.3` |
 | 4.1.5 | the same set, with the `dos-builder` that fills in a missing `dos` block from the name | `2026.11.17.2` |
 | 4.1.2–4.1.4 | `godot-builder` (Godot 4.7.1), `phaser-builder`, `love-builder`, `bevy-builder`, `ebitengine-builder`, `c64-builder`, `plus4-builder`, `dos-builder`, `tic80pro`, `commodore-player` | `2026.11.17` |
 | 4.1.2– | `ci-tools` (version, tag, upload, publish steps) | `@sha256:8bb7d771…` |
@@ -830,6 +831,31 @@ The version is the tag without its `v`. The folder zip becomes the `cartridge`
 (`dosinst-0.6.0.zip`) and the Win32 one the `win_x86` asset
 (`dosinst-0.6.0-win-x86.zip`), byte for byte the files of the forge release.
 DOS releases are download only.
+
+#### The `electron` platform
+
+Desktop apps written with [Electron](https://www.electronjs.org): a store client, a
+launcher, a tool, or an HTML game that wants a window of its own. The repo is an ordinary
+Electron project with `electron-builder` in its `devDependencies`, plus the
+`platform: electron` marker and a `metadata.json`. The version comes from `package.json`.
+
+The builder image (`git.teletypegames.org/build/electron-builder`, `electronuserland/builder:22-wine`
+unchanged) runs two steps:
+
+- `linux`: `npm ci`, then the app's own `check` script (tests that need no display) and
+  `build` script when it has them, then `electron-builder --linux AppImage --x64`;
+  the AppImage is uploaded as `linux_x64` (`<name>-<version>-linux-x64.zip`), always;
+- `windows`: `electron-builder --win nsis --x64` through Wine; the installer is the
+  `win_x64` asset.
+
+A semver build version is written into the app (`extraMetadata.version`); a development
+build keeps `package.json`'s. macOS (`mac_x64`, `mac_arm64`) is expected but not built:
+Apple's signing needs a Mac, so a macOS package is built there and uploaded with
+`/build/upload` like any other asset. Electron releases are download only, with no web
+build to play.
+
+The Windows step needs an x86_64 CI agent: Wine does not start in an emulated amd64
+container on an Apple Silicon machine.
 
 ### Platforms of your own
 
