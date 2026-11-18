@@ -7,6 +7,7 @@ require "warp_engine/sync/package"
 require "warp_engine/sync/transport"
 require "warp_engine/sync/transports"
 require "warp_engine/sync/transports/http"
+require "warp_engine/sync/transports/rsync"
 
 module WarpEngine
   # Copies releases between WarpEngines and to other places. Each partner is a

@@ -49,9 +49,10 @@ ActiveAdmin.register WarpEngine::SyncPeer, as: "Sync Peer" do
                                                   style: (klass.key == current ? nil : "display:none") do
         klass.options.each do |option|
           if option.secret
-            f.input :secret, as: :password, label: option.label, required: f.object.new_record? && option.required,
+            f.input :secret, as: option.type == :text ? :text : :password, label: option.label, required: f.object.new_record? && option.required,
                              hint: "#{option.hint} Leave empty to keep the stored one.",
-                             input_html: { name: "sync_peer[secret]", id: "sync_peer_secret_#{klass.key}", disabled: klass.key != current }
+                             input_html: { name: "sync_peer[secret]", id: "sync_peer_secret_#{klass.key}", disabled: klass.key != current,
+                                           value: "", rows: 4 }
           else
             f.input :"transport_option_#{option.name}", label: option.label, required: option.required, hint: option.hint,
                                                          as: option.type == :boolean ? :boolean : :string,

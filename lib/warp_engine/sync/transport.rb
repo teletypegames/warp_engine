@@ -3,7 +3,8 @@ module WarpEngine
     # How a WarpEngine::Sync::Package gets to a WarpEngine::SyncPeer: the base
     # of the transports (WarpEngine::Sync::Transports). The engine ships
     # +http+ (WarpEngine::Sync::Transports::Http, another WarpEngine's
-    # <tt>/build</tt> endpoints); a host registers its own with
+    # <tt>/build</tt> endpoints) and +rsync+ (WarpEngine::Sync::Transports::Rsync,
+    # a file mirror over SSH); a host registers its own with
     # <tt>register_sync_transport</tt>.
     #
     # A transport class names itself (+key+, +label+), describes its settings
@@ -16,8 +17,8 @@ module WarpEngine
       class Unreachable < WarpEngine::Error; end
 
       # One setting of a transport: its +name+ (the key in the peer's
-      # +transport_options+), a +label+, its +type+ (+:string+, +:integer+,
-      # +:boolean+), whether it is +required+ for an outbound peer, whether it
+      # +transport_options+), a +label+, its +type+ (+:string+, +:text+ for
+      # several lines, +:boolean+), whether it is +required+ for an outbound peer, whether it
       # is the +secret+ (stored encrypted in the peer's +secret+) and a +hint+.
       Option = ::Data.define(:name, :label, :type, :required, :secret, :hint)
 

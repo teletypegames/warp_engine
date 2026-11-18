@@ -1833,9 +1833,20 @@ push to each other.
 
 ### Transports
 
-How a package reaches a peer is its transport, a `WarpEngine::Sync::Transport`: the
-engine ships `http` (`WarpEngine::Sync::Transports::Http`: another WarpEngine's `/build`
-endpoints, what it has read from its public `GET /api/softwares/:name/builds`). A transport
+How a package reaches a peer is its transport, a `WarpEngine::Sync::Transport`. The
+engine ships two:
+
+- `http` (`WarpEngine::Sync::Transports::Http`): another WarpEngine's `/build`
+  endpoints; what it has is read from its public `GET /api/softwares/:name/builds`.
+  Options: `host`, and the `token` it issued for us as the secret.
+- `rsync` (5.1, `WarpEngine::Sync::Transports::Rsync`): a file mirror over SSH, no
+  catalog on the other side. A release lands in `<path>/<name>/<version>/` with the files
+  the CI uploaded and `<name>-<version>.metadata.json`; files already there are
+  replaced, others left alone; what is there is read with `rsync --list-only`. Options:
+  `host`, `port` (22), `user`, `path` (must exist), `host_key` (a known_hosts line; empty
+  takes the key the host shows first) and the private key (OpenSSH, no passphrase) as the
+  secret. The host image needs the `rsync` and `ssh` programs (Debian: `rsync
+  openssh-client`). A transport
 names itself (`key`, `label`), describes its settings (`options`: the admin draws the
 peer form from them) and implements `check`, `existing` and `deliver`. A host registers
 its own:
@@ -2079,6 +2090,11 @@ admin_api do
   public_docs_url "/api/swagger?spec=Admin%20API"
 end
 ```
+
+## Upgrading to 5.1
+
+Nothing to change in a host. New: the `rsync` sync transport; a peer that uses it needs
+`rsync` and `ssh` in the host's image.
 
 ## Upgrading to 5.0
 

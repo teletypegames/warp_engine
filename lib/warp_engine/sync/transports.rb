@@ -5,7 +5,8 @@ module WarpEngine
     # <tt>register_sync_transport</tt> (WarpEngine::Configuration#sync_transports).
     module Transports
       # The transports the engine ships, by key.
-      BUILTIN = { "http" => "WarpEngine::Sync::Transports::Http" }.freeze
+      BUILTIN = { "http"  => "WarpEngine::Sync::Transports::Http",
+                  "rsync" => "WarpEngine::Sync::Transports::Rsync" }.freeze
 
       module_function
 
