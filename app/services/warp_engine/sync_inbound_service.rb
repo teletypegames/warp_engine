@@ -27,10 +27,11 @@ module WarpEngine
     end
 
     # Returns a Refusal (403) when an upload of the +version+ of the software
-    # +name+ with +token+ is not taken, by the peer or the name and channel
-    # lists, or +nil+ when it is.
-    def refuse_upload(token:, name:, version:)
-      refuse_peer(token) || refusal(@filter.reason_for(candidate(name: name), version), early: true)
+    # +name+ with +token+ is not taken, by the peer or the name, channel and
+    # (when the sender names it) platform lists, or +nil+ when it is.
+    def refuse_upload(token:, name:, version:, platform: nil)
+      refuse_peer(token) || refusal(@filter.reason_for(candidate(name: name, platform: platform.presence), version),
+                                    early: true, platform_known: platform.present?)
     end
 
     # Returns a Refusal when the publish of +input+ (a
@@ -66,9 +67,10 @@ module WarpEngine
       Candidate.new(name: name.to_s, platform: platform, category: category, status: status)
     end
 
-    def refusal(reason, early: false)
+    def refusal(reason, early: false, platform_known: false)
       return nil if reason.nil?
-      return nil if early && reason.match?(/allowed_(platforms|categories|statuses)/)
+      return nil if early && reason.match?(/allowed_(categories|statuses)/)
+      return nil if early && !platform_known && reason.match?(/allowed_platforms/)
 
       Refusal.new(status: 403, message: "sync inbound: #{reason}")
     end

@@ -21,6 +21,7 @@ module WarpEngine
       param :version, String, required: true, desc: "Version string"
       param :file, File, required: true, desc: "Artifact file (multipart)"
       param :sha256, String, required: false, desc: "Expected SHA256 hex digest; on mismatch the upload is rejected"
+      param :platform, String, required: false, desc: "The platform, for a sync peer's push: the inbound lists check it before the file lands"
       returns code: 200, desc: "JSON with stored file name, size and sha256"
       error code: 401, desc: "Invalid secret"
       error code: 403, desc: "Token does not own this software"
@@ -33,6 +34,8 @@ module WarpEngine
       # [version] the version string
       # [file]    the artifact, its file name prefixed with <tt><name>-<version></tt>
       # [sha256]  optional expected SHA-256 hex digest
+      # [platform] optional platform, which a sync push sends so the inbound
+      #            lists can refuse the file before it is stored
       #
       # Stores the file in the release's folder (WarpEngine::ReleaseLayout)
       # through WarpEngine::FileManagerService and renders
@@ -56,7 +59,8 @@ module WarpEngine
         return render json: { error: input.error_message }, status: :bad_request unless input.valid?
 
         if sync_request? && (refusal = WarpEngine::SyncInboundService.new.refuse_upload(token: current_application_token,
-                                                                                         name: input.name, version: input.version))
+                                                                                         name: input.name, version: input.version,
+                                                                                         platform: params[:platform].to_s))
           return render json: { error: refusal.message }, status: refusal.status
         end
 

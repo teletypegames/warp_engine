@@ -99,7 +99,7 @@ module WarpEngine
           package.files.each do |file|
             yield "upload:#{file.name}" if block_given?
             response = upload(name: package.name, version: package.version, path: file.path, filename: file.name,
-                              sha256: Digest::SHA256.file(file.path).hexdigest)
+                              sha256: Digest::SHA256.file(file.path).hexdigest, platform: package.software.platform)
             return refused(response) unless response.success?
           end
 
@@ -116,15 +116,16 @@ module WarpEngine
         end
 
         # Streams the file at +path+ for the release +version+ of +name+ as
-        # +filename+, with its SHA-256 +sha256+. Returns a Response. Raises
-        # Transport::Unreachable.
-        def upload(name:, version:, path:, filename:, sha256:)
+        # +filename+, with its SHA-256 +sha256+ and the +platform+ (so the other
+        # side's inbound lists can refuse it before the file lands). Returns a
+        # Response. Raises Transport::Unreachable.
+        def upload(name:, version:, path:, filename:, sha256:, platform: nil)
           boundary = "warp-engine-sync-#{SecureRandom.hex(12)}"
           File.open(path, "rb") do |file|
             head = "--#{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{filename}\"\r\n" \
                    "Content-Type: application/octet-stream\r\n\r\n"
             tail = "\r\n--#{boundary}--\r\n"
-            request = Net::HTTP::Post.new(uri("/build/upload", name: name, version: version, sha256: sha256))
+            request = Net::HTTP::Post.new(uri("/build/upload", name: name, version: version, sha256: sha256, platform: platform))
             request["Content-Type"] = "multipart/form-data; boundary=#{boundary}"
             request["Content-Length"] = (head.bytesize + file.size + tail.bytesize).to_s
             request.body_stream = Multipart.new([ StringIO.new(head), file, StringIO.new(tail) ])

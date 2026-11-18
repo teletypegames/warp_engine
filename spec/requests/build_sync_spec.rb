@@ -80,6 +80,11 @@ RSpec.describe "/build endpoints with a sync token", type: :request do
     upload(token)
     expect(response).to have_http_status(:ok)
 
+    path = File.join(tmpdir, "game-1.0.tic")
+    post "/build/upload", headers: { "X-Update-Secret" => token.plain_token },
+                          params: { name: "game", version: "1.0", platform: "tic80", file: Rack::Test::UploadedFile.new(path) }
+    expect(response).to have_http_status(:forbidden)
+
     publish(token)
     expect(response).to have_http_status(:forbidden)
     expect(JSON.parse(response.body)["error"]).to include("tic80 is not in allowed_platforms")
