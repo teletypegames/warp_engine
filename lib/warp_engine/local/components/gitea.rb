@@ -151,7 +151,7 @@ module WarpEngine
                                                          must_change_password: false })
             raise Local::Error, "gitea did not make #{PUSHER}: #{body['message'] || status}" unless status == 201
           end
-          return if secret("pusher_token").present?
+          return if pusher_token_valid?
 
           api(:patch, "/admin/users/#{PUSHER}", { login_name: PUSHER, source_id: 0, password: secret("pusher_password"),
                                                   must_change_password: false })
@@ -161,6 +161,11 @@ module WarpEngine
           raise Local::Error, "gitea did not issue the push token: #{body['message'] || status}" unless status == 201
 
           store!(secrets: { "pusher_token" => body["sha1"] })
+        end
+
+        def pusher_token_valid?
+          secret("pusher_token").present? &&
+            http.json(:get, "#{internal_url}/api/v1/repos/search?limit=1", token: secret("pusher_token")).first == 200
         end
       end
     end

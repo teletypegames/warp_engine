@@ -27,6 +27,18 @@ RSpec.describe WarpEngine::LocalComponentService do
     expect(operation.reload.steps.pluck("text")).to include("create the organisation games", "Git server (Gitea) is ready")
   end
 
+  it "issues a new push token when the git server no longer takes the stored one" do
+    stub_gitea_bootstrap
+    stub_request(:get, "#{LocalHelpers::GITEA}/repos/search?limit=1").to_return(status: 401, body: "{}")
+    record = WarpEngine::LocalComponent.for("gitea")
+    record.secrets = { "pusher_password" => "pw", "pusher_token" => "stale" }
+    record.save!
+
+    described_class.new.enable("gitea", operation)
+
+    expect(record.reload.secrets).to include("pusher_token" => "push-token")
+  end
+
   it "names the containers and volumes with the configured prefix" do
     WarpEngine.config.local.name_prefix = "warp-example"
     stub_request(:get, "http://warp-example-gitea:3000/api/healthz").to_return(status: 200)
