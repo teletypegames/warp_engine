@@ -8,7 +8,9 @@ module WarpEngine
   # WarpEngine::OutletRefreshJob for the materialized outlets of a platform on
   # every <tt>warp_engine.publish</tt> notification, and hands the release to
   # WarpEngine::SyncService#dispatch while outbound sync is on (WarpEngine::Sync;
-  # a failure there is logged, the publish stands), whose settings it checks
+  # a failure there is logged, the publish stands), and every
+  # <tt>warp_engine.software_images</tt> notification to
+  # WarpEngine::SyncService#dispatch_images, whose settings it checks
   # after boot. It registers the
   # <tt>application/wasm</tt> MIME type the runtimes' files need, unless the
   # host did.
@@ -51,6 +53,15 @@ module WarpEngine
         end
       rescue StandardError => e
         Rails.logger.error("[WarpEngine::Sync] dispatch failed: #{e.class}: #{e.message}")
+      end
+
+      ActiveSupport::Notifications.subscribe("warp_engine.software_images") do |*, payload|
+        if WarpEngine::Sync.outbound?
+          WarpEngine::SyncService.new.dispatch_images(WarpEngine::Software.kept.find_by(id: payload[:software_id]),
+                                                      origin: payload[:origin])
+        end
+      rescue StandardError => e
+        Rails.logger.error("[WarpEngine::Sync] image dispatch failed: #{e.class}: #{e.message}")
       end
     end
 

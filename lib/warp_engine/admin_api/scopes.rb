@@ -8,8 +8,11 @@ module WarpEngine
       WRITE  = "admin:write".freeze
       # Manages application tokens and device sign-ins.
       TOKENS = "admin:tokens".freeze
+      # Pairs with this engine: manages the caller's own inbound sync peers
+      # (the +sync_pairings+ resource), nothing else.
+      PAIR   = "sync:pair".freeze
       # Every admin scope; a token holding any of them is an admin token.
-      ALL    = [ READ, WRITE, TOKENS ].freeze
+      ALL    = [ READ, WRITE, TOKENS, PAIR ].freeze
     end
   end
 end

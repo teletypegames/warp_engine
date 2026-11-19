@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_18_204541) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_120000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -170,6 +170,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_204541) do
     t.datetime "created_at", null: false
     t.bigint "image_id", null: false
     t.boolean "is_default", default: false, null: false
+    t.string "origin", limit: 8, default: "local", null: false
     t.integer "position", default: 0, null: false
     t.bigint "software_id", null: false, unsigned: true
     t.datetime "updated_at", null: false
@@ -239,7 +240,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_204541) do
   end
 
   create_table "sync_peers", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.json "allowed_channels"
     t.datetime "created_at", precision: 3
+    t.bigint "created_by_id", unsigned: true
+    t.string "created_by_type", limit: 128
     t.datetime "deleted_at", precision: 3
     t.boolean "inbound_enabled", default: true, null: false
     t.bigint "inbound_token_id", unsigned: true
@@ -252,6 +256,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_204541) do
     t.string "transport", limit: 32, default: "http", null: false
     t.json "transport_options"
     t.datetime "updated_at", precision: 3
+    t.index ["created_by_type", "created_by_id"], name: "idx_sync_peers_created_by"
     t.index ["deleted_at"], name: "idx_sync_peers_deleted_at"
   end
 

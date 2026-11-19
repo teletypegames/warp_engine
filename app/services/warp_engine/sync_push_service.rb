@@ -1,9 +1,11 @@
 module WarpEngine
   # Pushes one release to one WarpEngine::SyncPeer: builds its
   # WarpEngine::Sync::Package (the files the CI uploaded, through the filter)
-  # and hands it to the peer's WarpEngine::Sync::Transport. The push is
-  # logged on its WarpEngine::SyncEvent and the peer's +last_synced_at+ /
-  # +last_error+.
+  # and hands it to the peer's WarpEngine::Sync::Transport; once the release
+  # went through, the software's images follow when the transport carries
+  # them (#push_images, which also runs alone after a gallery change). The
+  # push is logged on its WarpEngine::SyncEvent and the peer's
+  # +last_synced_at+ / +last_error+.
   class SyncPushService
     # The outcome of #push: the +status+ (a WarpEngine::SyncEvent status) and
     # the +message+, +nil+ when it went through.
@@ -18,7 +20,8 @@ module WarpEngine
     # Pushes +release+ to +peer+, logging on +event+ (a queued
     # WarpEngine::SyncEvent, or +nil+ to start one) as attempt +attempt+,
     # through +filter+ (a WarpEngine::Sync::Filter; by default the configured
-    # outbound one), which also chooses the files. With +skip_existing+ it
+    # outbound one, narrowed to the peer's channels), which also chooses the
+    # files. With +skip_existing+ it
     # first asks the transport what the other side has
     # (WarpEngine::Sync::Transport#existing) and sends nothing when it has the
     # version with every kind this push would bring; when the transport
@@ -38,6 +41,7 @@ module WarpEngine
       @files_count = 0
       @bytes = 0
       @step = nil
+      @images_note = nil
 
       reason = skip_reason(release, peer)
       return finish(event, peer, status: "skipped", message: reason) if reason
@@ -49,7 +53,58 @@ module WarpEngine
       raise
     end
 
+    # Sends the gallery of +software+ to +peer+ through its transport
+    # (WarpEngine::Sync::Transport#deliver_images), logging on +event+ (a
+    # queued WarpEngine::SyncEvent, or +nil+ to start one) as attempt
+    # +attempt+. Returns a Result: +skipped+ when outbound sync is off, the
+    # peer takes no outbound pushes, its transport carries no images or the
+    # other side refuses on purpose; +failed+ or +succeeded+ otherwise.
+    # Raises WarpEngine::Sync::Transport::Unreachable (after logging it).
+    def push_images(software, peer, event: nil, attempt: 1)
+      event ||= SyncEvent.log(direction: "outbound", status: "queued", sync_peer: peer, step: "images",
+                              software_id: software.id, software_name: software.name, platform: software.platform)
+      @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      @files_count = 0
+      @bytes = 0
+      @step = "images"
+      reason = images_skip_reason(peer)
+      return finish(event, peer, status: "skipped", message: reason) if reason
+
+      event&.update!(status: "running", attempt: attempt)
+      images = Sync::ImageFile.of(software)
+      delivery = peer.transport_instance.deliver_images(software.name, images) { |step| @step = step }
+      if delivery.status == "succeeded"
+        @files_count = images.size
+        @bytes = images.sum { |image| File.size(image.path) }
+      end
+      finish(event, peer, status: delivery.status, code: delivery.code, message: delivery.message)
+    rescue Sync::Transport::Unreachable => e
+      finish(event, peer, status: "failed", message: e.message)
+      raise
+    end
+
     private
+
+    def images_skip_reason(peer)
+      return "outbound sync is not enabled" unless @config.outbound.enabled?
+      return "the peer takes no outbound pushes" unless peer.outbound_enabled && peer.deleted_at.nil?
+      return "the #{peer.transport} transport carries no images" unless peer.transport_class&.images?
+
+      nil
+    end
+
+    def follow_with_images(release, peer, transport)
+      return unless transport.class.images?
+
+      images = Sync::ImageFile.of(release.software)
+      return if images.empty?
+
+      delivery = transport.deliver_images(release.software.name, images)
+      @images_note = "images: #{delivery.message}" unless delivery.status == "succeeded"
+      peer.failed!("images: #{delivery.message}") if delivery.status == "failed"
+    rescue Sync::Transport::Unreachable => e
+      @images_note = "images: #{e.message}"
+    end
 
     def skip_reason(release, peer)
       return "outbound sync is not enabled" unless @config.outbound.enabled?
@@ -57,7 +112,7 @@ module WarpEngine
       return "the release came by sync" if release.try(:synced?)
       return "unknown sync transport #{peer.transport}" if peer.transport_class.nil?
 
-      @filter.reason(release)
+      @filter.for(peer).reason(release)
     end
 
     def run(release, peer, event, skip_existing)
@@ -73,8 +128,9 @@ module WarpEngine
         if delivery.status == "succeeded"
           @files_count = package.files.size
           @bytes = package.bytes
+          follow_with_images(release, peer, transport)
         end
-        finish(event, peer, status: delivery.status, code: delivery.code, message: delivery.message)
+        finish(event, peer, status: delivery.status, code: delivery.code, message: delivery.message || @images_note)
       end
     end
 

@@ -136,20 +136,41 @@ module WarpEngine
     # releases here (with a token of a WarpEngine::SyncPeer), and which.
     # Besides the lists of WarpEngine::Sync::Direction:
     #
-    # [protect_local] a version this engine published itself (origin +ci+) is
-    #                 not overwritten by sync (default +true+)
+    # [protect_local] a version this engine published itself (origin +ci+),
+    #                 and the images set here, are not overwritten by sync
+    #                 (default +true+)
+    # [pairing]       who may pair with this engine (one of PAIRINGS, default
+    #                 +:admin+): only an +admin:write+ token, or with +:anyone+
+    #                 every tool signed in here as well, through the
+    #                 +sync:pair+ scope its sign-in gets
     class Inbound < Direction
-      # Whether a version published here by the CI is kept from sync (see above).
-      attr_accessor :protect_local
+      # The values of #pairing.
+      PAIRINGS = %i[admin anyone].freeze
+
+      # Whether a version published here by the CI is kept from sync, and who
+      # may pair (see above).
+      attr_accessor :protect_local, :pairing
 
       # Sets the defaults.
       def initialize
         super
         @protect_local = true
+        @pairing = :admin
       end
 
       # Whether #protect_local is on.
       def protect_local? = protect_local != false
+
+      # Whether every signed-in tool may pair: inbound is on and #pairing is +:anyone+.
+      def pairing_open? = enabled? && pairing.to_s == "anyone"
+
+      # Checks the settings (see Direction#validate!) and #pairing. Raises
+      # ArgumentError for an unknown value. Returns the warnings (none).
+      def validate!
+        raise ArgumentError, "sync inbound pairing must be one of #{PAIRINGS.inspect}" unless PAIRINGS.include?(pairing.to_s.to_sym)
+
+        super
+      end
     end
   end
 end

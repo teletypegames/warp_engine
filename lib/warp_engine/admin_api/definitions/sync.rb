@@ -13,10 +13,93 @@ module WarpEngine
 
         module_function
 
-        # Declares the +sync_peers+ and +sync_events+ resources on +api+.
+        # Declares the +sync_peers+, +sync_pairings+ and +sync_events+ resources on +api+.
         def define(api)
           sync_peers(api)
+          sync_pairings(api)
           sync_events(api)
+        end
+
+        # Declares the +sync_pairings+ resource on +api+: self-service pairing
+        # for another engine that wants to push here. A caller holding
+        # +sync:pair+ (while WarpEngine::Sync::Inbound#pairing_open?) or
+        # +admin:write+ lists, adds, renames and deletes its own inbound-only
+        # peers and issues their tokens; no other peer is in reach, and nothing
+        # of the inbound lists changes. Answers 409 while inbound sync is off,
+        # 403 for a caller that may not pair.
+        def sync_pairings(api)
+          api.resource(:sync_pairings, label: "Sync pairing", scope: :any,
+                                       condition: -> { WarpEngine::Sync.inbound? },
+                                       unavailable: { status: 409, message: "inbound sync is off here" }) do |r|
+            r.list "/sync_pairings", summary: "The peers you paired with this engine", item: X.sync_pairing do |ctx|
+              ctx.list(paired(ctx)) { |record| pairing(record) }
+            end
+
+            r.get "/sync_pairings/:id", summary: "One peer you paired", item: X.sync_pairing do |ctx|
+              ctx.ok(pairing(paired(ctx).find(ctx.id)))
+            end
+
+            r.create "/sync_pairings", summary: "Pair: add an inbound peer for you and issue its token (shown once)",
+                                       body: S.object({ label: S.string("What the other engine is, e.g. \"laptop local\"") }),
+                                       required: %i[label], item: X.sync_pairing do |ctx|
+              owner = pairer!(ctx).owner
+              record = WarpEngine::SyncPeer.new(label: ctx[:label], transport: "http", inbound_enabled: true,
+                                                outbound_enabled: false, created_by: owner)
+              token = nil
+              WarpEngine::SyncPeer.transaction do
+                ctx.save!(record)
+                token = record.issue_inbound_token!
+              end
+              ctx.created(pairing(record, token))
+            end
+
+            r.update "/sync_pairings/:id", summary: "Rename a peer you paired",
+                                           body: S.object({ label: S.string }), item: X.sync_pairing do |ctx|
+              record = paired(ctx).find(ctx.id)
+              record.assign_attributes(ctx.attributes("label"))
+              ctx.ok(pairing(ctx.save!(record)))
+            end
+
+            r.delete "/sync_pairings/:id", summary: "Unpair: delete a peer you paired (soft) and revoke its token" do |ctx|
+              record = paired(ctx).find(ctx.id)
+              record.inbound_token&.revoke!
+              record.soft_delete!
+              ctx.no_content
+            end
+
+            r.action :post, "/sync_pairings/:id/token", name: :token, status: 201,
+                     summary: "Issue a new token for a peer you paired (the old one stops working); shown in this answer only",
+                     item: X.sync_pairing do |ctx|
+              record = paired(ctx).find(ctx.id)
+              ctx.created(pairing(record, record.issue_inbound_token!))
+            end
+          end
+        end
+
+        # Returns the principal of +ctx+ when it may pair: +admin:write+, or
+        # +sync:pair+ while anyone may pair. Raises a 403 Error otherwise.
+        def pairer!(ctx)
+          principal = ctx.principal
+          return principal if principal.scope?(Scopes::WRITE)
+          return principal if principal.scope?(Scopes::PAIR) && WarpEngine::Sync.config.inbound.pairing_open?
+
+          raise Error.forbidden("Pairing here needs the #{Scopes::PAIR} scope (inbound pairing :anyone) or #{Scopes::WRITE}")
+        end
+
+        # The kept inbound peers the caller of +ctx+ paired. Raises a 403 Error
+        # for a caller that may not pair.
+        def paired(ctx)
+          owner = pairer!(ctx).owner
+          raise Error.forbidden("Pairing needs a token with an owner") if owner.nil?
+
+          WarpEngine::SyncPeer.paired_by(owner).where(inbound_enabled: true)
+        end
+
+        # The +SyncPairing+ answer of +record+, with the plain +token+ when one was just issued.
+        def pairing(record, token = nil)
+          last = record.sync_events.where(direction: "inbound").maximum(:created_at)
+          { id: record.id, label: record.label, inboundTokenPrefix: record.inbound_token&.token_prefix,
+            plainToken: token&.plain_token, lastInboundAt: last, createdAt: record.created_at, updatedAt: record.updated_at }
         end
 
         # Declares the +sync_peers+ resource on +api+: list, get, create,
@@ -154,7 +237,7 @@ module WarpEngine
           )
           service = WarpEngine::SyncService.new
           if ctx[:dryRun] == true
-            plan = service.plan(criteria)
+            plan = service.plan(criteria, peer: peers.one? ? peers.first : nil)
             return push_answer(plan.releases, peers, plan.skipped, dry_run: true)
           end
 

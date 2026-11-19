@@ -94,4 +94,14 @@ RSpec.describe WarpEngine::Sync::Transports::Http do
     expect(described_class.errors_for(WarpEngine::SyncPeer.new(label: "x", outbound_enabled: true, transport_options: { "host" => "nope" })))
       .to include("Host must be an http(s) URL", "Token is required")
   end
+
+  it "takes plain http outside development and test only to this machine or a private network" do
+    allow(Rails.env).to receive(:local?).and_return(false)
+    errors = ->(host) { described_class.errors_for(WarpEngine::SyncPeer.new(label: "x", outbound_enabled: false, transport_options: { "host" => host })) }
+
+    expect(errors.call("http://games.example.org")).to eq([ "Host must use https" ])
+    %w[http://localhost:8081 http://host.docker.internal:8081 http://10.0.0.5 http://192.168.1.2 http://[::1]:3000].each do |host|
+      expect(errors.call(host)).to be_empty, host
+    end
+  end
 end

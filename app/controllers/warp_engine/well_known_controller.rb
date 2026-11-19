@@ -20,8 +20,10 @@ module WarpEngine
     # Renders the engine, its version and catalog API version, its name, its
     # profile and sign-in, where the Admin API is (+nil+ when it is off),
     # whether an admin web UI is loaded, and the sync settings a tool needs:
-    # whether this engine takes syncs (+inbound+) and the engine it means to
-    # sync to (+target+).
+    # whether this engine takes syncs (+inbound+), who may pair with it
+    # (+pairing+: <tt>"admin"</tt> or <tt>"anyone"</tt>, +nil+ while inbound is
+    # off), whether it keeps per-peer channels and sends images (+features+)
+    # and the engine it means to sync to (+target+).
     def show
       render json: {
         engine:   "warp-engine",
@@ -32,11 +34,17 @@ module WarpEngine
         signIn:   SIGN_IN.fetch(engine_config.profile),
         adminApi: (WarpEngine::AdminApi.url_path if WarpEngine::AdminApi.config.enabled?),
         admin:    defined?(::ActiveAdmin) ? true : false,
-        sync:     { inbound: WarpEngine::Sync.config.inbound.enabled?, target: engine_config.sync_target.presence }
+        sync:     sync_block
       }
     end
 
     private
+
+    def sync_block
+      inbound = WarpEngine::Sync.config.inbound
+      { inbound: inbound.enabled?, pairing: inbound.enabled? ? inbound.pairing.to_s : nil,
+        features: %w[peer-channels images pairing], target: engine_config.sync_target.presence }
+    end
 
     def engine_config = WarpEngine.config
 

@@ -1,6 +1,7 @@
 require "open3"
 require "fileutils"
 require "tmpdir"
+require "json"
 
 module WarpEngine
   module Sync
@@ -30,6 +31,9 @@ module WarpEngine
 
         # Returns <tt>"rsync"</tt>.
         def self.key = "rsync"
+
+        # Returns +true+: the images are mirrored too.
+        def self.images? = true
 
         # Returns the human name.
         def self.label = "rsync (SSH)"
@@ -101,6 +105,34 @@ module WarpEngine
             FileUtils.mkdir_p(folder)
             package.files.each { |file| place(file.path, File.join(folder, file.name)) }
             status, _out, err = rsync([ "--recursive", "--times", "--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r", "#{staging}/", "#{remote}/" ])
+            return Delivery.new(status: "succeeded", code: 0, message: nil) if status.zero?
+
+            Delivery.new(status: "failed", code: status, message: err.strip.lines.last.to_s.strip.presence || "rsync exited #{status}")
+          end
+        rescue Unreachable
+          raise
+        rescue WarpEngine::Error => e
+          Delivery.new(status: "failed", code: nil, message: e.message)
+        end
+
+        # Mirrors the gallery of the software +name+ into
+        # <tt><path>/<name>/images/</tt>: each of +images+ as
+        # WarpEngine::Sync::ImageFile#mirror_name, and <tt>images.json</tt>
+        # with the manifest; files no longer in the gallery are deleted there.
+        # Returns a Transport::Delivery like #deliver. Raises Transport::Unreachable.
+        def deliver_images(name, images)
+          yield "images" if block_given?
+          Dir.mktmpdir("warp-engine-rsync") do |staging|
+            folder = File.join(staging, name, "images")
+            FileUtils.mkdir_p(folder)
+            manifest = images.each_with_index.map do |image, index|
+              place(image.path, File.join(folder, image.mirror_name(index)))
+              image.to_manifest.merge(file: image.mirror_name(index))
+            end
+            File.write(File.join(folder, "images.json"), JSON.pretty_generate(manifest))
+            status, _out, err = rsync([ "--recursive", "--times", "--delete", "--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r",
+                                        "--include=/#{name}/", "--include=/#{name}/images/***", "--exclude=*",
+                                        "#{staging}/", "#{remote}/" ])
             return Delivery.new(status: "succeeded", code: 0, message: nil) if status.zero?
 
             Delivery.new(status: "failed", code: status, message: err.strip.lines.last.to_s.strip.presence || "rsync exited #{status}")

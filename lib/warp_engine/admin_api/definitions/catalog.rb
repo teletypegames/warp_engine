@@ -230,7 +230,7 @@ module WarpEngine
                      body: S.object({ isDefault: S.boolean, position: S.integer(minimum: 0) }),
                      item: X.software_image do |ctx|
               image = WarpEngine::SoftwareImage.find(ctx.id)
-              image.assign_attributes(ctx.attributes)
+              image.assign_attributes(ctx.attributes.merge("origin" => "local"))
               ctx.ok(Admin::SoftwareImageSerializer.render_as_hash(ctx.save!(image)))
             end
 

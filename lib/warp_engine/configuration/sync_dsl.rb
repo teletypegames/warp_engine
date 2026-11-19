@@ -66,6 +66,9 @@ module WarpEngine
       # Keeps a version published here from sync, or not (inbound).
       def protect_local(value = true) = write(:protect_local, value)
 
+      # Sets who may pair (inbound): +:admin+ or +:anyone+.
+      def pairing(value) = write(:pairing, value.to_s.to_sym)
+
       # Each list setting of either direction is a method taking the values,
       # as arguments or one Array.
       WarpEngine::Sync::Outbound.lists.each do |list|

@@ -1,6 +1,6 @@
 ActiveAdmin.register WarpEngine::SyncPeer, as: "Sync Peer" do
   actions :index, :show, :new, :create, :edit, :update, :destroy
-  permit_params :label, :transport, :secret, :outbound_enabled, :inbound_enabled, transport_options: {}
+  permit_params :label, :transport, :secret, :outbound_enabled, :inbound_enabled, transport_options: {}, allowed_channels: []
 
   menu parent: "WarpEngine", priority: 11, label: "Sync Peers"
 
@@ -16,6 +16,7 @@ ActiveAdmin.register WarpEngine::SyncPeer, as: "Sync Peer" do
     column :label
     column(:transport) { |peer| peer.transport_class&.label || peer.transport }
     column("Target") { |peer| code peer.target }
+    column("Channels") { |peer| peer.channels.join(", ").presence || "all allowed" }
     column("Outbound") { |peer| status_tag(peer.outbound_enabled ? "on" : "off", class: peer.outbound_enabled ? "yes" : "no") }
     column("Inbound") { |peer| status_tag(peer.inbound_enabled && peer.inbound_token_id ? "on" : "off", class: peer.inbound_enabled && peer.inbound_token_id ? "yes" : "no") }
     column :last_synced_at
@@ -36,6 +37,9 @@ ActiveAdmin.register WarpEngine::SyncPeer, as: "Sync Peer" do
       f.input :label
       f.input :outbound_enabled, label: "Push our releases to it (outbound)",
                                  hint: WarpEngine::Sync.outbound? ? nil : "Outbound sync is off in the initializer (sync { outbound { enabled true } })."
+      f.input :allowed_channels, as: :check_boxes, label: "Channels pushed to it", collection: WarpEngine::Channels::ALL,
+                                 hint: "None ticked: every channel of the outbound allowed_channels " \
+                                       "(#{Array(WarpEngine::Sync.config.outbound.allowed_channels).join(', ')})."
       f.input :inbound_enabled, label: "Accept its pushes (inbound)",
                                 hint: "It pushes with a token issued on this page. #{'Inbound sync is off in the initializer (sync { inbound { enabled true } }).' unless WarpEngine::Sync.inbound?}"
       f.input :transport, as: :select, include_blank: false,

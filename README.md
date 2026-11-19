@@ -1708,9 +1708,41 @@ A peer record describes both sides of one partnership:
   `rake "warp_engine:sync:inbound_token[label]" FILE=…`), owned by the peer. It is shown
   once; the other engine stores it as the secret of the peer that points back here.
 
-A `sync` token opens `POST /build/upload` and `POST /build/publish` only, is always
-`unrestricted`, belongs to a peer and is never written to a pipeline. The receiving side
-needs `application_tokens from: :database`.
+A `sync` token opens `POST /build/upload`, `POST /build/publish` and `POST /build/images`
+only, is always `unrestricted`, belongs to a peer and is never written to a pipeline. The
+receiving side needs `application_tokens from: :database`.
+
+A peer may narrow the outbound channels for itself (5.3, `allowed_channels`, the admin's
+*Channels pushed to it*, `allowedChannels` in the Admin API): empty, it takes every channel
+the global `outbound { allowed_channels }` lets go; filled, only those of them — it never
+widens the global list. A release it holds back says so: *the beta channel is not in
+Orbit's channels*.
+
+### Pairing (5.3)
+
+Instead of an administrator adding the peer and handing its token over, the engine that
+wants to push may pair by itself through the Admin API's `sync_pairings` resource:
+
+```ruby
+WarpEngine.configure do
+  sync do
+    inbound do
+      enabled true
+      pairing :anyone   # default :admin
+    end
+  end
+end
+```
+
+With `pairing :anyone` every tool sign-in approved here gets the `sync:pair` scope beside
+the ones it asked for. That scope opens `sync_pairings` and nothing else: `POST
+/sync_pairings { label }` adds an inbound-only peer owned by the caller (`created_by`) and
+answers its token once (`plainToken`); `GET`, `PATCH` (the label), `POST
+/sync_pairings/:id/token` (a new token, the old one stops) and `DELETE` (soft, the token is
+revoked) reach only the caller's own peers. An `admin:write` token may always pair. Pairing
+gives no more than the `inbound` lists allow anyway; while inbound is off the resource
+answers 409. The WarpEngine Toolbox pairs a local engine with a remote one this way, then
+adds the outbound peer on the local side with the token.
 
 ### Outbound
 
@@ -1735,6 +1767,17 @@ records, and an unpacked kind whose zip is gone is zipped again. A peer that doe
 answer is tried again, five times in all; a refusal on purpose (403: its inbound settings,
 409: a newer or its own version) is logged as skipped, not as an error.
 
+The images follow (5.3): once a release went through a transport that carries images
+(`images?`: `http` and `rsync`), the software's gallery goes after it, and after every
+change of a gallery (the `warp_engine.software_images` notification, a few seconds later
+through `WarpEngine::SyncImagesJob`) it goes on its own to the peers its newest release
+would go to. Over `http` the gallery is a manifest of SHA-256 digests (`POST /build/images`):
+the other side keeps what it has, names what it lacks, those files follow one by one (`POST
+/build/images/upload`), then the manifest is applied — order, default image, and the images
+it got by sync before and the manifest no longer has are unlinked. The images came by sync
+get `origin` `sync` and are not sent on. Over `rsync` the gallery is mirrored into
+`<path>/<name>/images/` with an `images.json` manifest.
+
 ### Inbound
 
 A push with a peer's token is taken only while `inbound` is on, the peer is kept and
@@ -1744,6 +1787,11 @@ publish. A refusal answers 403 with the reason. With `protect_local` (the defaul
 version this engine's CI published is not overwritten (409). The release is published
 with `origin` `sync` and its `sync_peer`, so it is never pushed on: two engines may
 push to each other.
+
+A gallery push is taken while the peer may push here, the software is here (409 before
+its first release) and some release of it passes the inbound lists. With `protect_local`
+a gallery somebody set here (an image with `origin` `local`: the admin, the Admin API) is
+left alone (409); changing a synced image here makes it `local`.
 
 ### Transports
 
@@ -2020,7 +2068,9 @@ address before it signs in:
   `local` (one developer's machine; the tool reads a token file instead);
 - `adminApi` — the Admin API prefix, `null` when it is off; `admin` — whether an ActiveAdmin
   UI is loaded;
-- `sync.inbound` — whether this engine takes syncs; `sync.target` — the engine this one means
+- `sync.inbound` — whether this engine takes syncs; `sync.pairing` (5.3) — who may pair
+  (`admin`, `anyone`, `null` while inbound is off); `sync.features` — what this engine's
+  sync knows (`peer-channels`, `images`, `pairing`); `sync.target` — the engine this one means
   to sync to, so a tool can offer the pairing.
 
 ```ruby
@@ -2039,6 +2089,15 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.3
+
+Run the migration (`sync_peers.allowed_channels`, `created_by`; `software_images.origin`).
+Nothing else changes until you turn something on: peers keep the global channels, pairing
+stays with the administrators (`inbound { pairing :anyone }` opens it), and a host whose
+image adapter keeps files (`Images::HostModel`, the default) sends galleries with its
+releases. `sync:pair` is a new Admin API scope; a host authenticator that maps its own
+scopes may grant it.
 
 ## Upgrading to 5.2
 

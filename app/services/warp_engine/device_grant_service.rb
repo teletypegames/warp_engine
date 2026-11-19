@@ -71,14 +71,17 @@ module WarpEngine
 
     # Approves the pending tool grant +user_code+ for the administrator
     # +admin+ (an instance of the Admin API token owner class): the token gets
-    # the scopes the grant asked for and is owned by +admin+. Returns the
-    # grant. Raises UnknownCode (also for a catalog client's grant) and
-    # NotConfigured.
+    # the scopes the grant asked for, and +sync:pair+ while anyone may pair
+    # (WarpEngine::Sync::Inbound#pairing_open?), and is owned by +admin+.
+    # Returns the grant. Raises UnknownCode (also for a catalog client's
+    # grant) and NotConfigured.
     def approve_tool(user_code:, admin:)
       ensure_tools_configured!
 
       grant = find_pending_tool(user_code)
-      issue(grant, owner_type: WarpEngine.config.admin_api.owner_class_name, subject: admin, scopes: grant.scopes)
+      scopes = Array(grant.scopes)
+      scopes |= [ WarpEngine::AdminApi::Scopes::PAIR ] if WarpEngine::Sync.config.inbound.pairing_open?
+      issue(grant, owner_type: WarpEngine.config.admin_api.owner_class_name, subject: admin, scopes: scopes)
     end
 
     # Returns the pending tool grant +user_code+. Raises UnknownCode when there

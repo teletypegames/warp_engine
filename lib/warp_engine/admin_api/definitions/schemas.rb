@@ -101,7 +101,8 @@ module WarpEngine
         # The +SoftwareImage+ schema.
         def software_image
           named("SoftwareImage", { id: S.id, softwareId: S.integer, imageId: S.integer, isDefault: S.boolean,
-                                   position: S.integer, url: S.nullable(S.string), **timestamps })
+                                   position: S.integer, origin: S.enum(WarpEngine::SoftwareImage::ORIGINS, "Who set it: local or sync"),
+                                   url: S.nullable(S.string), **timestamps })
         end
 
         # The body of linking a library image to a software.
@@ -259,6 +260,8 @@ module WarpEngine
                               transportOptions: S.object({}, additional: true, description: "The transport's settings, e.g. host"),
                               secretPrefix: S.nullable(S.string("The first characters of the secret")),
                               outboundEnabled: S.boolean, inboundEnabled: S.boolean,
+                              allowedChannels: S.array(S.enum(WarpEngine::Channels::ALL), "Narrows the outbound allowed_channels; empty: the global list"),
+                              createdBy: S.nullable(S.object({ type: S.string, id: S.integer }, description: "Who paired it (sync_pairings)")),
                               inboundTokenPrefix: S.nullable(S.string("The token it pushes here with")),
                               lastSyncedAt: S.nullable(S.datetime), lastError: text, **timestamps })
         end
@@ -268,7 +271,16 @@ module WarpEngine
           S.object({ label: S.string, transport: S.enum(WarpEngine::Sync::Transports.keys, "Default: http"),
                      transportOptions: S.object({}, additional: true, description: "The transport's settings (http: host)"),
                      secret: S.string("The transport's secret (http: the token the other engine issued); write-only, empty keeps the stored one"),
-                     outboundEnabled: S.boolean("Push our releases to it"), inboundEnabled: S.boolean("Accept its pushes") })
+                     outboundEnabled: S.boolean("Push our releases to it"), inboundEnabled: S.boolean("Accept its pushes"),
+                     allowedChannels: S.array(S.enum(WarpEngine::Channels::ALL), "The channels pushed to it, within the outbound allowed_channels; empty: all of those") })
+        end
+
+        # The +SyncPairing+ schema: a peer the caller paired, and its inbound
+        # token when this answer issued one.
+        def sync_pairing
+          named("SyncPairing", { id: S.id, label: S.string, inboundTokenPrefix: S.nullable(S.string),
+                                 plainToken: S.nullable(S.string("The new inbound token, in the answer that issued it only")),
+                                 lastInboundAt: S.nullable(S.datetime), **timestamps })
         end
 
         # The +SyncInboundToken+ schema: a new inbound token, shown once.
@@ -362,7 +374,7 @@ module WarpEngine
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
             runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,
-            sync_peer, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
+            sync_peer, sync_pairing, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
         end
       end
     end

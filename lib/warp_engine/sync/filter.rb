@@ -7,11 +7,19 @@ module WarpEngine
     # platforms, statuses), then the +allowed_*+ lists axis by axis (software
     # name or category, platform, status): every axis with a list must
     # match, and on the first axis the name and the category are either-or.
+    # A filter #for a WarpEngine::SyncPeer also holds back the channels the
+    # peer leaves out of its own +allowed_channels+.
     class Filter
       # [config] the direction's settings, by default WarpEngine::Sync.config.outbound
-      def initialize(config = Sync.config.outbound)
+      # [peer]   the WarpEngine::SyncPeer whose channels narrow it, or +nil+
+      def initialize(config = Sync.config.outbound, peer: nil)
         @config = config
+        @peer = peer
       end
+
+      # Returns a filter with the same settings, narrowed to the channels of
+      # +peer+ (a WarpEngine::SyncPeer, or +nil+ for none).
+      def for(peer) = self.class.new(@config, peer: peer)
 
       # Returns why +release+ does not pass, as a sentence, or +nil+ when it
       # does. Does not look at whether the direction is enabled.
@@ -24,6 +32,7 @@ module WarpEngine
 
         channel = WarpEngine::Channels.for(version)
         return "the #{channel} channel is not in allowed_channels" unless list(:allowed_channels).include?(channel)
+        return "the #{channel} channel is not in #{@peer.label}'s channels" if peer_refuses?(channel)
 
         switch_reason(software) || denied_reason(software) || allowed_reason(software)
       end
@@ -56,6 +65,11 @@ module WarpEngine
       private
 
       def list(name) = Array(@config.public_send(name)).map(&:to_s)
+
+      def peer_refuses?(channel)
+        channels = @peer.respond_to?(:channels) ? @peer.channels : []
+        channels.any? && !channels.include?(channel)
+      end
 
       def switch_reason(software)
         case @config.software_switch

@@ -10,7 +10,8 @@ module WarpEngine
     # A transport class names itself (+key+, +label+), describes its settings
     # (+options+: the admin draws the peer form from them) and says whether
     # the other side is a catalog that publishes (+publishes?+). An instance
-    # works for one peer: #check, #existing and #deliver.
+    # works for one peer: #check, #existing, #deliver and, when it carries
+    # images (+images?+), #deliver_images.
     class Transport
       # The other side did not answer (refused, timed out, broken TLS): the
       # push is tried again.
@@ -46,6 +47,10 @@ module WarpEngine
         # release (a WarpEngine), +false+ for a file mirror.
         def publishes? = false
 
+        # Returns +true+ when the transport sends a software's images too
+        # (#deliver_images), by default +false+.
+        def images? = false
+
         # Returns the error messages of +peer+'s options for this transport:
         # a required option missing on an outbound peer.
         def errors_for(peer)
@@ -78,6 +83,14 @@ module WarpEngine
       # +publish+) before it runs. Returns a Delivery. Raises Unreachable when
       # the other side does not answer.
       def deliver(_package) = raise(NotImplementedError, "#{self.class.name} must define #deliver")
+
+      # Makes the gallery of the software +name+ on the other side what
+      # +images+ (WarpEngine::Sync::ImageFile values, in order) say: sends
+      # the ones it lacks, orders them, and drops the ones it got by sync
+      # before and +images+ no longer has. Yields each step's name like
+      # #deliver. Returns a Delivery, or +nil+ when the transport carries no
+      # images (the default). Raises Unreachable.
+      def deliver_images(_name, _images) = nil
 
       private
 

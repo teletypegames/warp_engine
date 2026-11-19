@@ -51,6 +51,26 @@ module WarpEngine
       refused || protected(software, input.version)
     end
 
+    # Returns a Refusal when a gallery push for +software+ (a
+    # WarpEngine::Software here, or +nil+) with +token+ is not taken: 403 by
+    # the peer or when no release of the software passes the inbound lists,
+    # 409 for a software not here, or whose images were set here by hand
+    # while +protect_local+ is on; +nil+ when it is taken.
+    def refuse_images(token:, software:)
+      refused = refuse_peer(token)
+      return refused if refused
+      return Refusal.new(status: 409, message: "no such software here yet; its release comes first") if software.nil?
+
+      reasons = software.releases.kept.map { |release| @filter.reason_for(software, release.version) }
+      return Refusal.new(status: 409, message: "no release of #{software.name} here yet") if reasons.empty?
+      return Refusal.new(status: 403, message: "sync inbound: #{reasons.first}") if reasons.none?(&:nil?)
+      if @config.protect_local? && software.software_images.where(origin: "local").exists?
+        return Refusal.new(status: 409, message: "the images of #{software.name} were set here (inbound protect_local)")
+      end
+
+      nil
+    end
+
     private
 
     def refuse_peer(token)

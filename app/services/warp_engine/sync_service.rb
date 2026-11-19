@@ -42,24 +42,43 @@ module WarpEngine
     def dispatch(release, source: :ci)
       return [] unless @config.outbound.enabled? && source.to_s != "sync" && !release.try(:synced?)
 
-      peers = SyncPeer.outbound.to_a
-      return [] if peers.empty?
+      SyncPeer.outbound.to_a.filter_map do |peer|
+        reason = @filter.for(peer).reason(release)
+        next enqueue(release, peer) if reason.nil?
 
-      reason = @filter.reason(release)
-      return peers.map { |peer| enqueue(release, peer) } if reason.nil?
+        log_skipped(release, peer, reason) if @config.verbose_events?
+        nil
+      end
+    end
 
-      peers.each { |peer| log_skipped(release, peer, reason) } if @config.verbose_events?
-      []
+    # Queues a push of the gallery of +software+ (WarpEngine::SyncImagesJob)
+    # to every peer that takes outbound pushes over a transport that carries
+    # images, after a change of its images (the
+    # <tt>warp_engine.software_images</tt> notification). Does nothing while
+    # outbound sync is off, for images that came by sync (+origin+
+    # <tt>"sync"</tt>), for a peer the newest release published here would
+    # not go to, and for a peer with a gallery push still queued.
+    #
+    # Returns the WarpEngine::SyncEvent of each queued push (+nil+ entries
+    # while the events are off), or an empty Array.
+    def dispatch_images(software, origin: "local")
+      return [] unless @config.outbound.enabled? && origin.to_s != "sync" && software
+
+      newest = Release.latest(software.releases.kept.to_a.reject { |release| release.try(:synced?) })
+      return [] if newest.nil?
+
+      SyncPeer.outbound.to_a.select { |peer| images_go?(software, peer, newest) }.map { |peer| enqueue_images(software, peer) }
     end
 
     # Returns what a run with +criteria+ (WarpEngine::Sync::Criteria) would
-    # send, as a Plan: per kept software the narrowings leave in, in name
+    # send to +peer+ (a WarpEngine::SyncPeer whose channels narrow it, or
+    # +nil+ for none), as a Plan: per kept software the narrowings leave in, in name
     # order, the newest release that passes the criteria's filter, or with
     # +all+ every such release, oldest version first so the other side does
     # not refuse the older ones as stale. Releases that came by sync are left
     # out. Does not look at whether outbound sync is enabled.
-    def plan(criteria)
-      filter = criteria.filter(@config.outbound)
+    def plan(criteria, peer: nil)
+      filter = criteria.filter(@config.outbound).for(peer)
       releases = []
       skipped = []
       Software.kept.includes(:releases).order(:name).each do |software|
@@ -76,7 +95,9 @@ module WarpEngine
     end
 
     # Queues the pushes of #plan for +criteria+ to each of +peers+ (every
-    # peer that takes outbound pushes by default). The pushes keep the
+    # peer that takes outbound pushes by default), each peer's plan narrowed
+    # to its channels; the RunResult's +releases+ and +skipped+ are those of
+    # the single peer, or of the plan without a peer for several. The pushes keep the
     # criteria, so a push without the configured filters is not held back by
     # them later.
     #
@@ -84,10 +105,10 @@ module WarpEngine
     def run(criteria, peers: SyncPeer.outbound.to_a)
       raise DisabledError, "outbound sync is not enabled" unless @config.outbound.enabled?
 
-      planned = plan(criteria)
       targets = Array(peers).select { |peer| peer.outbound_enabled && peer.deleted_at.nil? }
+      planned = plan(criteria, peer: targets.one? ? targets.first : nil)
       events = targets.flat_map do |peer|
-        planned.releases.map { |release| enqueue(release, peer, criteria: criteria) }
+        plan(criteria, peer: peer).releases.map { |release| enqueue(release, peer, criteria: criteria) }
       end
       RunResult.new(releases: planned.releases, peers: targets, skipped: planned.skipped, events: events)
     end
@@ -135,9 +156,9 @@ module WarpEngine
     # for one that may push here.
     def status(software)
       newest = Release.latest(software.releases.to_a.reject { |release| release.try(:synced?) })
-      reason = newest ? @filter.reason(newest) : "no release published here"
-      reason ||= "outbound sync is off" unless @config.outbound.enabled?
       SyncPeer.kept.order(:label).flat_map do |peer|
+        reason = newest ? @filter.for(peer).reason(newest) : "no release published here"
+        reason ||= "outbound sync is off" unless @config.outbound.enabled?
         lines = []
         lines << StatusLine.new(peer: peer, direction: "outbound", event: newest_event(software, peer, "outbound"), reason: reason) if peer.outbound_enabled
         lines << StatusLine.new(peer: peer, direction: "inbound", event: newest_event(software, peer, "inbound"), reason: nil) if peer.inbound_enabled
@@ -156,6 +177,19 @@ module WarpEngine
     def enqueue(release, peer, criteria: nil)
       event = SyncEvent.log(direction: "outbound", status: "queued", sync_peer: peer, **SyncEvent.release_attributes(release))
       SyncPushJob.perform_later(release.id, peer.id, event&.id, criteria&.to_h&.transform_keys(&:to_s))
+      event
+    end
+
+    def images_go?(software, peer, newest)
+      return false unless peer.transport_class&.images? && @filter.for(peer).reason(newest).nil?
+
+      !SyncEvent.where(sync_peer_id: peer.id, software_id: software.id, step: "images", status: "queued").exists?
+    end
+
+    def enqueue_images(software, peer)
+      event = SyncEvent.log(direction: "outbound", status: "queued", sync_peer: peer, step: "images",
+                            software_id: software.id, software_name: software.name, platform: software.platform)
+      SyncImagesJob.set(wait: 10.seconds).perform_later(software.id, peer.id, event&.id)
       event
     end
 
