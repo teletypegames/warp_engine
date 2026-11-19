@@ -15,7 +15,12 @@ module WarpEngine
       # [engine_url]  where the components reach this engine on that network (e.g. <tt>http://warp-engine-local:7470</tt>)
       # [forge_port]  the port on 127.0.0.1 the git server answers on (default 7471)
       # [owner]       the organisation the repositories go to (default +games+)
-      attr_accessor :enabled, :runtime, :socket, :host_socket, :network, :engine_url, :forge_port, :owner
+      # [ci_port]     the port on 127.0.0.1 the CI's web UI answers on, or +nil+
+      #               (the default: the CI is reached only on the network)
+      # [name_prefix] the start of the components' container and volume names
+      #               (default +warp-local+: <tt>warp-local-gitea</tt> …), so two
+      #               engines on one machine keep theirs apart
+      attr_accessor :enabled, :runtime, :socket, :host_socket, :network, :engine_url, :forge_port, :owner, :name_prefix, :ci_port
 
       # Sets the defaults listed above.
       def initialize
@@ -27,7 +32,11 @@ module WarpEngine
         @engine_url = nil
         @forge_port = 7471
         @owner = "games"
+        @name_prefix = "warp-local"
       end
+
+      # Returns the container or volume name +suffix+ with the #name_prefix.
+      def name(suffix) = "#{name_prefix}-#{suffix}"
 
       # Whether the components may be used.
       def enabled? = enabled == true

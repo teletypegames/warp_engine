@@ -3,22 +3,17 @@ require "securerandom"
 module WarpEngine
   module Local
     module Components
-      # The git server: Gitea in the container +warp-local-gitea+, its web
+      # The git server: Gitea in the container <tt><prefix>-gitea</tt>
+      # (WarpEngine::Local::Configuration#name_prefix), its web
       # and git address published on 127.0.0.1 at the forge port
       # (WarpEngine::Local::Configuration#forge_port), its data in the volume
-      # +warp-local-gitea-data+. The bootstrap makes an administrator, the
+      # <tt><prefix>-gitea-data</tt>. The bootstrap makes an administrator, the
       # organisation (WarpEngine::Local::Configuration#owner), an API token for
       # the engine and a push user, all with generated passwords; nobody signs
       # in. Its adapter is a WarpEngine::Forge::Gitea on the internal address.
       class Gitea < Component
         # The image, at a fixed version.
         IMAGE = "gitea/gitea:1.27.3".freeze
-
-        # The container name, also its address on the network.
-        CONTAINER = "warp-local-gitea".freeze
-
-        # The volume of its data.
-        VOLUME = "warp-local-gitea-data".freeze
 
         # The port it answers on inside the network.
         PORT = 3000
@@ -44,8 +39,14 @@ module WarpEngine
         # Returns what it is.
         def self.description = "A git server your projects are pushed to; the CI builds from it."
 
+        # Returns the container name, also its address on the network.
+        def container = config.name("gitea")
+
+        # Returns the volume of its data.
+        def volume = config.name("gitea-data")
+
         # Returns the address inside the network.
-        def internal_url = "http://#{CONTAINER}:#{PORT}"
+        def internal_url = "http://#{container}:#{PORT}"
 
         # Returns the address on this machine.
         def public_url = "http://localhost:#{config.forge_port}"
@@ -56,7 +57,7 @@ module WarpEngine
         # Returns its container.
         def containers
           [ ContainerSpec.build(
-            name: CONTAINER, image: IMAGE, volumes: { VOLUME => "/data" }, ports: { config.forge_port => PORT },
+            name: container, image: IMAGE, volumes: { volume => "/data" }, ports: { config.forge_port => PORT },
             env: {
               "GITEA__security__INSTALL_LOCK" => "true", "GITEA__server__DOMAIN" => "localhost",
               "GITEA__server__HTTP_PORT" => PORT.to_s, "GITEA__server__ROOT_URL" => "#{public_url}/",
@@ -114,11 +115,11 @@ module WarpEngine
           return if api(:get, "/user").first == 200
 
           operation.step!("create the administrator #{ADMIN}")
-          code, output = runtime.exec(CONTAINER, [ "gitea", "admin", "user", "create", "--admin", "--username", ADMIN,
+          code, output = runtime.exec(container, [ "gitea", "admin", "user", "create", "--admin", "--username", ADMIN,
                                                    "--password", secret("admin_password"), "--email", "#{ADMIN}@warp-engine.local",
                                                    "--must-change-password=false" ], user: "git")
           if code != 0 && output.include?("already exists")
-            code, output = runtime.exec(CONTAINER, [ "gitea", "admin", "user", "change-password", "--username", ADMIN,
+            code, output = runtime.exec(container, [ "gitea", "admin", "user", "change-password", "--username", ADMIN,
                                                      "--password", secret("admin_password"), "--must-change-password=false" ], user: "git")
           end
           raise Local::Error, "gitea did not make #{ADMIN}: #{output.strip}" unless code.zero?

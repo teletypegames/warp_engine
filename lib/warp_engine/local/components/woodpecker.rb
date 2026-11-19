@@ -3,14 +3,16 @@ require "securerandom"
 module WarpEngine
   module Local
     module Components
-      # The CI: a Woodpecker server (+warp-local-woodpecker+) and agent
-      # (+warp-local-woodpecker-agent+, running the pipelines on the machine's
+      # The CI: a Woodpecker server (<tt><prefix>-woodpecker</tt>) and agent
+      # (<tt><prefix>-woodpecker-agent</tt>, running the pipelines on the machine's
       # Docker through its socket), signed in to the git server through an
       # OAuth app there, asking this engine for the pipelines
       # (<tt>/build/config</tt>). It needs the forge
       # (WarpEngine::Local::Components::Gitea). No port is published: the
-      # engine reaches it on the network, and the pipelines reach the git
-      # server's public address through a git +insteadOf+ rule. Its adapter is
+      # engine reaches it on the network (with WarpEngine::Local::Configuration#ci_port
+      # its web UI answers on 127.0.0.1 too, signed in through the git server's
+      # public address), and the pipelines reach the git server's public address
+      # through a git +insteadOf+ rule. Its adapter is
       # the configured WarpEngine::CI::Woodpecker::Adapter with this server.
       class Woodpecker < Component
         # The server image, at a fixed version.
@@ -18,15 +20,6 @@ module WarpEngine
 
         # The agent image, at the same version.
         AGENT_IMAGE = "woodpeckerci/woodpecker-agent:v3.20.1".freeze
-
-        # The server container, also its address on the network.
-        SERVER = "warp-local-woodpecker".freeze
-
-        # The agent container.
-        AGENT = "warp-local-woodpecker-agent".freeze
-
-        # The volume of the server's data.
-        VOLUME = "warp-local-woodpecker-data".freeze
 
         # The server's web port inside the network.
         PORT = 8000
@@ -49,11 +42,29 @@ module WarpEngine
         # Returns what it is.
         def self.description = "Builds every push and tag with the pipeline this engine serves, and publishes here."
 
-        # Returns the address inside the network.
-        def internal_url = "http://#{SERVER}:#{PORT}"
+        # Returns the server container, also its address on the network.
+        def server = config.name("woodpecker")
 
-        # Fetches the forge's public address from its internal one.
-        def rewrites = forge&.rewrites || {}
+        # Returns the agent container.
+        def agent = config.name("woodpecker-agent")
+
+        # Returns the volume of the server's data.
+        def volume = config.name("woodpecker-data")
+
+        # Returns the address inside the network.
+        def internal_url = "http://#{server}:#{PORT}"
+
+        # Returns the address on this machine, or +nil+ without a CI port.
+        def public_url = config.ci_port ? "http://localhost:#{config.ci_port}" : nil
+
+        # Returns the address people and the forge's OAuth redirect use: the public one, else the internal one.
+        def host_url = public_url || internal_url
+
+        # Fetches the forge's and its own public addresses from the internal ones.
+        def rewrites
+          own = public_url ? { "#{public_url}/" => "#{internal_url}/", public_url => internal_url } : {}
+          (forge&.rewrites || {}).merge(own)
+        end
 
         # Returns the forge component (WarpEngine::Local::Components::Gitea), or +nil+.
         def forge
@@ -65,24 +76,25 @@ module WarpEngine
         def prepare(operation)
           git = forge or raise Local::Error, "the CI needs the git server"
           store!(secrets: { "agent_secret" => SecureRandom.hex(24) }) if secret("agent_secret").blank?
-          return if secret("client_id").present? && oauth_app?(git)
+          redirect = "#{host_url}/authorize"
+          return if secret("client_id").present? && setting("redirect") == redirect && oauth_app?(git)
 
           operation.step!("register the CI on the git server")
           _, apps = git.api(:get, "/user/applications/oauth2")
           Array(apps).select { |app| app["name"] == OAUTH_APP }.each { |app| git.api(:delete, "/user/applications/oauth2/#{app['id']}") }
-          status, body = git.api(:post, "/user/applications/oauth2", { name: OAUTH_APP, redirect_uris: [ "#{internal_url}/authorize" ],
+          status, body = git.api(:post, "/user/applications/oauth2", { name: OAUTH_APP, redirect_uris: [ redirect ],
                                                                          confidential_client: true, skip_secondary_authorization: true })
           raise Local::Error, "gitea did not make the OAuth app: #{body['message'] || status}" unless status == 201
 
-          store!(secrets: { "client_id" => body["client_id"], "client_secret" => body["client_secret"] })
+          store!(settings: { "redirect" => redirect }, secrets: { "client_id" => body["client_id"], "client_secret" => body["client_secret"] })
         end
 
         # Returns the server and the agent.
         def containers
           git = forge
           public_git = git ? "#{git.public_url}/" : ""
-          [ ContainerSpec.build(name: SERVER, image: SERVER_IMAGE, volumes: { VOLUME => "/var/lib/woodpecker" }, env: {
-              "WOODPECKER_HOST" => internal_url, "WOODPECKER_SERVER_ADDR" => ":#{PORT}", "WOODPECKER_OPEN" => "true",
+          [ ContainerSpec.build(name: server, image: SERVER_IMAGE, volumes: { volume => "/var/lib/woodpecker" }, ports: published, env: {
+              **oauth_hosts(git), "WOODPECKER_HOST" => host_url, "WOODPECKER_SERVER_ADDR" => ":#{PORT}", "WOODPECKER_OPEN" => "true",
               "WOODPECKER_ADMIN" => Gitea::ADMIN, "WOODPECKER_GITEA" => "true", "WOODPECKER_GITEA_URL" => git&.internal_url.to_s,
               "WOODPECKER_GITEA_CLIENT" => secret("client_id").to_s, "WOODPECKER_GITEA_SECRET" => secret("client_secret").to_s,
               "WOODPECKER_AGENT_SECRET" => secret("agent_secret").to_s,
@@ -90,10 +102,15 @@ module WarpEngine
               "WOODPECKER_EXTENSIONS_ALLOWED_HOSTS" => config.engine_host.to_s,
               "WOODPECKER_ENVIRONMENT" => "GIT_CONFIG_COUNT:1,GIT_CONFIG_KEY_0:url.#{git&.internal_url}/.insteadOf,GIT_CONFIG_VALUE_0:#{public_git}"
             }),
-            ContainerSpec.build(name: AGENT, image: AGENT_IMAGE, binds: [ "#{config.host_socket}:/var/run/docker.sock" ], env: {
-              "WOODPECKER_SERVER" => "#{SERVER}:9000", "WOODPECKER_AGENT_SECRET" => secret("agent_secret").to_s,
+            ContainerSpec.build(name: agent, image: AGENT_IMAGE, binds: [ "#{config.host_socket}:/var/run/docker.sock" ], env: {
+              "WOODPECKER_SERVER" => "#{server}:9000", "WOODPECKER_AGENT_SECRET" => secret("agent_secret").to_s,
               "WOODPECKER_BACKEND_DOCKER_NETWORK" => config.network, "WOODPECKER_MAX_WORKFLOWS" => "2"
             }) ]
+        end
+
+        # Returns the sign-in for the web UI: the git server's administrator.
+        def credentials
+          { url: host_url, user: Gitea::ADMIN, password: forge&.secret("admin_password") }
         end
 
         # Returns +true+ when the server answers its health check.
@@ -121,6 +138,14 @@ module WarpEngine
         end
 
         private
+
+        def published = config.ci_port ? { config.ci_port => PORT } : {}
+
+        def oauth_hosts(git)
+          return {} unless public_url && git
+
+          { "WOODPECKER_EXPERT_FORGE_OAUTH_HOST" => git.public_url, "WOODPECKER_EXPERT_WEBHOOK_HOST" => internal_url }
+        end
 
         def oauth_app?(git)
           _, apps = git.api(:get, "/user/applications/oauth2")

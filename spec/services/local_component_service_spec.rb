@@ -27,6 +27,32 @@ RSpec.describe WarpEngine::LocalComponentService do
     expect(operation.reload.steps.pluck("text")).to include("create the organisation games", "Git server (Gitea) is ready")
   end
 
+  it "names the containers and volumes with the configured prefix" do
+    WarpEngine.config.local.name_prefix = "warp-example"
+    stub_request(:get, "http://warp-example-gitea:3000/api/healthz").to_return(status: 200)
+    gitea = WarpEngine::LocalComponent.for("gitea").component
+
+    expect(gitea.containers.map(&:name)).to eq([ "warp-example-gitea" ])
+    expect(gitea.volumes).to eq([ "warp-example-gitea-data" ])
+    expect(gitea.internal_url).to eq("http://warp-example-gitea:3000")
+    expect(WarpEngine::LocalComponent.for("woodpecker").component.containers.map(&:name))
+      .to eq(%w[warp-example-woodpecker warp-example-woodpecker-agent])
+  end
+
+  it "publishes the CI's web UI on a CI port and signs in through the public addresses" do
+    WarpEngine.config.local.ci_port = 8000
+    ready_component("gitea")
+    woodpecker = WarpEngine::LocalComponent.for("woodpecker").component
+    server = woodpecker.containers.first
+
+    expect(server.ports).to eq(8000 => 8000)
+    expect(server.env).to include("WOODPECKER_HOST" => "http://localhost:8000",
+                                  "WOODPECKER_EXPERT_FORGE_OAUTH_HOST" => "http://localhost:7471",
+                                  "WOODPECKER_EXPERT_WEBHOOK_HOST" => "http://warp-local-woodpecker:8000")
+    expect(woodpecker.http.rewrite("http://localhost:8000/authorize?code=x")).to eq("http://warp-local-woodpecker:8000/authorize?code=x")
+    expect(woodpecker.http.rewrite("http://localhost:7471/login/oauth/authorize")).to eq("http://warp-local-gitea:3000/login/oauth/authorize")
+  end
+
   it "answers the forge seam with the ready git server" do
     ready_component("gitea", secrets: { "token" => "t" })
 

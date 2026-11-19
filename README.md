@@ -2126,6 +2126,19 @@ The Admin API (only while the components are available):
 | `POST /softwares/:id/local_ci` | `202`; turns the components on, gives the software its repository, CI and CI token (`ScaffoldService#connect`), and the result names `pushUrl` (the push user's token in it) and `remoteName: "warp"` |
 | `DELETE /softwares/:id/local_ci` | stops the CI for the software; the repository stays |
 
+`name_prefix` (5.5, default `warp-local`) starts the container and volume names, and
+`network` names the docker network the components join, so a second engine on the same machine
+(the example stack: `name_prefix "warp-example"`, `network "warp-example"`) keeps its own. Without
+a tool, the same work from the command line, waiting and printing the steps:
+
+```sh
+bin/rails warp_engine:local:status
+bin/rails "warp_engine:local:enable[woodpecker]"      # the git server first, then the CI
+bin/rails "warp_engine:local:credentials[gitea]"      # URL=, USER=, PASSWORD=
+bin/rails "warp_engine:local:disable[gitea]"          # stops the CI with it
+PURGE=1 bin/rails "warp_engine:local:remove[gitea]"   # containers, volumes and secrets
+```
+
 The runtime stops and removes only containers with the `org.teletypegames.warp-engine.local`
 label; a container made from another spec (a newer image, changed settings) is replaced on the
 next enable. A host registers its own component with `WarpEngine::Local::Components.register`.
@@ -2136,6 +2149,10 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.5
+
+Nothing to change: `local_components { name_prefix }` and the `warp_engine:local:*` tasks are new.
 
 ## Upgrading to 5.4
 
