@@ -28,7 +28,7 @@ RSpec.describe WarpEngine::LocalCiService do
     result = described_class.new(components: components).setup(operation)
 
     expect(collaborator).to have_been_requested
-    expect(result).to include(remoteName: "warp", pushUrl: "http://warp:push@localhost:7471/games/hopper.git",
+    expect(result).to include(remoteName: "wplocal", pushUrl: "http://warp:push@localhost:7471/games/hopper.git",
                               repoUrl: "http://localhost:7471/games/hopper")
   end
 

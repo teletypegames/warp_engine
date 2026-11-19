@@ -18,10 +18,10 @@ RSpec.describe "GET /.well-known/warp-engine", type: :request do
 
   it "tells a local engine, its sign-in by token file and its sync target" do
     allow(WarpEngine.config).to receive_messages(profile: :local, store_name: "Local",
-                                                 sync_target: "https://orbit.example")
+                                                 sync_target: "https://games.example.org")
 
     expect(well_known).to include("name" => "Local", "profile" => "local", "signIn" => [ "token-file" ])
-    expect(well_known["sync"]).to include("inbound" => false, "target" => "https://orbit.example")
+    expect(well_known["sync"]).to include("inbound" => false, "target" => "https://games.example.org")
   end
 
   it "names the Admin API only when it is on" do

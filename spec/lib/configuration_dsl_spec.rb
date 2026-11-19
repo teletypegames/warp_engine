@@ -25,12 +25,12 @@ RSpec.describe WarpEngine::Configuration::DSL do
 
     apply do
       profile :local
-      sync_target "https://orbit.example"
+      sync_target "https://games.example.org"
     end
 
     expect(config.profile).to eq(:local)
     expect(config).to be_local
-    expect(config.sync_target).to eq("https://orbit.example")
+    expect(config.sync_target).to eq("https://games.example.org")
     expect { apply { profile :laptop } }.to raise_error(ArgumentError, /profile must be one of server, local/)
   end
 

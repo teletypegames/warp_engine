@@ -1716,7 +1716,7 @@ A peer may narrow the outbound channels for itself (5.3, `allowed_channels`, the
 *Channels pushed to it*, `allowedChannels` in the Admin API): empty, it takes every channel
 the global `outbound { allowed_channels }` lets go; filled, only those of them — it never
 widens the global list. A release it holds back says so: *the beta channel is not in
-Orbit's channels*.
+Studio's channels*.
 
 ### Pairing (5.3)
 
@@ -2061,7 +2061,7 @@ address before it signs in:
 ```json
 { "engine": "warp-engine", "version": "5.2.0", "api": 2, "name": "Local",
   "profile": "local", "signIn": ["token-file"], "adminApi": "/api/admin/v1",
-  "admin": false, "sync": { "inbound": false, "target": "https://orbit.teletypegames.org" } }
+  "admin": false, "sync": { "inbound": false, "target": "https://games.example.org" } }
 ```
 
 - `profile` — `server` (the default: a catalog people sign in to with the tool sign-in) or
@@ -2076,7 +2076,7 @@ address before it signs in:
 ```ruby
 WarpEngine.configure do
   profile :local
-  sync_target "https://orbit.teletypegames.org"
+  sync_target "https://games.example.org"
 end
 ```
 
@@ -2123,7 +2123,7 @@ The Admin API (only while the components are available):
 | `DELETE /local_components/:key?purge=true` | removes the containers (with `purge` the volumes and secrets too) |
 | `GET /local_components/:key/credentials` | the generated administrator sign-in (`admin:tokens`) |
 | `GET /local_operations/:id` | the state, the steps and the result |
-| `POST /softwares/:id/local_ci` | `202`; turns the components on, gives the software its repository, CI and CI token (`ScaffoldService#connect`), and the result names `pushUrl` (the push user's token in it) and `remoteName: "warp"` |
+| `POST /softwares/:id/local_ci` | `202`; turns the components on, gives the software its repository, CI and CI token (`ScaffoldService#connect`), and the result names `pushUrl` (the push user's token in it) and `remoteName: "wplocal"` |
 | `DELETE /softwares/:id/local_ci` | stops the CI for the software; the repository stays |
 
 `name_prefix` (5.5, default `warp-local`) starts the container and volume names, and
@@ -2149,6 +2149,10 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.5.1
+
+The local CI's git remote is `wplocal` (`remoteName` of `POST /softwares/:id/local_ci`), no longer `warp`.
 
 ## Upgrading to 5.5
 

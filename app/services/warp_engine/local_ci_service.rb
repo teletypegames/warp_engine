@@ -8,7 +8,7 @@ module WarpEngine
   # +pipelineId+, +warnings+.
   class LocalCiService
     # The git remote name a tool adds the push address under.
-    REMOTE_NAME = "warp".freeze
+    REMOTE_NAME = "wplocal".freeze
 
     # [components] the WarpEngine::LocalComponentService that turns the components on
     def initialize(components: LocalComponentService.new)
