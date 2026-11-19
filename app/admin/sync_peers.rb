@@ -112,7 +112,7 @@ ActiveAdmin.register WarpEngine::SyncPeer, as: "Sync Peer" do
 
   member_action :push, method: :post do
     all = params[:all].present?
-    WarpEngine::SyncBackfillJob.perform_later(resource.id, nil, all)
+    WarpEngine::SyncPeerService.new.queue_push(resource, all: all)
     redirect_to resource_path(resource), notice: "The #{all ? 'full sync' : 'pushes of the latest releases'} to #{resource.label} " \
                                                  "is being queued; follow it under Recent events."
   end
@@ -186,8 +186,7 @@ ActiveAdmin.register WarpEngine::SyncPeer, as: "Sync Peer" do
     end
 
     def destroy
-      resource.inbound_token&.revoke!
-      resource.soft_delete!
+      WarpEngine::SyncPeerService.new.remove(resource)
       redirect_to collection_path, notice: "Sync peer deleted; its inbound token is revoked."
     end
   end

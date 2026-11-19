@@ -42,15 +42,8 @@ module WarpEngine
             r.create "/sync_pairings", summary: "Pair: add an inbound peer for you and issue its token (shown once)",
                                        body: S.object({ label: S.string("What the other engine is, e.g. \"laptop local\"") }),
                                        required: %i[label], item: X.sync_pairing do |ctx|
-              owner = pairer!(ctx).owner
-              record = WarpEngine::SyncPeer.new(label: ctx[:label], transport: "http", inbound_enabled: true,
-                                                outbound_enabled: false, created_by: owner)
-              token = nil
-              WarpEngine::SyncPeer.transaction do
-                ctx.save!(record)
-                token = record.issue_inbound_token!
-              end
-              ctx.created(pairing(record, token))
+              paired = WarpEngine::SyncPeerService.new.pair(label: ctx[:label], owner: pairer!(ctx).owner)
+              ctx.created(pairing(paired.peer, paired.token))
             end
 
             r.update "/sync_pairings/:id", summary: "Rename a peer you paired",
@@ -61,9 +54,7 @@ module WarpEngine
             end
 
             r.delete "/sync_pairings/:id", summary: "Unpair: delete a peer you paired (soft) and revoke its token" do |ctx|
-              record = paired(ctx).find(ctx.id)
-              record.inbound_token&.revoke!
-              record.soft_delete!
+              WarpEngine::SyncPeerService.new.remove(paired(ctx).find(ctx.id))
               ctx.no_content
             end
 
@@ -139,9 +130,7 @@ module WarpEngine
             end
 
             r.delete "/sync_peers/:id", summary: "Delete a sync peer (soft) and revoke its inbound token" do |ctx|
-              record = peer(ctx.id)
-              record.inbound_token&.revoke!
-              record.soft_delete!
+              WarpEngine::SyncPeerService.new.remove(peer(ctx.id))
               ctx.no_content
             end
 

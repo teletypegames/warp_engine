@@ -50,11 +50,18 @@ module WarpEngine
     def runtime
       configured = config.runtime
       case configured
-      when :docker, "docker" then @docker = nil unless @docker&.instance_variable_get(:@socket) == config.socket
-                                  @docker ||= Runtime::Docker.new(socket: config.socket)
+      when :docker, "docker" then docker(config.socket)
       when :null, "null", nil then Runtime::Null.new
       else configured
       end
+    end
+
+    # Returns the WarpEngine::Local::Runtime::Docker on +socket+, made again
+    # when the configured socket changed.
+    def docker(socket)
+      @docker = nil unless @docker_socket == socket
+      @docker_socket = socket
+      @docker ||= Runtime::Docker.new(socket: socket)
     end
 
     # Returns the WarpEngine::Local::Component of the ready component with
