@@ -43,10 +43,15 @@ RSpec.describe "Sync: a peer's own channels and the images" do
   describe "the images" do
     let(:image_dir) { Image.upload_path }
 
+    let(:written) { [] }
+
+    after { written.each { |path| FileUtils.rm_f(path) } }
+
     def gallery_image(body, default: false)
       FileUtils.mkdir_p(image_dir)
-      image = create(:image)
+      image = create(:image, filename: "sync-#{SecureRandom.hex(6)}.png")
       File.binwrite(image.file_path, body)
+      written << image.file_path
       WarpEngine::SoftwareImage.create!(software: software, image: image, is_default: default,
                                         position: software.software_images.count)
     end

@@ -15,6 +15,7 @@ module WarpEngine
           Definitions::Files,
           Definitions::Runtimes,
           Definitions::Sync,
+          Definitions::Local,
           Definitions::Tokens
         ]
       end

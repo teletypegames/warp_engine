@@ -1,5 +1,6 @@
 require "warp_engine/configuration/admin_api_dsl"
 require "warp_engine/configuration/sync_dsl"
+require "warp_engine/configuration/local_dsl"
 require "warp_engine/configuration/schema_dsl"
 require "warp_engine/configuration/additional_resource_dsl"
 require "warp_engine/configuration/ci_dsl"
@@ -136,6 +137,13 @@ module WarpEngine
       # sync settings (WarpEngine::Sync).
       def sync(&block)
         SyncDSL.new(@config.sync).instance_eval(&block)
+      end
+
+      # Evaluates +block+ on the WarpEngine::Local::Configuration (see
+      # WarpEngine::Configuration::LocalDSL): the git server and CI this engine
+      # may start beside itself.
+      def local_components(&block)
+        LocalDSL.new(@config.local).instance_eval(&block)
       end
 
       # Adds host fields to an engine admin page.

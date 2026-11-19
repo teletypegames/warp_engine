@@ -152,16 +152,19 @@ module WarpEngine
       # Returns the CI adapter in use, from <tt>WarpEngine.config.ci_adapter</tt>:
       # the memoized CI::Woodpecker::Adapter for +nil+ or +:woodpecker+, the
       # CI::Gitlab::Adapter for +:gitlab+, CI::Null for +:none+ or +:null+, and
-      # any other value (a host-supplied adapter object) as it is.
+      # any other value (a host-supplied adapter object) as it is; while a
+      # local CI component is ready, its adapter built on that one
+      # (WarpEngine::Local.ci_adapter).
       def adapter
         configured = WarpEngine.config.ci_adapter
 
-        case configured
+        base = case configured
         when nil, :woodpecker, "woodpecker" then woodpecker_adapter
         when :gitlab, "gitlab"              then gitlab_adapter
         when :none, "none", :null           then null_adapter
         else configured
         end
+        WarpEngine::Local.ci_adapter(base) || base
       end
 
       # Returns +true+ when the adapter in use is a CI::Woodpecker::Adapter.

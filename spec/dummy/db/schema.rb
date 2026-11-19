@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_19_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_200000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -69,6 +69,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_120000) do
     t.string "original_filename", null: false
     t.datetime "updated_at", null: false
     t.index ["deleted_at"], name: "idx_images_deleted_at"
+  end
+
+  create_table "local_components", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3, null: false
+    t.string "key", limit: 64, null: false
+    t.text "last_error"
+    t.string "role", limit: 32, null: false
+    t.text "secrets"
+    t.json "settings"
+    t.string "state", limit: 16, default: "off", null: false
+    t.datetime "updated_at", precision: 3, null: false
+    t.index ["key"], name: "idx_local_components_key", unique: true
+  end
+
+  create_table "local_operations", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3, null: false
+    t.text "error"
+    t.string "kind", limit: 16, null: false
+    t.json "result"
+    t.string "state", limit: 16, default: "queued", null: false
+    t.json "steps"
+    t.string "target", limit: 128, null: false
+    t.datetime "updated_at", precision: 3, null: false
+    t.index ["created_at"], name: "idx_local_operations_created"
   end
 
   create_table "pipelines", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

@@ -41,6 +41,16 @@ module WarpEngine
         to_repo(request(Net::HTTP::Post, "/api/v1/orgs/#{@owner}/repos", body))
       end
 
+      # Returns the Repo +name+ of the organisation, or +nil+ when there is
+      # none. Raises Forge::Error when the forge cannot be reached.
+      def find_repo(name)
+        to_repo(request(Net::HTTP::Get, "/api/v1/repos/#{@owner}/#{name}", nil))
+      rescue Error => e
+        raise unless e.message.include?("answered 404")
+
+        nil
+      end
+
       # Returns the number of the open pull request of +owner+/+name+ whose
       # source branch is +branch+ (compared with its slashes as dashes, the
       # way the CI names a development build), or +nil+. Raises Forge::Error.

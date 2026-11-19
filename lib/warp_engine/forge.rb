@@ -30,6 +30,9 @@ module WarpEngine
       # Returns +false+.
       def configured? = false
 
+      # Returns +nil+: there is no forge to ask.
+      def find_repo(_name) = nil
+
       # Raises NotConfigured.
       def create_repo(**) = raise(NotConfigured, "no forge is configured (WarpEngine::Configuration#forge)")
 
@@ -41,9 +44,13 @@ module WarpEngine
     end
 
     class << self
-      # Returns the forge adapter the configuration names, built again when
-      # the settings change.
+      # Returns the forge adapter: the ready local forge component's
+      # (WarpEngine::Local.forge_adapter), else the one the configuration
+      # names, built again when the settings change.
       def adapter
+        local = WarpEngine::Local.forge_adapter
+        return local if local
+
         settings = WarpEngine.config.forge_settings
         @adapter = nil unless @settings.equal?(settings)
         @settings = settings

@@ -2083,12 +2083,64 @@ end
 [engines/warp-engine-local](https://git.teletypegames.org/engines/warp-engine-local) is such a
 host: one container, SQLite, a token file, the admin web UI optional.
 
+### Local components: a git server and CI beside the engine (5.4)
+
+A local engine can start a git server and a CI next to itself and wire them in, without a person
+signing in anywhere:
+
+```ruby
+WarpEngine.configure do
+  local_components do
+    enable
+    engine_url "http://warp-engine-local:7470"   # where the components reach this engine
+    forge_port 7471                               # the git server on 127.0.0.1
+  end
+end
+```
+
+The engine talks to the Docker Engine on its socket (`/var/run/docker.sock`, mounted into its
+container; `WarpEngine::Local::Runtime::Docker`, no gem needed) and runs each
+`WarpEngine::Local::Component` in labelled containers on one network (`warp-local`):
+
+| Component | Role | Containers | Set-up |
+| --- | --- | --- | --- |
+| `gitea` | `forge` | `warp-local-gitea` (Gitea 1.27.3, 127.0.0.1:`forge_port`) | an administrator, the `games` organisation, the engine's API token and a push user, all with generated passwords |
+| `woodpecker` | `ci` (needs `forge`) | `warp-local-woodpecker`, `warp-local-woodpecker-agent` (v3.20.1) | an OAuth app on the forge, the engine's sign-in (no browser), the `gitea_token` global secret; pipelines from `/build/config` |
+
+While a component is `ready`, the forge and CI seams answer with its adapter
+(`WarpEngine.forge` → `Forge::Gitea` on the internal address, `WarpEngine.ci` → the configured
+`ci :woodpecker` adapter pointed at the local server), so `POST /softwares/scaffold` and the
+served pipelines use them without a restart. The pipelines clone the git server's public address
+through a git `insteadOf` rule and upload to `engine_url`. Starting takes a while (image pulls),
+so it runs in a `WarpEngine::LocalOperation` (`WarpEngine::LocalOperationJob`) with a step log.
+
+The Admin API (only while the components are available):
+
+| | |
+| --- | --- |
+| `GET /local_components` | the components, their role, state and message |
+| `POST /local_components/:key/enable` · `/disable` | `202` with an operation; enabling starts what it needs first, disabling stops what needs it |
+| `DELETE /local_components/:key?purge=true` | removes the containers (with `purge` the volumes and secrets too) |
+| `GET /local_components/:key/credentials` | the generated administrator sign-in (`admin:tokens`) |
+| `GET /local_operations/:id` | the state, the steps and the result |
+| `POST /softwares/:id/local_ci` | `202`; turns the components on, gives the software its repository, CI and CI token (`ScaffoldService#connect`), and the result names `pushUrl` (the push user's token in it) and `remoteName: "warp"` |
+| `DELETE /softwares/:id/local_ci` | stops the CI for the software; the repository stays |
+
+The runtime stops and removes only containers with the `org.teletypegames.warp-engine.local`
+label; a container made from another spec (a newer image, changed settings) is replaced on the
+next enable. A host registers its own component with `WarpEngine::Local::Components.register`.
+
 ### Other databases
 
 The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only column options
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.4
+
+Run the migration (`local_components`, `local_operations`). Nothing changes until a host turns
+`local_components { enable }` on; a server host leaves it off.
 
 ## Upgrading to 5.3
 

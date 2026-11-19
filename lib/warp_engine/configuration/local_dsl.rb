@@ -1,0 +1,43 @@
+module WarpEngine
+  class Configuration
+    # The <tt>local_components do ... end</tt> block of
+    # WarpEngine::Configuration::DSL; every method writes one
+    # WarpEngine::Local::Configuration setting.
+    #
+    #   local_components do
+    #     enable
+    #     engine_url "http://warp-engine-local:7470"
+    #     forge_port 7471
+    #   end
+    class LocalDSL
+      # Creates a DSL writing into the WarpEngine::Local::Configuration +settings+.
+      def initialize(settings)
+        @settings = settings
+      end
+
+      # Turns the local components on (or off with +false+).
+      def enable(value = true) = @settings.enabled = value
+
+      # Sets the container runtime: +:docker+, +:null+ or a runtime object.
+      def runtime(value) = @settings.runtime = value
+
+      # Sets the Docker Engine socket inside this container.
+      def socket(path) = @settings.socket = path.to_s
+
+      # Sets the Docker Engine socket's path on the machine.
+      def host_socket(path) = @settings.host_socket = path.to_s
+
+      # Sets the docker network the components join.
+      def network(name) = @settings.network = name.to_s
+
+      # Sets where the components reach this engine.
+      def engine_url(url) = @settings.engine_url = url.to_s
+
+      # Sets the port the git server answers on, on 127.0.0.1.
+      def forge_port(port) = @settings.forge_port = port.to_i
+
+      # Sets the organisation the repositories go to.
+      def owner(name) = @settings.owner = name.to_s
+    end
+  end
+end

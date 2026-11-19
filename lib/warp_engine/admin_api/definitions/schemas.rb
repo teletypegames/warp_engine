@@ -275,6 +275,27 @@ module WarpEngine
                      allowedChannels: S.array(S.enum(WarpEngine::Channels::ALL), "The channels pushed to it, within the outbound allowed_channels; empty: all of those") })
         end
 
+        # The +LocalComponent+ schema: a component a local engine can run.
+        def local_component
+          named("LocalComponent", { key: S.string, label: S.string, role: S.string, requires: S.array(S.string),
+                                    description: S.string, state: S.enum(WarpEngine::LocalComponent::STATES + %w[unavailable]),
+                                    message: text })
+        end
+
+        # The +LocalOperation+ schema: a long task on the local components.
+        def local_operation
+          named("LocalOperation", { id: S.id, kind: S.enum(WarpEngine::LocalOperation::KINDS), target: S.string,
+                                    state: S.enum(WarpEngine::LocalOperation::STATES),
+                                    steps: S.array(S.object({ at: S.string, text: S.string })),
+                                    result: S.nullable(S.object({}, additional: true, description: "local_ci: pushUrl, remoteName, repoUrl, pipelineId, warnings")),
+                                    error: text, **timestamps })
+        end
+
+        # The +LocalCredentials+ schema: a component's generated sign-in.
+        def local_credentials
+          named("LocalCredentials", { url: S.string, user: S.string, password: S.string })
+        end
+
         # The +SyncPairing+ schema: a peer the caller paired, and its inbound
         # token when this answer issued one.
         def sync_pairing
@@ -374,7 +395,7 @@ module WarpEngine
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
             runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,
-            sync_peer, sync_pairing, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
+            local_component, local_operation, local_credentials, sync_peer, sync_pairing, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
         end
       end
     end

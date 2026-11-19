@@ -101,6 +101,9 @@ module WarpEngine
     # Replaces the WarpEngine::Sync::Configuration returned by #sync.
     attr_writer :sync
 
+    # Replaces the WarpEngine::Local::Configuration returned by #local.
+    attr_writer :local
+
     # The registered non-builtin platforms: a Hash of name to
     # WarpEngine::Platform::Registration, filled by #register_platform.
     attr_reader :platforms
@@ -291,6 +294,12 @@ module WarpEngine
     # defaults on first use.
     def sync
       @sync ||= Sync::Configuration.new
+    end
+
+    # Returns the WarpEngine::Local::Configuration, creating it with its
+    # defaults on first use.
+    def local
+      @local ||= Local::Configuration.new
     end
 
     # Returns +true+ when the user agent string +ua+ matches one of

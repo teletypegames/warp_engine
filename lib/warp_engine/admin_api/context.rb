@@ -34,6 +34,8 @@ module WarpEngine
       def ok(data, meta: nil) = Result.new(status: 200, data: data, meta: meta)
       # A 201 Result with +data+.
       def created(data) = Result.new(status: 201, data: data)
+      # A 202 Result with +data+: work queued.
+      def accepted(data) = Result.new(status: 202, data: data)
       # A 204 Result.
       def no_content = Result.new(status: 204)
 

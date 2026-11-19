@@ -61,6 +61,27 @@ module WarpEngine
       Result.new(software: software, repo: repo, pipeline: pipeline, warnings: warnings)
     end
 
+    # Gives the existing +software+ its repository and CI, the way #scaffold
+    # does for a new one: the forge's repository of its name (made when there
+    # is none), the +Repository+ link, CI for it and, the first time, a CI
+    # token for +owner+ in the pipeline's secret. Running it again changes
+    # nothing that is there.
+    #
+    # Returns a Result. Raises Error without a forge and WarpEngine::Forge::Error
+    # when the forge refuses.
+    def connect(software:, owner:)
+      raise Error, "no forge is configured" unless @forge.configured?
+
+      repo = @forge.find_repo(software.name) || @forge.create_repo(name: software.name, description: software.desc.presence || software.title)
+      unless WarpEngine::ExternalLink.kept.exists?(software: software, label: Publish::Recorder::REPO_LABEL)
+        WarpEngine::ExternalLink.create!(software: software, label: Publish::Recorder::REPO_LABEL, url: repo.html_url)
+      end
+      warnings = []
+      known = WarpEngine::Pipeline.kept.find_by(software: software, active: true, repo_owner: repo.owner, repo_name: repo.name)
+      pipeline = known || connect_ci(repo, software, owner, warnings)
+      Result.new(software: software, repo: repo, pipeline: pipeline, warnings: warnings)
+    end
+
     private
 
     def check!(name, title, platform)

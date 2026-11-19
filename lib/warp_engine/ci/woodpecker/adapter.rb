@@ -42,6 +42,15 @@ module WarpEngine
           @config         = PipelineConfig.new(platforms: platforms || {})
         end
 
+        # Returns a copy with the same platforms and the settings in
+        # +overrides+ (+url+, +api_token+, +repo_owner+, +public_key+,
+        # +public_key_url+, +update_server+) replacing these.
+        def with(**overrides)
+          current = { url: @url, api_token: @api_token, repo_owner: @repo_owner, public_key: @public_key,
+                      public_key_url: @public_key_url, update_server: @update_server }
+          self.class.new(**current.merge(overrides)).tap { |copy| copy.instance_variable_set(:@config, @config) }
+        end
+
         # Returns the display name, <tt>"Woodpecker"</tt>.
         def name = "Woodpecker"
 

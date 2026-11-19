@@ -75,6 +75,7 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
     allow(WarpEngine.config).to receive(:access_token_owner_class).and_return("TestOwner")
     allow(WarpEngine::AdditionalResource).to receive(:api_for).and_return([ double(association: :notes) ])
     allow(WarpEngine::Sync).to receive(:inbound?).and_return(true)
+    allow(WarpEngine::Local).to receive(:available?).and_return(true)
 
     document = openapi_document
     documented = document["paths"].flat_map { |path, verbs| verbs.keys.map { |verb| "#{verb.upcase} #{path}" } }
