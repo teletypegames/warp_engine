@@ -43,6 +43,7 @@ module WarpEngine
       WarpEngine::AdminApi::Mcp.ensure_available! if WarpEngine.config.admin_api.mcp?
       WarpEngine::Outlets.validate!
       WarpEngine::Sync.config.validate!.each { |warning| Rails.logger.warn("[WarpEngine] #{warning}") }
+      WarpEngine::Forks.config.validate!.each { |warning| Rails.logger.warn("[WarpEngine] #{warning}") }
     end
 
     initializer "warp_engine.sync" do
@@ -62,6 +63,16 @@ module WarpEngine
         end
       rescue StandardError => e
         Rails.logger.error("[WarpEngine::Sync] image dispatch failed: #{e.class}: #{e.message}")
+      end
+    end
+
+    initializer "warp_engine.forks" do
+      ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
+        software = payload[:software]
+        WarpEngine::ForkService.new.announce_later(software) if software.is_a?(WarpEngine::Software)
+        WarpEngine::SourceVerifyJob.perform_later(software.source_link.id) if software.is_a?(WarpEngine::Software) && software.source_link&.public.nil?
+      rescue StandardError => e
+        Rails.logger.error("[WarpEngine::Forks] after publish: #{e.class}: #{e.message}")
       end
     end
 

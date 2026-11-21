@@ -1861,6 +1861,64 @@ add it to the host's recurring tasks (or run `rake warp_engine:sync:prune`).
 Sync copies releases, nothing else: deleting a release, editing a software in the
 admin, its images and the runtimes are not carried over.
 
+## Forks
+
+Anyone may make their own version of a game: the developer tools clone the
+software's source repository, give it a new name and a new `origin`, and
+connect it to an engine of the forker's choice. The engines link the fork and
+its parent.
+
+**The source.** An external link has a `kind`: `link` (a page) or `source`
+(the git repository; at most one per software, with an optional `ref`). The
+metadata's `repo` becomes the source, and so does the repository a scaffold
+creates. `WarpEngine::SourceVerifyJob` runs `git ls-remote` with every
+credential turned off and stores whether the source is `public`; the engine
+needs `git` for it. A software is offered for forking (`forksAllowed` in the
+catalog) when its `forks_allowed` switch is on (the default) and its source is
+public.
+
+**A fork's parent** comes in the metadata, flat so a Lua header can carry it
+too: `fork_of_engine` (the parent engine's base URL), `fork_of_name`, and
+optionally `fork_of_version` and `fork_of_repo`; a JSON metadata may nest them
+as `fork_of: { engine, name, version, repo }`. `forks_allowed: false` turns
+forking off.
+
+**Linking engines.** After a fork is published, the engine tells the parent's
+engine (`POST <parent>/api/forks` with its own URL and the fork's name) — only
+when it announces, is not a local engine and has a public address. The parent
+reads the fork back through the child's `GET /api/software` and records it as a
+`WarpEngine::ForkLink` only when the fork really names one of its softwares; it
+waits as `pending` for an administrator (*Fork Links* in the admin, or
+`fork_links` in the Admin API) unless the moderation is `:auto`, and
+`warp_engine.fork_announced` (with `fork_link` and `software`) is instrumented
+so the host can tell someone. `WarpEngine::ForkRecheckJob` verifies the links
+again and marks the vanished ones `gone`.
+
+```ruby
+WarpEngine.configure do
+  forks do
+    engine_url "https://games.example"   # default: site_url
+    announce true                        # tell parents about our forks
+    accept_announcements true            # take announcements of forks of ours
+    moderation :pending                  # or :auto
+    denied_engines %w[spam.example]
+    # announcements_per_hour 30, recheck_days 7, timeout 15
+    # allow_private_engines true         # two engines on one machine, for trying it out
+  end
+end
+```
+
+Schedule the checks with your job backend, e.g. Solid Queue's `config/recurring.yml`:
+
+```yaml
+warp_engine_source_verify:
+  class: WarpEngine::SourceVerifyJob
+  schedule: every day at 4am
+warp_engine_fork_recheck:
+  class: WarpEngine::ForkRecheckJob
+  schedule: every day at 5am
+```
+
 ## Public API
 
 | Endpoint | Purpose |
@@ -1872,6 +1930,8 @@ admin, its images and the runtimes are not carried over.
 | `GET /api/software/highlighted` | The currently highlighted title |
 | `GET /api/builds` | Expected asset kinds per platform (build matrix) |
 | `GET /api/softwares/:name/builds` | Actual vs. missing build assets per release |
+| `GET /api/softwares/:name/forks` | The forks of a software: its children here and the announced forks an administrator let through; see *Forks* |
+| `POST /api/forks` | Another engine announces a fork of one of our softwares (404 unless `accept_announcements`); see *Forks* |
 | `GET /api/image/:id` | Serves images — **the host's endpoint**, see *Images* |
 | `GET /api/download?path=` | Serves an artifact and logs a download record |
 | `GET /file/*path` | Serves static build output (web-playable games, docs) |
@@ -2149,6 +2209,15 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.6
+
+Run the new migration (`external_links.kind`, `ref`, the source check columns;
+the fork columns of `softwares`; the `fork_links` table). It turns every kept
+`Repository` link into the software's `source`. The catalog envelope is `api: 3`
+(new `software` fields `source`, `forksAllowed`, `forkOf`, `forksCount`, and
+`kind`, `ref`, `public` on external links). Everything else is off until you
+add a `forks` block; schedule `SourceVerifyJob` and `ForkRecheckJob` (see *Forks*).
 
 ## Upgrading to 5.5.1
 

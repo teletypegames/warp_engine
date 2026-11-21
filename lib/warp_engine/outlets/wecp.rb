@@ -15,6 +15,8 @@ module WarpEngine
     #                                             the device sign-in
     # [<tt>GET /api/software</tt>]                the catalog, with +highlighted+, +facets+ and +vocabulary+ beside it
     # [<tt>GET /api/stores</tt>]                  the store registry (WarpEngine::StoreRegistry)
+    # [<tt>GET /api/softwares/:name/forks</tt>]   a software's forks
+    # [<tt>POST /api/forks</tt>]                  another engine announces a fork of one of ours
     # [<tt>GET /api/download?path=</tt>]          a file, counted
     # [<tt>GET /file/*path</tt>]                  a file or a web build
     # [<tt>GET /play/:name/:version(/:binding)</tt>] the web player page of a release in a runtime
@@ -41,6 +43,8 @@ module WarpEngine
             mapper.get "software/highlighted", to: "software_highlighted#show"
             mapper.get "software/facets",      to: "software_facets#show"
             mapper.get "software/vocabulary",  to: "software_vocabulary#show"
+            mapper.get "softwares/:name/forks", to: "forks#index", constraints: { name: %r{[^/]+} }
+            mapper.post "forks",                to: "forks#create"
             mapper.get "download",             to: "downloads#show"
             mapper.get "stores",               to: "stores#index", as: :stores
           end

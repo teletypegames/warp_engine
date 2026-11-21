@@ -97,7 +97,7 @@ module WarpEngine
     # Returns the groups of the tree, in page order: each a Node with an
     # +icon+, an +intro+ and its settings as children.
     def tree
-      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, runtimes, outlets, sync, admin_api, extras ]
+      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, runtimes, outlets, sync, forks, admin_api, extras ]
     end
 
     # Returns how many leaves of the tree have each status, as a Hash of
@@ -498,6 +498,26 @@ module WarpEngine
       children << sync_failures if settings.events?
       intro = [ ("pushes to its peers" if settings.outbound.enabled?), ("accepts their pushes" if settings.inbound.enabled?) ].compact.join(" and ")
       group("sync", "Sync", icon: :send, intro: "On: #{intro}", children: children)
+    end
+
+    def forks
+      settings = WarpEngine::Forks.config
+      own = WarpEngine::Forks.engine_url
+      pending = WarpEngine::ForkLink.pending.count
+      sources = WarpEngine::ExternalLink.kept.sources
+      children = [
+        node("forks.engine_url", "Engine URL", own || "none", mono: true, status: own ? "ok" : "warn",
+                                                             hint: own ? nil : "Set forks { engine_url ... } (or site_url): forks name this address as their parent."),
+        node("forks.announce", "Announce our forks", WarpEngine::Forks.announce? ? "on" : "off",
+             status: WarpEngine::Forks.announce? ? "ok" : "off",
+             hint: settings.announce && !WarpEngine::Forks.announce? ? "announce is set, but this engine is local or its engine URL is not public" : nil),
+        node("forks.accept", "Accept announcements", WarpEngine::Forks.accept_announcements? ? "on, moderation #{settings.moderation}" : "off",
+             status: WarpEngine::Forks.accept_announcements? ? "ok" : "off"),
+        node("forks.pending", "Forks waiting for moderation", pending.to_s, status: pending.positive? ? "warn" : "ok"),
+        node("forks.sources", "Source links", "#{sources.count} (#{sources.where(public: true).count} public, #{sources.where(public: nil).count} not checked)")
+      ]
+      intro = [ ("announces" if WarpEngine::Forks.announce?), ("accepts announcements" if WarpEngine::Forks.accept_announcements?) ].compact.join(" and ")
+      group("forks", "Forks", icon: :branch, intro: intro.present? ? "On: #{intro}" : "Off", children: children)
     end
 
     def sync_direction(direction, peers, name)

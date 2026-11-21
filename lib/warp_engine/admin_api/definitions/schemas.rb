@@ -34,7 +34,8 @@ module WarpEngine
           base = {
             id: S.id, name: S.string, title: S.string, author: text, desc: text, story: text,
             license: text, platform: S.enum(WarpEngine::Platform.names), status: text, category: text,
-            highlighted: S.nullable(S.boolean), shelfName: text, ownerType: text, ownerId: S.nullable(S.integer), **timestamps
+            highlighted: S.nullable(S.boolean), shelfName: text, ownerType: text, ownerId: S.nullable(S.integer),
+            forksAllowed: S.boolean, forkOfEngine: text, forkOfName: text, forkOfVersion: text, forkOfRepo: text, **timestamps
           }
           included = {
             releases:      S.array(S.ref("Release"), "With include=releases"),
@@ -53,7 +54,11 @@ module WarpEngine
             status: S.nullable(S.string("A key from software_statuses")),
             category: S.nullable(S.string("A key from software_categories; a new word is registered for review")),
             highlighted: S.boolean,
-            shelfName: S.nullable(S.string("File name on a shelf (A-Z, 0-9, -); null uses the name"))
+            shelfName: S.nullable(S.string("File name on a shelf (A-Z, 0-9, -); null uses the name")),
+            forksAllowed: S.boolean("Whether the developer tools may offer a fork (needs a public source link)"),
+            forkOfEngine: S.nullable(S.string("For a fork: the parent engine's base URL")),
+            forkOfName: S.nullable(S.string("For a fork: the parent's name on its engine")),
+            forkOfVersion: text, forkOfRepo: text
           })
         end
 
@@ -66,7 +71,9 @@ module WarpEngine
         # The body of a scaffold (<tt>POST /softwares/scaffold</tt>).
         def scaffold_body
           S.object({ name: S.string("Software and repository name: a-z, 0-9 and dashes"), title: S.string,
-                     platform: S.enum(WarpEngine::Platform.names), category: text, description: text })
+                     platform: S.enum(WarpEngine::Platform.names), category: text, description: text, license: text,
+                     forkOf: S.nullable(S.object({ engine: S.string("The parent engine's base URL"), name: S.string("The parent's name"),
+                                                   version: text, repo: text }, required: %i[engine name])) })
         end
 
         # The +Scaffold+ schema, what a scaffold made.
@@ -92,11 +99,27 @@ module WarpEngine
 
         # The +ExternalLink+ schema.
         def external_link
-          named("ExternalLink", { id: S.id, softwareId: S.integer, label: S.string, url: S.string, **timestamps })
+          named("ExternalLink", { id: S.id, softwareId: S.integer, label: S.string, url: S.string,
+                                  kind: S.enum(WarpEngine::ExternalLink::KINDS), ref: text, public: S.nullable(S.boolean),
+                                  verifiedAt: S.nullable(S.datetime), verifyError: text, **timestamps })
         end
 
         # The body of creating or changing an external link.
-        def external_link_body = S.object({ label: S.string, url: S.string })
+        def external_link_body
+          S.object({ label: S.string, url: S.string,
+                     kind: S.enum(WarpEngine::ExternalLink::KINDS, "source: the git repository; one per software"),
+                     ref: S.nullable(S.string("Branch or tag of a source; null for the default branch")) })
+        end
+
+        # The +ForkLink+ schema: a fork another engine announced.
+        def fork_link
+          named("ForkLink", { id: S.id, softwareId: S.integer, softwareName: text, childEngine: S.string, childName: S.string,
+                              childTitle: text, status: S.enum(WarpEngine::ForkLink::STATUSES), checkedAt: S.nullable(S.datetime),
+                              lastError: text, **timestamps })
+        end
+
+        # The body of moderating a fork link.
+        def fork_link_body = S.object({ status: S.enum(WarpEngine::ForkLink::STATUSES) })
 
         # The +SoftwareImage+ schema.
         def software_image
@@ -391,7 +414,7 @@ module WarpEngine
 
         # Every Named component schema.
         def all
-          [ software, release, release_asset, external_link, software_image, platform_link, software_status,
+          [ software, release, release_asset, external_link, fork_link, software_image, platform_link, software_status,
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
             runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,

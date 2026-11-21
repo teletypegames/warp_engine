@@ -1,5 +1,6 @@
 require "warp_engine/configuration/admin_api_dsl"
 require "warp_engine/configuration/sync_dsl"
+require "warp_engine/configuration/forks_dsl"
 require "warp_engine/configuration/local_dsl"
 require "warp_engine/configuration/schema_dsl"
 require "warp_engine/configuration/additional_resource_dsl"
@@ -137,6 +138,12 @@ module WarpEngine
       # sync settings (WarpEngine::Sync).
       def sync(&block)
         SyncDSL.new(@config.sync).instance_eval(&block)
+      end
+
+      # Evaluates +block+ with a WarpEngine::Configuration::ForksDSL on the
+      # fork settings (WarpEngine::Forks).
+      def forks(&block)
+        ForksDSL.new(@config.forks).instance_eval(&block)
       end
 
       # Evaluates +block+ on the WarpEngine::Local::Configuration (see

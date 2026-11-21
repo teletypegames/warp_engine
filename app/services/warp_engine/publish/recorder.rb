@@ -14,7 +14,8 @@ module WarpEngine
       end
 
       # Creates or updates the WarpEngine::Software named in +metadata+ (its
-      # +site+ and +repo+ become external links), creates the
+      # +site+ becomes an external link, its +repo+ the +source+ link; a
+      # +forks_allowed+ given as text is read as a boolean), creates the
       # WarpEngine::Release +version+ when new, writes a WarpEngine::ReleaseAsset
       # for every <tt>kind => path</tt> of +assets+, soft-deletes the assets
       # of kinds the platform no longer publishes, and binds the release to
@@ -23,14 +24,11 @@ module WarpEngine
       # Returns the WarpEngine::Release. Raises ActiveRecord::RecordInvalid when a
       # record does not save.
       def record(metadata, version, assets)
-        attributes = metadata.except(:site, :repo, :web).merge(platform: @definition.name)
+        attributes = software_attributes(metadata)
         ActiveRecord::Base.transaction do
           software = restore(WarpEngine::Software.find_or_initialize_by(name: attributes[:name]), attributes.except(:name))
-          { SITE_LABEL => metadata[:site], REPO_LABEL => metadata[:repo] }.each do |label, url|
-            next if url.blank?
-
-            restore(WarpEngine::ExternalLink.find_or_initialize_by(software_id: software.id, label: label), url: url)
-          end
+          restore(WarpEngine::ExternalLink.find_or_initialize_by(software_id: software.id, label: SITE_LABEL), url: metadata[:site]) if metadata[:site].present?
+          record_source(software, metadata[:repo]) if metadata[:repo].present?
 
           release = restore(WarpEngine::Release.find_or_initialize_by(software_id: software.id, version: version), {})
           assets.each do |kind, path|
@@ -44,6 +42,21 @@ module WarpEngine
       end
 
       private
+
+      def software_attributes(metadata)
+        attributes = metadata.except(:site, :repo, :web).merge(platform: @definition.name)
+        if attributes.key?(:forks_allowed)
+          attributes[:forks_allowed] = ActiveModel::Type::Boolean.new.cast(attributes[:forks_allowed]) != false
+        end
+        attributes
+      end
+
+      def record_source(software, url)
+        link = WarpEngine::ExternalLink.where(software_id: software.id).sources.order(deleted_at: :desc).first ||
+               WarpEngine::ExternalLink.find_or_initialize_by(software_id: software.id, label: REPO_LABEL)
+        WarpEngine::ExternalLink.kept.sources.where(software_id: software.id).where.not(id: link.id).find_each(&:soft_delete!)
+        restore(link, url: url, kind: "source", label: link.label.presence || REPO_LABEL)
+      end
 
       def restore(record, attributes)
         record.assign_attributes(attributes.merge(deleted_at: nil))

@@ -3,8 +3,9 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     [
       :name, :title, :author, :desc, :story,
       :license, :platform, :status, :category, :highlighted, :shelf_name, :sync_enabled,
+      :forks_allowed, :fork_of_engine, :fork_of_name, :fork_of_version, :fork_of_repo,
       { software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ] },
-      { external_links_attributes: [ :id, :label, :url, :_destroy ] },
+      { external_links_attributes: [ :id, :label, :url, :kind, :ref, :_destroy ] },
       { releases_attributes: [ :id, :version, :_destroy,
                                { release_assets_attributes: [ :id, :kind, :path, :_destroy ] } ] }
     ] + WarpEngine::AdditionalResource.permitted_params_for(:software)
@@ -98,6 +99,15 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     para link_to("All sync events of #{resource.name}", admin_sync_events_path(q: { software_id_eq: resource.id })) if WarpEngine::Sync.config.events?
   end
 
+  sidebar "Forks", only: :show, if: -> { resource.fork? || WarpEngine::Current.fork_count(resource).positive? || resource.fork_links.exists? } do
+    para "Fork of #{resource.fork_of_name} (#{resource.fork_of_engine})" if resource.fork?
+    forks = WarpEngine::ForkService.new.forks(resource)
+    para "#{forks.size} listed fork(s)"
+    pending = resource.fork_links.where(status: "pending").count
+    para link_to("#{pending} waiting for moderation", admin_fork_links_path(q: { software_id_eq: resource.id, status_eq: "pending" })) if pending.positive?
+    para link_to("All announced forks", admin_fork_links_path(q: { software_id_eq: resource.id })) if resource.fork_links.exists?
+  end
+
   sidebar "Download Statistics", only: :show do
     sw = resource
     stats = WarpEngine::DownloadStatsService.new.for_software(sw)
@@ -170,9 +180,21 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
 
       f.inputs "External Links" do
         f.has_many :external_links, allow_destroy: true, new_record: true do |el|
+          state = { true => "public", false => "private or unreachable", nil => "not checked yet" }[el.object.public]
           el.input :label
-          el.input :url
+          el.input :url, hint: (el.object.source? && el.object.persisted? ? "Source check: #{state} #{el.object.verify_error}".strip : nil)
+          el.input :kind, as: :select, collection: WarpEngine::ExternalLink::KINDS, include_blank: false,
+                          hint: "source: the git repository the software is built from (one per software)"
+          el.input :ref, hint: "Branch or tag of a source; empty for the default branch"
         end
+      end
+
+      f.inputs "Forks" do
+        f.input :forks_allowed, label: "Allow forks", hint: "The developer tools offer a fork when the source repository is public"
+        f.input :fork_of_engine, label: "Fork of: engine", hint: "Base URL of the parent's engine; empty when this is no fork"
+        f.input :fork_of_name, label: "Fork of: name"
+        f.input :fork_of_version, label: "Fork of: version"
+        f.input :fork_of_repo, label: "Fork of: repository"
       end
 
       f.inputs "Releases" do

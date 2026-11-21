@@ -26,6 +26,7 @@ module WarpEngine
     has_many :downloads, through: :releases
     has_many :external_links, -> { kept }, foreign_key: :software_id
     has_one :pipeline, -> { kept }, foreign_key: :software_id
+    has_many :fork_links, -> { kept }, foreign_key: :software_id, inverse_of: :software
     has_many :sync_events, -> { order(created_at: :desc, id: :desc) }, foreign_key: :software_id, inverse_of: :software
 
     accepts_nested_attributes_for :software_images, allow_destroy: true
@@ -33,6 +34,8 @@ module WarpEngine
     accepts_nested_attributes_for :releases, allow_destroy: true
 
     normalizes :category, with: ->(value) { value.to_s.strip.presence }
+    normalizes :fork_of_engine, with: ->(value) { WarpEngine::Forks.normalize_url(value) }
+    normalizes :fork_of_name, :fork_of_version, :fork_of_repo, with: ->(value) { value.to_s.strip.presence }
     normalizes :shelf_name, with: ->(value) { value.to_s.strip.upcase.presence }
 
     validates :name, presence: true, uniqueness: true
@@ -40,6 +43,7 @@ module WarpEngine
     validates :platform, presence: true, inclusion: { in: ->(_) { WarpEngine::Platform.names } }
     validates :status, inclusion: { in: ->(_) { WarpEngine::SoftwareStatus.keys } }, allow_blank: true
     validates :category, length: { maximum: 64 }, allow_nil: true
+    validates :fork_of_name, presence: true, if: -> { fork_of_engine.present? }
     validates :shelf_name, length: { maximum: 32 }, format: { with: WarpEngine::Names::PATTERN },
                            uniqueness: { scope: :platform, conditions: -> { kept } }, allow_nil: true
 
@@ -55,6 +59,20 @@ module WarpEngine
       pattern = "%#{sanitize_sql_like(text.to_s.strip)}%"
       where("softwares.title LIKE :q OR softwares.name LIKE :q", q: pattern)
     }
+
+    # Returns the kept external link of kind +source+, or +nil+.
+    def source_link
+      external_links.detect(&:source?)
+    end
+
+    # Whether the developer tools may offer a fork: the author allows it and
+    # the source repository is known to be readable without a sign-in.
+    def forkable?
+      forks_allowed? && source_link&.public == true
+    end
+
+    # Whether this software is a fork of another one.
+    def fork? = fork_of_engine.present? && fork_of_name.present?
 
     # Returns every status key (WarpEngine::SoftwareStatus.keys).
     def self.statuses

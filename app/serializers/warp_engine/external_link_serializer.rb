@@ -1,6 +1,8 @@
 module WarpEngine
   # Catalog view of a WarpEngine::ExternalLink: id, timestamps (see
-  # WarpEngine::TimestampFields), software id, label and URL.
+  # WarpEngine::TimestampFields), software id, label, URL, +kind+ (+link+ or
+  # +source+), +ref+ and, for a source, +public+ (whether it can be read
+  # without a sign-in; +null+ until checked).
   class ExternalLinkSerializer < Blueprinter::Base
     include TimestampFields
 
@@ -11,5 +13,8 @@ module WarpEngine
     field(:softwareId) { |el| el.software_id }
     field :label
     field :url
+    field :kind
+    field :ref
+    field :public
   end
 end

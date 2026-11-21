@@ -1,5 +1,5 @@
 ActiveAdmin.register WarpEngine::ExternalLink, as: "External Link" do
-  permit_params :software_id, :label, :url
+  permit_params :software_id, :label, :url, :kind, :ref
 
   menu false
 
@@ -26,6 +26,8 @@ ActiveAdmin.register WarpEngine::ExternalLink, as: "External Link" do
     id_column
     column :label
     column(:url) { |el| link_to el.url, el.url, target: "_blank" }
+    column :kind
+    column :public
     column :created_at
     actions
   end
@@ -34,6 +36,8 @@ ActiveAdmin.register WarpEngine::ExternalLink, as: "External Link" do
     f.inputs do
       f.input :label
       f.input :url
+      f.input :kind, as: :select, collection: WarpEngine::ExternalLink::KINDS, include_blank: false
+      f.input :ref
     end
     f.actions
   end
@@ -43,6 +47,11 @@ ActiveAdmin.register WarpEngine::ExternalLink, as: "External Link" do
       row :id
       row :label
       row(:url) { |el| link_to el.url, el.url, target: "_blank" }
+      row :kind
+      row :ref
+      row :public
+      row :verified_at
+      row :verify_error
       row :created_at
       row :updated_at
     end

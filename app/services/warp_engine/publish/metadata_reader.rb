@@ -11,7 +11,12 @@ module WarpEngine
       # The metadata keys a publish takes over: onto the WarpEngine::Software,
       # except +web+, which goes to the release (Publish::WebBinder); every
       # other key is dropped.
-      KEYS = %i[name title author desc site repo license category shelf_name web].freeze
+      KEYS = %i[name title author desc site repo license category shelf_name web
+                forks_allowed fork_of_engine fork_of_name fork_of_version fork_of_repo].freeze
+
+      # The keys of the nested <tt>fork_of</tt> object a JSON metadata may use
+      # instead of the flat +fork_of_*+ keys.
+      FORK_OF_KEYS = %i[engine name version repo].freeze
 
       module_function
 
@@ -25,7 +30,17 @@ module WarpEngine
         when :lua, "lua" then lua(upload.path("#{upload.versioned}.lua"))
         else reader.call(upload)
         end
-        raw.to_h.symbolize_keys.slice(*KEYS)
+        flatten_fork_of(raw.to_h.symbolize_keys).slice(*KEYS)
+      end
+
+      # Returns +metadata+ with a nested <tt>fork_of</tt> Hash spread into the
+      # flat +fork_of_*+ keys (a flat key that is set wins).
+      def flatten_fork_of(metadata)
+        nested = metadata[:fork_of]
+        return metadata unless nested.is_a?(Hash)
+
+        spread = FORK_OF_KEYS.to_h { |key| [ :"fork_of_#{key}", nested[key] || nested[key.to_s] ] }.compact
+        spread.merge(metadata.compact)
       end
 
       # Returns the JSON object in the file +path+, with symbol keys.

@@ -29,6 +29,9 @@ module WarpEngine
 
         `stores` is null where the host turned the store registry off; otherwise its `url`
         is the registry a graphical client offers stores from.
+
+        `forks` is null unless the host takes fork announcements; where present, `engineUrl` is the
+        address forks name as their parent and `announcements` says `POST /api/forks` is open.
       DESC
       returns code: 200, desc: "The descriptor" do
         property :engine, String, desc: "Always 'warp_engine'"
@@ -53,6 +56,10 @@ module WarpEngine
         end
         property :stores, Hash, desc: "The store registry, or null where it is off" do
           property :url, String, desc: "Address of GET /api/stores"
+        end
+        property :forks, Hash, desc: "Fork announcements, or null where they are off" do
+          property :announcements, :boolean, desc: "Whether POST /api/forks takes announcements"
+          property :engineUrl, String, desc: "The base URL forks name as their parent"
         end
         property :outlets, Array, desc: "The outlets of this deployment, the catalog API first" do
           property :key, String, desc: "The outlet key"
@@ -84,6 +91,7 @@ module WarpEngine
           auth:    auth_descriptor,
           admin:   admin_descriptor,
           stores:  WarpEngine::StoreRegistry.enabled? ? { url: warp_engine.api_stores_url } : nil,
+          forks:   WarpEngine::Forks.accept_announcements? ? { announcements: true, engineUrl: WarpEngine::Forks.engine_url } : nil,
           outlets: WarpEngine::Outlets.descriptors
         }
       end

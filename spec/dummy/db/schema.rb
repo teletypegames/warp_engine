@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_19_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_21_200000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -53,12 +53,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_200000) do
   create_table "external_links", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
+    t.string "kind", limit: 16, default: "link", null: false
     t.string "label", limit: 128
+    t.boolean "public"
+    t.string "ref"
     t.bigint "software_id", unsigned: true
     t.datetime "updated_at", precision: 3
     t.string "url"
+    t.datetime "verified_at", precision: 3
+    t.string "verify_error", limit: 512
     t.index ["deleted_at"], name: "idx_external_links_deleted_at"
+    t.index ["software_id", "kind"], name: "idx_external_links_software_kind"
     t.index ["software_id"], name: "idx_external_links_software_id"
+  end
+
+  create_table "fork_links", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "checked_at", precision: 3
+    t.string "child_engine", null: false
+    t.string "child_name", limit: 128, null: false
+    t.string "child_title"
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.string "last_error", limit: 512
+    t.bigint "software_id", null: false, unsigned: true
+    t.string "status", limit: 16, default: "pending", null: false
+    t.datetime "updated_at", precision: 3
+    t.index ["software_id", "child_engine", "child_name"], name: "idx_fork_links_child", unique: true
+    t.index ["status"], name: "idx_fork_links_status"
   end
 
   create_table "images", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -220,6 +241,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_200000) do
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
     t.text "desc"
+    t.string "fork_of_engine"
+    t.string "fork_of_name", limit: 128
+    t.string "fork_of_repo", limit: 512
+    t.string "fork_of_version", limit: 64
+    t.boolean "forks_allowed", default: true, null: false
     t.boolean "highlighted", default: false
     t.string "license", limit: 128
     t.string "name", limit: 128
@@ -234,6 +260,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_200000) do
     t.string "title"
     t.datetime "updated_at", precision: 3
     t.index ["deleted_at"], name: "idx_softwares_deleted_at"
+    t.index ["fork_of_engine", "fork_of_name"], name: "idx_softwares_fork_of"
     t.index ["name"], name: "idx_softwares_name", unique: true
     t.index ["owner_type", "owner_id"], name: "idx_softwares_owner"
   end
@@ -292,6 +319,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_200000) do
 
   add_foreign_key "downloads", "releases", name: "fk_downloads_release", on_delete: :nullify
   add_foreign_key "external_links", "softwares", name: "fk_softwares_external_links", on_delete: :cascade
+  add_foreign_key "fork_links", "softwares", name: "fk_softwares_fork_links", on_delete: :cascade
   add_foreign_key "pipelines", "softwares", name: "fk_pipelines_software", on_delete: :nullify
   add_foreign_key "release_assets", "releases", name: "fk_releases_release_assets", on_delete: :cascade
   add_foreign_key "releases", "runtime_versions", name: "fk_runtime_versions_releases", on_delete: :nullify

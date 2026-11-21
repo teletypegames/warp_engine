@@ -50,7 +50,7 @@ RSpec.describe WarpEngine::SysInfo do
   end
 
   it "describes every part of the configuration as a group with an icon" do
-    expect(info.tree.map(&:key)).to eq(%w[engine publishing adapters signin ci platforms runtimes outlets sync adminapi extras])
+    expect(info.tree.map(&:key)).to eq(%w[engine publishing adapters signin ci platforms runtimes outlets sync forks adminapi extras])
     expect(info.tree.map(&:icon)).to all(be_a(Symbol))
   end
 

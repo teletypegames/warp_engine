@@ -104,6 +104,9 @@ module WarpEngine
     # Replaces the WarpEngine::Local::Configuration returned by #local.
     attr_writer :local
 
+    # Replaces the WarpEngine::Forks::Configuration returned by #forks.
+    attr_writer :forks
+
     # The registered non-builtin platforms: a Hash of name to
     # WarpEngine::Platform::Registration, filled by #register_platform.
     attr_reader :platforms
@@ -300,6 +303,12 @@ module WarpEngine
     # defaults on first use.
     def local
       @local ||= Local::Configuration.new
+    end
+
+    # Returns the WarpEngine::Forks::Configuration, creating it with its
+    # defaults on first use.
+    def forks
+      @forks ||= Forks::Configuration.new
     end
 
     # Returns +true+ when the user agent string +ua+ matches one of

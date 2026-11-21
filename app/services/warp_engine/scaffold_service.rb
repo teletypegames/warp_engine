@@ -43,18 +43,22 @@ module WarpEngine
     # [owner]       the record owning the software and the CI token
     # [category]    a category key, or +nil+
     # [description] the repository and catalog description, or +nil+
+    # [fork_of]     for a fork, its parent: a Hash with +engine+, +name+ and
+    #               optional +version+ and +repo+ (WarpEngine::Forks), or +nil+
+    # [license]     the license, or +nil+
     #
-    # Returns a Result. Raises Error before anything is created when the name,
+    # The repository becomes the software's +source+ link. Returns a Result. Raises Error before anything is created when the name,
     # the platform or the forge does not do; raises WarpEngine::Forge::Error
     # when the forge refuses the repository.
-    def scaffold(name:, title:, platform:, owner:, category: nil, description: nil)
+    def scaffold(name:, title:, platform:, owner:, category: nil, description: nil, fork_of: nil, license: nil)
       check!(name, title, platform)
       repo = @forge.create_repo(name: name, description: description.presence || title)
       warnings = []
 
       software = WarpEngine::Software.create!(name: name, title: title, platform: platform, status: STATUS,
-                                              category: category.presence, desc: description.presence, owner: owner)
-      WarpEngine::ExternalLink.create!(software: software, label: Publish::Recorder::REPO_LABEL, url: repo.html_url)
+                                              category: category.presence, desc: description.presence, owner: owner,
+                                              license: license.presence, **fork_attributes(fork_of))
+      WarpEngine::ExternalLink.create!(software: software, label: Publish::Recorder::REPO_LABEL, url: source_url(repo), kind: "source")
 
       pipeline = connect_ci(repo, software, owner, warnings)
       ActiveSupport::Notifications.instrument(NOTIFICATION, software: software, repo: repo, pipeline: pipeline)
@@ -73,8 +77,8 @@ module WarpEngine
       raise Error, "no forge is configured" unless @forge.configured?
 
       repo = @forge.find_repo(software.name) || @forge.create_repo(name: software.name, description: software.desc.presence || software.title)
-      unless WarpEngine::ExternalLink.kept.exists?(software: software, label: Publish::Recorder::REPO_LABEL)
-        WarpEngine::ExternalLink.create!(software: software, label: Publish::Recorder::REPO_LABEL, url: repo.html_url)
+      unless WarpEngine::ExternalLink.kept.sources.exists?(software: software)
+        WarpEngine::ExternalLink.create!(software: software, label: Publish::Recorder::REPO_LABEL, url: source_url(repo), kind: "source")
       end
       warnings = []
       known = WarpEngine::Pipeline.kept.find_by(software: software, active: true, repo_owner: repo.owner, repo_name: repo.name)
@@ -83,6 +87,15 @@ module WarpEngine
     end
 
     private
+
+    def source_url(repo) = repo.clone_url.presence || repo.html_url
+
+    def fork_attributes(fork_of)
+      return {} if fork_of.blank?
+
+      parent = (fork_of.respond_to?(:to_unsafe_h) ? fork_of.to_unsafe_h : fork_of.to_h).symbolize_keys
+      { fork_of_engine: parent[:engine], fork_of_name: parent[:name], fork_of_version: parent[:version], fork_of_repo: parent[:repo] }
+    end
 
     def check!(name, title, platform)
       raise Error, "the name may have lower-case letters, digits and dashes" unless name.to_s.match?(NAME_FORMAT)

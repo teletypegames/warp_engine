@@ -2,7 +2,7 @@ module WarpEngine
   module AdminApi
     module Definitions
       # The catalog resources: softwares, releases, release assets, external links,
-      # software images and the host-defined additional resources (extras).
+      # fork links, software images and the host-defined additional resources (extras).
       module Catalog
         # Short name of AdminApi::Schema.
         S = AdminApi::Schema
@@ -20,6 +20,7 @@ module WarpEngine
           releases(api)
           release_assets(api)
           external_links(api)
+          fork_links(api)
           software_images(api)
           extras(api)
         end
@@ -64,7 +65,8 @@ module WarpEngine
                      body: X.scaffold_body, required: %i[name title platform], item: X.scaffold do |ctx|
               result = WarpEngine::ScaffoldService.new.scaffold(
                 name: ctx[:name].to_s, title: ctx[:title].to_s, platform: ctx[:platform].to_s, owner: ctx.principal.owner,
-                category: ctx[:category], description: ctx[:description]
+                category: ctx[:category], description: ctx[:description], license: ctx[:license],
+                fork_of: ctx[:forkOf].presence
               )
               ctx.created(scaffold_payload(result))
             rescue WarpEngine::ScaffoldService::Error => e
@@ -154,6 +156,38 @@ module WarpEngine
 
             r.delete "/assets/:id", summary: "Delete an asset (soft)" do |ctx|
               asset(ctx.id).soft_delete!
+              ctx.no_content
+            end
+          end
+        end
+
+        # Declares the +fork_links+ resource on +api+: the forks other engines
+        # announced, list (filtered by status or software), get, and moderate
+        # (change the status).
+        def fork_links(api)
+          api.resource(:fork_links, label: "Fork links") do |r|
+            r.list "/fork_links", summary: "The forks other engines announced", item: X.fork_link,
+                   filters: { status: S.enum(WarpEngine::ForkLink::STATUSES), softwareId: S.integer },
+                   sort: { createdAt: :created_at, checkedAt: :checked_at }, default_sort: "-createdAt" do |ctx|
+              scope = WarpEngine::ForkLink.kept.includes(:software)
+              scope = scope.where(status: ctx[:status]) if ctx[:status].present?
+              scope = scope.where(software_id: ctx[:softwareId]) if ctx[:softwareId].present?
+              ctx.list(scope, Admin::ForkLinkSerializer)
+            end
+
+            r.get "/fork_links/:id", summary: "One announced fork", item: X.fork_link do |ctx|
+              ctx.ok(Admin::ForkLinkSerializer.render_as_hash(WarpEngine::ForkLink.kept.find(ctx.id)))
+            end
+
+            r.update "/fork_links/:id", summary: "Moderate an announced fork: visible lists it, hidden keeps it out",
+                     body: X.fork_link_body, required: %i[status], item: X.fork_link do |ctx|
+              link = WarpEngine::ForkLink.kept.find(ctx.id)
+              link.assign_attributes(ctx.attributes)
+              ctx.ok(Admin::ForkLinkSerializer.render_as_hash(ctx.save!(link)))
+            end
+
+            r.delete "/fork_links/:id", summary: "Delete an announced fork (soft); a new announcement brings it back as pending" do |ctx|
+              WarpEngine::ForkLink.kept.find(ctx.id).soft_delete!
               ctx.no_content
             end
           end

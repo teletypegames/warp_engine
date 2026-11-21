@@ -34,13 +34,14 @@ RSpec.describe WarpEngine::LocalCiService do
 
   it "reuses the forge's repository and an active pipeline when run again" do
     forge = instance_double(WarpEngine::Forge::Gitea, configured?: true)
-    repo = WarpEngine::Forge::Repo.new(id: 5, owner: "games", name: "hopper", html_url: "h", clone_url: "c", ssh_url: nil)
+    repo = WarpEngine::Forge::Repo.new(id: 5, owner: "games", name: "hopper", html_url: "http://localhost:7471/games/hopper",
+                                                                              clone_url: "http://localhost:7471/games/hopper.git", ssh_url: nil)
     allow(forge).to receive(:find_repo).with("hopper").and_return(repo)
     pipeline = WarpEngine::Pipeline.create!(software: software, platform: "c64", repo_owner: "games", repo_name: "hopper", woodpecker_repo_id: 9)
 
     result = WarpEngine::ScaffoldService.new(forge: forge, ci: WarpEngine::CI::Null.new).connect(software: software, owner: owner)
 
     expect(result.pipeline).to eq(pipeline)
-    expect(software.external_links.pluck(:url)).to eq([ "h" ])
+    expect(software.external_links.pluck(:url)).to eq([ "http://localhost:7471/games/hopper.git" ])
   end
 end

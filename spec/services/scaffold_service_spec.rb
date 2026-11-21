@@ -28,7 +28,7 @@ RSpec.describe WarpEngine::ScaffoldService do
     expect(forge).to have_received(:create_repo).with(name: "rabbit", description: "A rabbit hops")
     expect(result.software).to have_attributes(name: "rabbit", title: "Rabbit", platform: "c64", status: "development",
                                                category: "game", desc: "A rabbit hops", owner: owner)
-    expect(result.software.external_links.map { |link| [ link.label, link.url ] }).to eq([ [ "Repository", repo.html_url ] ])
+    expect(result.software.external_links.map { |link| [ link.label, link.url, link.kind ] }).to eq([ [ "Repository", repo.clone_url, "source" ] ])
     expect(result.pipeline).to have_attributes(woodpecker_repo_id: 501, software_id: result.software.id, platform: "c64")
     expect(ci).to have_received(:secret_set).with(501, name: "application_token", value: a_string_matching(/\A\h{48}\z/))
     token = WarpEngine::ApplicationToken.last
@@ -37,6 +37,13 @@ RSpec.describe WarpEngine::ScaffoldService do
     expect(events.first).to include(software: result.software, repo: repo)
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
+  end
+
+  it "records the parent and the license of a fork" do
+    result = scaffold(license: "MIT", fork_of: { "engine" => "https://games.example/", "name" => "hare", "version" => "1.0.0" })
+
+    expect(result.software).to have_attributes(license: "MIT", fork_of_engine: "https://games.example", fork_of_name: "hare",
+                                               fork_of_version: "1.0.0")
   end
 
   it "keeps the software when CI cannot be enabled, and says so" do
