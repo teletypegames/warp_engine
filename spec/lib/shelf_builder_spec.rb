@@ -337,7 +337,7 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
 
     expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "WEDOS", "WEDOSW")
     expect(Dir.glob("**/*", base: File.join(shelf_dir, "WEDOS")).sort)
-      .to eq(%w[DATA DATA/LEVEL1.DAT WEDOS.EXE FILES.LST INFO.INI README.md])
+      .to eq(%w[DATA DATA/LEVEL1.DAT FILES.LST INFO.INI README.md WEDOS.EXE])
     expect(read("WEDOS", "WEDOS.EXE")).to eq("MZ0.6.1")
     expect(read("WEDOS", "INFO.INI"))
       .to eq("[program]\r\nname=WEDOS Store\r\ndescription=Installs DOS programs.\r\nversion=0.6.1\r\nplatform=DOS\r\n")
@@ -351,7 +351,7 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
     sync
 
     lines = read("WEDOS", "FILES.LST").split("\r\n")
-    expect(lines.map { |line| line.split(" ", 3).last }).to eq(%w[DATA/LEVEL1.DAT WEDOS.EXE INFO.INI README.md])
+    expect(lines.map { |line| line.split(" ", 3).last }).to eq(%w[DATA/LEVEL1.DAT INFO.INI README.md WEDOS.EXE])
     expect(lines[1]).to eq("#{format('%08x', Zlib.crc32('MZ0.6.1'))} 7 WEDOS.EXE")
   end
 
