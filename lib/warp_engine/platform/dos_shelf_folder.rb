@@ -3,8 +3,8 @@ module WarpEngine
     # Reads the folder of a +dos+ program on a +folders+ shelf from the
     # <tt>dos</tt> block of its release metadata:
     #
-    #   "dos": { "folder": "DOSINST", "win32_folder": "DOSINSTW", "settings": ["DOSINST.CFG"],
-    #            "store_name": "DOSINST", "store_description": "..." }
+    #   "dos": { "folder": "WEDOS", "win32_folder": "WEDOSW", "settings": ["WEDOS.CFG"],
+    #            "store_name": "WEDOS", "store_description": "..." }
     #
     # The +cartridge+ kind takes the plain keys, +win_x86+ the <tt>win32_</tt> ones.
     module DosShelfFolder

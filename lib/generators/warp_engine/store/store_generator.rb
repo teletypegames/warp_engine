@@ -22,10 +22,10 @@ module WarpEngine
       # The store engines this generator knows: label, repository and the
       # commits of the engine and of warpstore the installer pins.
       CLIENTS = {
-        "batocera" => { label: "Batocera", repo: "warp-engine-batocera-store",
+        "batocera" => { label: "Batocera", repo: "we-batocera",
                         engine: "8ffe70d8d0eea50ccc1a56ea54665089fbf58761",
                         warpstore: "168624695532a8db0977e0dd295890afc08cccc9" },
-        "retroarch" => { label: "RetroArch", repo: "warp-engine-retroarch-store",
+        "retroarch" => { label: "RetroArch", repo: "we-retroarch",
                          engine: "019cd4f6e89be34e95c74317230b12ec3f637183",
                          warpstore: "386897588d078126aa07ccd8327cf00b48309961" }
       }.freeze
@@ -123,7 +123,7 @@ module WarpEngine
         "#{FORGE}/stores/#{spec[:repo]}/raw/commit/#{spec[:engine]}"
       end
 
-      def warpstore_raw_base = "#{FORGE}/engines/warpstore/raw/commit/#{CLIENTS.fetch(client)[:warpstore]}"
+      def warpstore_raw_base = "#{FORGE}/engines/we-core/raw/commit/#{CLIENTS.fetch(client)[:warpstore]}"
 
       def config
         @config ||= JSON.parse(File.read(File.join(self.class.source_root, "#{client}.json"))).tap do |config|

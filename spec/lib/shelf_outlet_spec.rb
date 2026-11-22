@@ -57,9 +57,9 @@ RSpec.describe WarpEngine::Outlets::Shelf do
 
       expect(shelf).to have_attributes(kinds: %w[cartridge win_x86], layout: "folders", extension: "", name_length: 8,
                                        urls: [ "ftp://ftp.example/APPS", "http://archive.example/APPS" ])
-      expect(shelf.folder_name_valid?("DOSINSTW")).to be(true)
-      expect(shelf.folder_name_valid?("DOSINSTWX")).to be(false)
-      expect(shelf.folder_name_valid?("dosinst")).to be(false)
+      expect(shelf.folder_name_valid?("WEDOSW")).to be(true)
+      expect(shelf.folder_name_valid?("WEDOSWX")).to be(false)
+      expect(shelf.folder_name_valid?("we-dos")).to be(false)
     end
 
     it "refuses an extension on a folders shelf" do

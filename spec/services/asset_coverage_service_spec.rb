@@ -33,7 +33,7 @@ RSpec.describe WarpEngine::AssetCoverageService do
     end
 
     it "does not count an optional kind as missing" do
-      software = create(:software, name: "dosinst", platform: "dos")
+      software = create(:software, name: "we-dos", platform: "dos")
       release_with(software: software, version: "0.6.1", kinds: %w[cartridge])
 
       row = described_class.new.rows.first

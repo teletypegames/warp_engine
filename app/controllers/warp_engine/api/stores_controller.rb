@@ -9,7 +9,7 @@ module WarpEngine
 
       api :GET, "/api/stores", "List the stores a client can install from"
       desc <<~DESC
-        The registry the WarpEngine Client reads on its first run: which catalogs it can
+        The registry the WarpEngine Desktop reads on its first run: which catalogs it can
         install. Public on purpose: a client has nobody to log in as.
 
         A name and a catalog URL are the whole record. How a store behaves is fixed per

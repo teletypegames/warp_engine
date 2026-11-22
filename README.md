@@ -113,7 +113,7 @@ The box has to reach the catalog, so give `--base-url` the address it sees (your
 machine's LAN address for the example; `site_url` by default). The config starts
 from the one teletypegames.org runs, keeps the platforms the host has and the
 statuses shown by default (`--statuses` to change), and is the host's own file
-from then on. The installer pins the store engine and warpstore to the commits that
+from then on. The installer pins the store engine and we-core to the commits that
 config was tested with.
 
 `--logo` brands the store: image URLs, or local image files the generator copies next
@@ -128,10 +128,10 @@ docker compose exec app bin/rails g warp_engine:store retroarch \
 The C64, Plus/4 and DOS clients read files, not the API: the example writes the
 `c64`, `plus4` and `dos` shelves (see *Shelves*) and serves them with two small
 containers, `shelf-http` (plain HTTP, the way a C64 with a network cartridge can
-fetch them) and `shelf-ftp` (anonymous, read-only, passive FTP for DOSINST). For a
+fetch them) and `shelf-ftp` (anonymous, read-only, passive FTP for WEDOS). For a
 real machine on your network set `SHELF_HTTP_URL`, `SHELF_FTP_URL` and
 `SHELF_FTP_ADDRESS` in `.env` to your machine's address; the clients themselves are
-pointed there with their own config file (`WARP64U.CFG`, `DOSINST.CFG`).
+pointed there with their own config file (`WE64.CFG`, `WEDOS.CFG`).
 
 ### Publish a release by hand
 
@@ -723,7 +723,7 @@ platforms: {
 The pipeline assembles `main.asm` with ACME into `<name>.prg`. A marker with
 `build: make` hands that step to the repo's Makefile instead: it runs
 `make <name>.prg` in the builder image, and the rest — packaging the players,
-upload, publish — is the same. WARP64U, written in C with cc65, is built this way:
+upload, publish — is the same. WE64, written in C with cc65, is built this way:
 
 ```yaml
 platform: c64
@@ -752,13 +752,13 @@ in `$WATCOM`), its tests where the commands look for them (`SOURCE/test/unit/run
 `metadata.json`, which says what a release holds:
 
 ```json
-{ "name": "dosinst", "title": "DOSINST", "category": "tool",
-  "dos": { "folder": "DOSINST",
-           "files": ["DOSINST.EXE", "DOSINST.CFG", "README.md", "LICENSE"],
-           "settings": ["DOSINST.CFG"],
-           "store_name": "DOSInst Store", "store_description": "…",
-           "win32_folder": "DOSINSTW",
-           "win32_files": ["DOSINSTW.EXE", "DOSINST.CFG", "README.md", "LICENSE"],
+{ "name": "we-dos", "title": "WEDOS", "category": "tool",
+  "dos": { "folder": "WEDOS",
+           "files": ["WEDOS.EXE", "WEDOS.CFG", "README.md", "LICENSE"],
+           "settings": ["WEDOS.CFG"],
+           "store_name": "WEDOS Store", "store_description": "…",
+           "win32_folder": "WEDOSW",
+           "win32_files": ["WEDOSW.EXE", "WEDOS.CFG", "README.md", "LICENSE"],
            "win32_store_name": "…", "win32_store_description": "…" } }
 ```
 
@@ -768,8 +768,8 @@ block: a `folders` shelf (see *Shelves*) reads the folder, the settings and the 
 text from it.
 
 The version is the tag without its `v`. The folder zip becomes the `cartridge`
-(`dosinst-0.6.0.zip`) and the Win32 one the `win_x86` asset
-(`dosinst-0.6.0-win-x86.zip`), byte for byte the files of the forge release.
+(`we-dos-0.6.0.zip`) and the Win32 one the `win_x86` asset
+(`we-dos-0.6.0-win-x86.zip`), byte for byte the files of the forge release.
 DOS releases are download only.
 
 #### The `electron` platform
@@ -1138,7 +1138,7 @@ end
 
 A DOS program plays from its cartridge zip as it is: the page appends a
 `start.conf` to the zip in the browser (DOSBox Pure takes a `.conf`), copies the
-program folder to `C:\APPS\` (where DOSINST installs it; the binding's
+program folder to `C:\APPS\` (where WEDOS installs it; the binding's
 `dos_root`) and starts `web.start` from `metadata.json`, or else the folder's
 `.BAT`, `.COM` or `.EXE`, in that order.
 
@@ -1168,7 +1168,7 @@ it can play in now, with its URL: `/play/<name>/<version>/<binding>`).
 
 ```sh
 bin/rails warp_engine:runtimes:migrate DRY_RUN=1       # bind releases that play from an html folder holding the runtime bit for bit
-bin/rails warp_engine:runtimes:migrate UNPLAYED=1 PLATFORMS=dos EXCLUDE=dosinst,ttgwiki   # and the ones that never played on the web
+bin/rails warp_engine:runtimes:migrate UNPLAYED=1 PLATFORMS=dos EXCLUDE=we-dos,ttgwiki   # and the ones that never played on the web
 bin/rails warp_engine:runtimes:prune_html DRY_RUN=1    # then drop those html folders and zips
 bin/rails warp_engine:runtimes:rebind NAME=emulatorjs FROM=4.2.3 TO=4.2.4
 bin/rails warp_engine:runtimes:gc DRY_RUN=1            # versions no release uses
@@ -1362,7 +1362,7 @@ format and the fields:
 ```
 #SHELF 2 file|version|size|crc32|title|author|description|category|preview
 ARIADNE.PRG|1.1.0|10561|3c0f5d2a|Thread of Ariadne|Teletype Games|Co-op labyrinth for two.||ARIADNE.PVW
-WARP64U.PRG|1.0.0|31816|5e1d0c3b|WARP64U|Teletype Games|The store on the C64.|tool|WARP64U.PVW
+WE64.PRG|1.0.0|31816|5e1d0c3b|WE64|Teletype Games|The store on the C64.|tool|WE64.PVW
 ```
 
 `crc32` is zlib's, in hexadecimal. `category` is the software's category key (empty for
@@ -1394,7 +1394,7 @@ closer to the image is kept. A preview is rendered again when it is missing, its
 gets a new release, or its image file is newer; an image that cannot be read leaves the
 title without one (and is logged).
 
-**A `folders` shelf** holds a folder for each title and kind, the layout DOSINST reads:
+**A `folders` shelf** holds a folder for each title and kind, the layout WEDOS reads:
 the asset is a zip with the folder at its top, and the platform's service names the folder
 from the release's uploaded metadata (`shelf_folder(metadata, kind)`; on `dos` the `dos`
 block: `folder` for the `cartridge`, `win32_folder` for `win_x86`). The engine unpacks the
@@ -1404,8 +1404,8 @@ configuration, and writes two files into it:
 ```
 shelves/APPS/
   INDEX.TXT
-  DOSINST/  DOSINST.EXE  README.md  LICENSE  INFO.INI  FILES.LST
-  DOSINSTW/ DOSINSTW.EXE README.md  LICENSE  INFO.INI  FILES.LST
+  WEDOS/  WEDOS.EXE  README.md  LICENSE  INFO.INI  FILES.LST
+  WEDOSW/ WEDOSW.EXE README.md  LICENSE  INFO.INI  FILES.LST
 ```
 
 - `INFO.INI`: `[program]` with `name`, `description`, `version` and `platform` (`DOS` or
@@ -1415,7 +1415,7 @@ shelves/APPS/
 
 A title without the metadata, or with a folder name that does not fit, is left off and
 reported. `INDEX.TXT` lists the folders as a flat shelf lists files (its name has a dot,
-so DOSINST does not take it for a program). A folder is built next to the old one and
+so WEDOS does not take it for a program). A folder is built next to the old one and
 swapped in. Only folders the index listed are ever removed, so a folder put there by hand
 stays.
 
@@ -1481,7 +1481,7 @@ host code), and `software_images.image_id` still points at the same rows.
 
 ## Store registry
 
-`GET /api/stores` is the registry the [WarpEngine Client](https://wiki.teletypegames.org/stores/warp-engine-client)
+`GET /api/stores` is the registry the [WarpEngine Desktop](https://wiki.teletypegames.org/stores/we-desktop)
 reads on its first run: which catalogs it can install. A record is a name and a catalog
 address and nothing else — how a store behaves is fixed in each installed client:
 

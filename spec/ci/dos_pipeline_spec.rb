@@ -4,7 +4,7 @@ require_relative "../support/pipeline_helpers"
 shared_examples "dos pipeline" do |config_class, jobs_of|
   def render(config_class, spec, options: {})
     config_class.new(platforms: { "dos" => { builder: "registry.example/dos-builder:1", tools: "registry.example/ci-tools:1" }.merge(spec) })
-                .render(platform: "dos", name: "dosinst", update_server: "https://games.example", options: options)
+                .render(platform: "dos", name: "we-dos", update_server: "https://games.example", options: options)
   end
 
   it "tests, packs, uploads and publishes, tags after a push, and has no store step of its own" do
@@ -34,14 +34,14 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
     expect(yaml).not_to include("del(.dos)")
     skip "the upload's prepare lines need jq" unless system("command -v jq >/dev/null 2>&1")
 
-    metadata = %({"name": "dosinst", "dos": {"folder": "DOSINST", "win32_folder": "DOSINSTW"}})
-    files = { "metadata.json" => metadata, "dist/DOSINST-v0.6.0.zip" => "dos", "dist/DOSINSTW-v0.6.0.zip" => "win32" }
+    metadata = %({"name": "we-dos", "dos": {"folder": "WEDOS", "win32_folder": "WEDOSW"}})
+    files = { "metadata.json" => metadata, "dist/WEDOS-v0.6.0.zip" => "dos", "dist/WEDOSW-v0.6.0.zip" => "win32" }
 
     calls, status = run_with_fake_curl(step_script(yaml, "upload"), files: files, version: "0.6.0",
                                                                     env: { "CI_COMMIT_TAG" => "v0.6.0" })
 
     expect(status).to be_success
-    expect(uploaded_files(calls)).to contain_exactly("dosinst-0.6.0.zip", "dosinst-0.6.0-win-x86.zip", "dosinst-0.6.0.metadata.json")
+    expect(uploaded_files(calls)).to contain_exactly("we-dos-0.6.0.zip", "we-dos-0.6.0-win-x86.zip", "we-dos-0.6.0.metadata.json")
   end
 end
 

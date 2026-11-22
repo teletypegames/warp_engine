@@ -44,7 +44,7 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder do
   end
 
   it "lists the category of each title after the description" do
-    publish("warp64u", "1.0.0", category: "tool", desc: "The store.")
+    publish("we-c64", "1.0.0", category: "tool", desc: "The store.")
 
     sync
 
@@ -287,9 +287,9 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
   let(:definition) { { key: "apps", type: "shelf", platform: "dos", kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS" } }
   let(:shelf) { WarpEngine::Outlets.all.last }
   let(:dos_block) do
-    { folder: "DOSINST", files: %w[DOSINST.EXE DOSINST.CFG README.md], settings: %w[DOSINST.CFG],
-      store_name: "DOSInst Store", store_description: "Installs DOS programs.",
-      win32_folder: "DOSINSTW", win32_store_name: "DOSInst for Windows" }
+    { folder: "WEDOS", files: %w[WEDOS.EXE WEDOS.CFG README.md], settings: %w[WEDOS.CFG],
+      store_name: "WEDOS Store", store_description: "Installs DOS programs.",
+      win32_folder: "WEDOSW", win32_store_name: "WEDOS for Windows" }
   end
 
   before do
@@ -306,17 +306,17 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
     end
   end
 
-  def publish(version, dos: dos_block, exe: "MZ#{version}", win32: true, name: "dosinst")
+  def publish(version, dos: dos_block, exe: "MZ#{version}", win32: true, name: "we-dos")
     software = WarpEngine::Software.find_by(name: name) ||
                create(:software, name: name, title: name.upcase, platform: "dos", status: "released")
     release = create(:release, software: software, version: version)
     cartridge = File.join(container, "#{name}-#{version}.zip")
-    zip(cartridge, "DOSINST", "DOSINST.EXE" => exe, "DOSINST.CFG" => "PATH=/APPS\r\n", "README.md" => "readme",
+    zip(cartridge, "WEDOS", "WEDOS.EXE" => exe, "WEDOS.CFG" => "PATH=/APPS\r\n", "README.md" => "readme",
                               "DATA/LEVEL1.DAT" => "level")
     WarpEngine::ReleaseAsset.create!(release: release, kind: "cartridge", path: cartridge)
     if win32
       windows = File.join(container, "#{name}-#{version}-win-x86.zip")
-      zip(windows, "DOSINSTW", "DOSINSTW.EXE" => "PE#{version}", "DOSINST.CFG" => "PATH=/APPS\r\n")
+      zip(windows, "WEDOSW", "WEDOSW.EXE" => "PE#{version}", "WEDOS.CFG" => "PATH=/APPS\r\n")
       WarpEngine::ReleaseAsset.create!(release: release, kind: "win_x86", path: windows)
     end
     metadata = { name: name, title: name.upcase, version: version }
@@ -335,24 +335,24 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
 
     sync
 
-    expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "DOSINST", "DOSINSTW")
-    expect(Dir.glob("**/*", base: File.join(shelf_dir, "DOSINST")).sort)
-      .to eq(%w[DATA DATA/LEVEL1.DAT DOSINST.EXE FILES.LST INFO.INI README.md])
-    expect(read("DOSINST", "DOSINST.EXE")).to eq("MZ0.6.1")
-    expect(read("DOSINST", "INFO.INI"))
-      .to eq("[program]\r\nname=DOSInst Store\r\ndescription=Installs DOS programs.\r\nversion=0.6.1\r\nplatform=DOS\r\n")
-    expect(read("DOSINSTW", "INFO.INI")).to include("name=DOSInst for Windows\r\n", "platform=WIN32\r\n")
-    expect(read("DOSINSTW", "INFO.INI")).not_to include("DOSInst Store")
+    expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "WEDOS", "WEDOSW")
+    expect(Dir.glob("**/*", base: File.join(shelf_dir, "WEDOS")).sort)
+      .to eq(%w[DATA DATA/LEVEL1.DAT WEDOS.EXE FILES.LST INFO.INI README.md])
+    expect(read("WEDOS", "WEDOS.EXE")).to eq("MZ0.6.1")
+    expect(read("WEDOS", "INFO.INI"))
+      .to eq("[program]\r\nname=WEDOS Store\r\ndescription=Installs DOS programs.\r\nversion=0.6.1\r\nplatform=DOS\r\n")
+    expect(read("WEDOSW", "INFO.INI")).to include("name=WEDOS for Windows\r\n", "platform=WIN32\r\n")
+    expect(read("WEDOSW", "INFO.INI")).not_to include("WEDOS Store")
   end
 
-  it "lists every file but itself in FILES.LST, as DOSINST checks them" do
+  it "lists every file but itself in FILES.LST, as WEDOS checks them" do
     publish("0.6.1")
 
     sync
 
-    lines = read("DOSINST", "FILES.LST").split("\r\n")
-    expect(lines.map { |line| line.split(" ", 3).last }).to eq(%w[DATA/LEVEL1.DAT DOSINST.EXE INFO.INI README.md])
-    expect(lines[1]).to eq("#{format('%08x', Zlib.crc32('MZ0.6.1'))} 7 DOSINST.EXE")
+    lines = read("WEDOS", "FILES.LST").split("\r\n")
+    expect(lines.map { |line| line.split(" ", 3).last }).to eq(%w[DATA/LEVEL1.DAT WEDOS.EXE INFO.INI README.md])
+    expect(lines[1]).to eq("#{format('%08x', Zlib.crc32('MZ0.6.1'))} 7 WEDOS.EXE")
   end
 
   it "keeps a folder it did not write, and removes one that left the catalog" do
@@ -363,23 +363,23 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
     software.soft_delete!
     result = sync
 
-    expect(result.removed).to contain_exactly("DOSINST", "DOSINSTW")
+    expect(result.removed).to contain_exactly("WEDOS", "WEDOSW")
     expect(Dir.children(shelf_dir)).to contain_exactly("INDEX.TXT", "HELLO")
   end
 
   it "rewrites a folder only for a new release, and replaces it whole" do
     publish("0.6.0")
     sync
-    File.write(File.join(shelf_dir, "DOSINST", "STALE.TXT"), "left over")
+    File.write(File.join(shelf_dir, "WEDOS", "STALE.TXT"), "left over")
 
     expect(sync).not_to be_changed
 
     publish("0.6.1")
     result = sync
 
-    expect(result.written.map(&:file)).to contain_exactly("DOSINST", "DOSINSTW")
-    expect(File.exist?(File.join(shelf_dir, "DOSINST", "STALE.TXT"))).to be(false)
-    expect(Dir.children(shelf_dir)).not_to include("DOSINST.NEW", "DOSINST.OLD")
+    expect(result.written.map(&:file)).to contain_exactly("WEDOS", "WEDOSW")
+    expect(File.exist?(File.join(shelf_dir, "WEDOS", "STALE.TXT"))).to be(false)
+    expect(Dir.children(shelf_dir)).not_to include("WEDOS.NEW", "WEDOS.OLD")
   end
 
   it "leaves a program without a Win32 build with its DOS folder only, and skips one without a dos block" do
@@ -388,20 +388,20 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
 
     entries, skipped = described_class.new(shelf).plan
 
-    expect(entries.map(&:file)).to eq([ "DOSINST" ])
+    expect(entries.map(&:file)).to eq([ "WEDOS" ])
     expect(skipped.map(&:to_s)).to eq([ "nometa: no cartridge folder in the metadata of 1.0.0; no win_x86 folder in the metadata of 1.0.0" ])
   end
 
   it "skips a folder name a DOS store cannot hold" do
-    publish("0.6.1", dos: dos_block.merge(folder: "DOSINSTALLER"), win32: false)
+    publish("0.6.1", dos: dos_block.merge(folder: "WEDOSALLER"), win32: false)
 
     expect(described_class.new(shelf).plan.last.map(&:to_s))
-      .to eq([ "dosinst: \"DOSINSTALLER\" is not a usable folder name; no win_x86 asset in any release" ])
+      .to eq([ "we-dos: \"WEDOSALLER\" is not a usable folder name; no win_x86 asset in any release" ])
   end
 
   it "refuses a zip entry that climbs out of the folder" do
     software = publish("0.6.1", win32: false)
-    zip(File.join(container, "dosinst-0.6.1.zip"), "DOSINST", "../EVIL.EXE" => "x")
+    zip(File.join(container, "we-dos-0.6.1.zip"), "WEDOS", "../EVIL.EXE" => "x")
     software.reload
 
     expect { sync }.to raise_error(ArgumentError, /unsafe path/)

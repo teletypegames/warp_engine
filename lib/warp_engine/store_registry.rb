@@ -1,7 +1,7 @@
 require "uri"
 
 module WarpEngine
-  # The store registry: the stores a graphical client (the WarpEngine Client)
+  # The store registry: the stores a graphical client (the WarpEngine Desktop)
   # offers to install on its first run, served at <tt>GET /api/stores</tt> as
   # name and catalog address pairs. A record says what a store is and nothing
   # about how it works; how a store behaves is fixed in each installed client.

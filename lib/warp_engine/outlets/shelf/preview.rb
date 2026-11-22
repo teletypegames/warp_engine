@@ -11,7 +11,7 @@ module WarpEngine
         # Returns the renderer class of +format+, or +nil+.
         def self.for(format) = FORMATS[format.to_s]
 
-        # A C64 bitmap made from a PNG, the preview format of WARP64U:
+        # A C64 bitmap made from a PNG, the preview format of WE64:
         #
         #   byte 0      mode: 0 hires, 1 multicolor
         #   byte 1      background color (multicolor)
