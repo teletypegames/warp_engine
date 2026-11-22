@@ -79,6 +79,15 @@ module WarpEngine
       shelf_folder DosShelfFolder
     end
 
+    { batocera: "Batocera", retroarch: "RetroArch" }.each do |host, name|
+      define host do
+        label name
+        kind :cartridge, ext: ".tar.gz", required: true
+        release_rule :tag
+        ci template: "store_engine", host: host.to_s
+      end
+    end
+
     # The names of the platforms the engine ships.
     BUILTIN = builtin_definitions.keys.freeze
     # The builtin platform names; see Platform.names for the full list.

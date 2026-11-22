@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_22_183127) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -263,6 +263,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_200000) do
     t.index ["fork_of_engine", "fork_of_name"], name: "idx_softwares_fork_of"
     t.index ["name"], name: "idx_softwares_name", unique: true
     t.index ["owner_type", "owner_id"], name: "idx_softwares_owner"
+  end
+
+  create_table "store_clients", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "client", limit: 32, null: false
+    t.datetime "created_at", precision: 3
+    t.json "logo_urls"
+    t.string "name"
+    t.string "pinned_version", limit: 64
+    t.string "software_name", limit: 128
+    t.json "statuses"
+    t.string "store_key", limit: 64
+    t.string "subfolder", limit: 128
+    t.datetime "updated_at", precision: 3
+    t.index ["client"], name: "idx_store_clients_client", unique: true
   end
 
   create_table "sync_events", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

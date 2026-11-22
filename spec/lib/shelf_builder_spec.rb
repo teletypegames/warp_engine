@@ -352,7 +352,7 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder, "on a folders shelf" do
 
     lines = read("WEDOS", "FILES.LST").split("\r\n")
     expect(lines.map { |line| line.split(" ", 3).last }).to eq(%w[DATA/LEVEL1.DAT INFO.INI README.md WEDOS.EXE])
-    expect(lines[1]).to eq("#{format('%08x', Zlib.crc32('MZ0.6.1'))} 7 WEDOS.EXE")
+    expect(lines[3]).to eq("#{format('%08x', Zlib.crc32('MZ0.6.1'))} 7 WEDOS.EXE")
   end
 
   it "keeps a folder it did not write, and removes one that left the catalog" do

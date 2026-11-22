@@ -47,6 +47,10 @@ module WarpEngine
             mapper.post "forks",                to: "forks#create"
             mapper.get "download",             to: "downloads#show"
             mapper.get "stores",               to: "stores#index", as: :stores
+            store_client = { client: Regexp.union(WarpEngine::StoreClients.keys) }
+            mapper.get "stores/:client/install.sh",  to: "store_clients/installers#show", format: false, constraints: store_client
+            mapper.get "stores/:client/config.json", to: "store_clients/configs#show", format: false, constraints: store_client
+            mapper.get "stores/:client/release",     to: "store_clients/releases#show", format: false, constraints: store_client
           end
 
           mapper.get "file/*path", to: "files#show", format: false, as: :file

@@ -1,0 +1,20 @@
+#!/bin/sh
+# <%= name %> on <%= label %>: <%= release.software %> <%= release.version %>
+#   curl -fsSL <%= install_url %> | sh
+set -eu
+
+STORE_CONFIG="${STORE_CONFIG:-<%= config_url %>}"
+ENGINE_ARCHIVE="${ENGINE_ARCHIVE:-<%= archive_url %>}"
+export STORE_CONFIG
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+echo "[install] <%= release.software %> <%= release.version %>"
+curl -fsSL --retry 3 --connect-timeout 15 "$ENGINE_ARCHIVE" -o "$TMP_DIR/engine.tar.gz"
+tar -xzf "$TMP_DIR/engine.tar.gz" -C "$TMP_DIR"
+INSTALLER="$(find "$TMP_DIR" -name install.sh -type f | head -n 1)"
+if [ -z "$INSTALLER" ]; then
+  echo "[install] error: the release has no install.sh" >&2
+  exit 1
+fi
+sh "$INSTALLER"

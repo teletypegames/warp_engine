@@ -152,6 +152,20 @@ module WarpEngine
                      position: S.integer(minimum: 0) })
         end
 
+        # The +StoreClient+ schema: what a host set for one of its store engines.
+        def store_client
+          named("StoreClient", { id: S.id, client: S.string, softwareName: text, name: text, storeKey: text,
+                                 subfolder: text, statuses: S.nullable(S.array(S.string)),
+                                 logoUrls: S.nullable(S.array(S.string)), pinnedVersion: text, **timestamps })
+        end
+
+        # The body of creating or changing a store engine record.
+        def store_client_body
+          S.object({ client: S.enum(WarpEngine::StoreClients.keys), softwareName: text, name: text, storeKey: text,
+                     subfolder: text, statuses: S.nullable(S.array(S.string)),
+                     logoUrls: S.nullable(S.array(S.string)), pinnedVersion: text })
+        end
+
         # The +SoftwareStatus+ schema.
         def software_status
           named("SoftwareStatus", { id: S.id, key: S.string, label: S.string, position: S.integer,
@@ -414,7 +428,7 @@ module WarpEngine
 
         # Every Named component schema.
         def all
-          [ software, release, release_asset, external_link, fork_link, software_image, platform_link, software_status,
+          [ software, release, release_asset, external_link, fork_link, software_image, platform_link, store_client, software_status,
             software_category, download, download_summary, file_downloads, software_downloads,
             software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
             runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,

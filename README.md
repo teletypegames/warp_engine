@@ -98,32 +98,18 @@ The sections below use that stack's addresses (`http://localhost:8080`,
 
 ### Stores for your catalog
 
-`rails g warp_engine:store batocera` (or `retroarch`) writes a store config and a
-short installer into the host's `public/stores/<client>/`, so a Batocera box or a
-RetroArch install reads *this* catalog:
+The engine serves the Batocera and RetroArch store engines for *this* catalog
+(see *Store engines*): once the catalog has a `we-batocera` (or `we-retroarch`)
+release, a box installs with one line:
 
 ```sh
-docker compose exec app bin/rails g warp_engine:store batocera \
-  --base-url http://192.168.1.20:8080 --name "My Studio" --id mystudio
-# then, on the box:
-curl -fsSL http://192.168.1.20:8080/stores/batocera/install.sh | sh
+curl -fsSL http://192.168.1.20:8080/api/stores/batocera/install.sh | sh
 ```
 
-The box has to reach the catalog, so give `--base-url` the address it sees (your
-machine's LAN address for the example; `site_url` by default). The config starts
-from the one teletypegames.org runs, keeps the platforms the host has and the
-statuses shown by default (`--statuses` to change), and is the host's own file
-from then on. The installer pins the store engine and we-core to the commits that
-config was tested with.
-
-`--logo` brands the store: image URLs, or local image files the generator copies next
-to the config. On Batocera they are the menu logo (a PNG and an SVG are both worth
-giving); on RetroArch the PNG is the icon of the store's playlists.
-
-```sh
-docker compose exec app bin/rails g warp_engine:store retroarch \
-  --base-url http://192.168.1.20:8080 --name "My Studio" --id mystudio --logo public/logo.png
-```
+The box has to reach the catalog at the address it sees (your machine's LAN
+address for the example). The store's name, id, statuses and logo are the
+defaults worked out from the catalog until you set them on the *Store Engines*
+admin page or through the Admin API (`store_clients`).
 
 The C64, Plus/4 and DOS clients read files, not the API: the example writes the
 `c64`, `plus4` and `dos` shelves (see *Shelves*) and serves them with two small
@@ -1479,6 +1465,38 @@ form; `build_from_upload` is what "upload a new image" on that form calls.
 not touch it: the engine no longer creates it (the install generator does, as
 host code), and `software_images.image_id` still points at the same rows.
 
+## Store engines
+
+`batocera` and `retroarch` are platforms whose releases are store engines: the
+program that puts this catalog's games on a Batocera box or into RetroArch's
+library (`we-batocera`, `we-retroarch`). A release is one `.tar.gz` (the
+`cartridge` kind) holding the engine, the shared core and the engine's own
+`install.sh`; the `store_engine` pipeline runs the repository's
+`scripts/ci-test.sh` and `scripts/pack.sh` (which writes `dist/release.tar.gz`)
+and releases on tags.
+
+The catalog serves each of them, publicly, under `/api/stores/<client>/`:
+
+| Path | What |
+|---|---|
+| `install.sh` | the installer: downloads the release the machines run and runs its `install.sh` with the store config below |
+| `config.json` | the store config: this catalog, the store's name and id, the folder, the statuses it installs, the logo, the platforms the engine has, and `store.api.release` |
+| `release` | `{ software, version, url, size }`: the release the machines run |
+
+An installed engine reads `release` at the start of every sync; when the
+version differs from its own it downloads the archive, checks its size, moves
+the new engine and core over the installed ones and carries on in the new
+engine. The release is the newest stable one with its archive, unless the host
+pins a version — a rollback for every machine at once.
+
+What the host sets per store engine is a `WarpEngine::StoreClient` (the *Store
+Engines* admin page, or the Admin API's `store_clients`, which the MCP server
+offers too): the catalog software it is released as (default
+`we-batocera` / `we-retroarch`), the store's name (default `store_name`, else the
+host), its id and subfolder (default from the host name), the statuses (default:
+those shown by default), the logo (http(s) URLs ending in `.png` or `.svg`) and
+the pinned version. A blank field takes the default.
+
 ## Store registry
 
 `GET /api/stores` is the registry the [WarpEngine Desktop](https://wiki.teletypegames.org/stores/we-desktop)
@@ -2209,6 +2227,16 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.7
+
+Run the new migration (the `store_clients` table). The `batocera` and
+`retroarch` platforms are new: give them a builder with `python3`, `shellcheck`,
+`curl` and `tar` in the host's `ci` block. The `warp_engine:store` generator is
+gone: the engine serves the store engines itself under `/api/stores/<client>/`
+(see *Store engines*); delete the `public/stores/batocera` and
+`public/stores/retroarch` files it wrote, and set what they said on the *Store
+Engines* admin page.
 
 ## Upgrading to 5.6
 

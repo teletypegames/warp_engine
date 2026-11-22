@@ -1,0 +1,21 @@
+# A WarpEngine store engine for <%= host %>. The repository tests itself (scripts/ci-test.sh) and packs
+# its release (scripts/pack.sh writes dist/release.tar.gz: the engine, the shared core it pins and its
+# installers); the catalog serves that archive to the machines (/api/stores/<%= host %>/*).
+steps:
+  - name: test
+    image: <%= builder %>
+    pull: true
+    commands:
+      - sh scripts/ci-test.sh
+
+  - name: package
+    artifacts: [ dist/ ]
+    image: <%= builder %>
+    commands:
+      - sh scripts/pack.sh
+
+upload:
+  packages: [ jq ]
+  prepare: |
+    cp dist/release.tar.gz <%= name %>-$VERSION.tar.gz
+    jq --arg version "$VERSION" '. + {version: $version}' metadata.json > <%= name %>-$VERSION.metadata.json
