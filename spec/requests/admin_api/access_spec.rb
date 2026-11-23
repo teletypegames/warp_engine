@@ -112,6 +112,7 @@ RSpec.describe "Admin API access", type: :request do
 
     before do
       allow(Rails).to receive(:cache).and_return(cache)
+      allow(Time).to receive(:current).and_return(Time.current.beginning_of_minute + 10.seconds)
       admin_config.rate_limit = { to: 2, within: 1.minute }
     end
 
