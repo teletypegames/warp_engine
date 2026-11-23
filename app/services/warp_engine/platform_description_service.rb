@@ -42,7 +42,8 @@ module WarpEngine
     #
     # [name, label]    the platform's names
     # [kinds]          each KindSpec: +name+, +upload+ (the upload name with
-    #                  <tt>NAME-VERSION</tt>), +required+, +optional+, +built+, +always+
+    #                  <tt>NAME-VERSION</tt> and the preferred extension), +uploads+
+    #                  (every upload name it may have, the preferred first), +required+, +optional+, +built+, +always+
     # [metadata]       +format+ (+json+, +lua+ or +custom+), +file+ (the file a
     #                  developer edits, or +nil+) and +keys+
     # [version]        +source+: +metadata+ (the +version+ of metadata.json) or
@@ -117,8 +118,8 @@ module WarpEngine
     private
 
     def kind(spec, platform)
-      { "name" => spec.name, "upload" => spec.upload_name("NAME-VERSION"), "required" => spec.required,
-        "optional" => spec.optional, "built" => platform.built_kinds.include?(spec.name), "always" => spec.always }
+      { "name" => spec.name, "upload" => spec.upload_name("NAME-VERSION"), "uploads" => spec.upload_names("NAME-VERSION"),
+        "required" => spec.required, "optional" => spec.optional, "built" => platform.built_kinds.include?(spec.name), "always" => spec.always }
     end
 
     def metadata(platform)

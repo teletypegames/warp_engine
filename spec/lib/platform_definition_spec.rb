@@ -42,6 +42,14 @@ RSpec.describe WarpEngine::Platform do
       expect { cartridge.upload_name("g-1.0") }.to raise_error(ArgumentError)
       expect(WarpEngine::ReleaseAsset::KINDS).to eq(WarpEngine::AssetKinds.names)
     end
+
+    it "names every alternative of a kind with several extensions, the preferred first" do
+      spec = WarpEngine::Platform.find!("c64").kind_specs.find { |kind| kind.name == "cartridge" }
+
+      expect(spec.upload_names("g-1.0")).to eq(%w[g-1.0.prg g-1.0.d64])
+      expect([ spec.upload_name("g-1.0"), spec.asset_name("g-1.0") ]).to eq(%w[g-1.0.prg g-1.0.prg])
+      expect(spec.upload_suffixes).to eq(%w[.prg .d64])
+    end
   end
 
   describe "a platform a host registers with a block" do

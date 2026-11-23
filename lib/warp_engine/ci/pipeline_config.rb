@@ -222,8 +222,8 @@ module WarpEngine
       def upload_step(platform, spec, name, update_server, upload)
         specs = platform.kind_specs
         metadata = platform.definition.metadata.to_s == "json"
-        always = specs.select { |spec| spec.built && spec.always }.map(&:upload_suffix) + (metadata ? [ ".metadata.json" ] : [])
-        maybe = specs.reject { |spec| spec.built && spec.always }.map(&:upload_suffix)
+        always = specs.select { |spec| spec.built && spec.always }.map { |spec| spec.upload_suffixes.join("|") } + (metadata ? [ ".metadata.json" ] : [])
+        maybe = specs.reject { |spec| spec.built && spec.always }.flat_map(&:upload_suffixes)
         inputs = Scripts.assign(NAME: name, ALWAYS: always.join(" "), MAYBE: maybe.join(" "), METADATA: metadata ? "yes" : "")
         script = inputs + "VERSION=$(cat .version)\n" + upload["prepare"].to_s + Scripts.read("upload")
         Step.new(name: "upload", image: spec[:tools] || "alpine", environment: { "UPDATE_SERVER" => update_server },

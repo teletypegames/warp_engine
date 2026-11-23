@@ -34,13 +34,13 @@
     "c64": {
       "system": "c64",
       "kind": "cartridge",
-      "ext": ".prg",
+      "ext": "",
       "enabled": true
     },
     "plus4": {
       "system": "cplus4",
       "kind": "cartridge",
-      "ext": ".prg",
+      "ext": "",
       "enabled": true
     },
     "tic80": {

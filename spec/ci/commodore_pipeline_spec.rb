@@ -25,6 +25,22 @@ RSpec.describe "Commodore pipelines" do
         expect { YAML.safe_load(yaml) }.not_to raise_error
       end
 
+      it "builds a disk image with the repo's Makefile when the marker says media: d64" do
+        yaml = render(config_class, { "media" => "d64" })
+
+        expect(yaml).to include("make we-c64.d64", "cp we-c64.d64 we-c64-$VERSION.d64")
+        expect(yaml).not_to include("acme", "make we-c64.prg")
+        expect { YAML.safe_load(yaml) }.not_to raise_error
+      end
+
+      it "uploads a disk image in place of the program when the build made one" do
+        script = step_script(render(config_class, { "media" => "d64" }), "upload")
+
+        calls, status = run_with_fake_curl(script, files: { "we-c64-1.0.d64" => "disk", "metadata.json" => "{}" })
+        expect(status).to be_success
+        expect(uploaded_files(calls)).to contain_exactly("we-c64-1.0.d64", "we-c64-1.0.metadata.json")
+      end
+
       it "uploads the program and its metadata always, and the players only when they were built" do
         script = step_script(render(config_class), "upload")
         program = { "we-c64-1.0.prg" => "prg", "metadata.json" => "{}" }

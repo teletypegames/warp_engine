@@ -73,8 +73,8 @@ module WarpEngine
 
       # Returns where the file (or unpacked folder) of the kind +spec+ is, or +nil+.
       def self.source_of(spec, upload, assets)
-        expected = upload.path(spec.upload_name(upload.versioned))
-        return expected if File.file?(expected)
+        expected = spec.upload_names(upload.versioned).map { |name| upload.path(name) }.find { |path| File.file?(path) }
+        return expected if expected
 
         recorded = assets[spec.name]
         if spec.kind.unpacked?
@@ -88,7 +88,7 @@ module WarpEngine
         source = source_of(spec, upload, assets)
         return nil if source.nil?
 
-        name = spec.upload_name(upload.versioned)
+        name = spec.upload_names(upload.versioned).find { |file| source.end_with?(file) } || spec.upload_name(upload.versioned)
         path = File.file?(source) ? source : zip_folder(source, File.join(tmp, name))
         PackageFile.new(path: path, name: name, kind: spec.name)
       end

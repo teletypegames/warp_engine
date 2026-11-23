@@ -725,6 +725,18 @@ the players still publishes, and only the players that were built are uploaded. 
 the web a C64 or Plus/4 release plays in the EmulatorJS runtime (see *Runtimes*),
 so the platforms take no `html` build.
 
+A program too big for one PRG ships on a disk: with `media: d64` the build step runs
+`make <name>.d64` (the Makefile writes the image, with `c1541` or `oscar64 -d64=`),
+and the `.d64` is the release's `cartridge` in place of the PRG. Everything else is
+the same: `commodore-pack` puts the disk next to the players, and EmulatorJS
+autostarts it. A flat shelf of `.PRG` files leaves such a title out.
+
+```yaml
+platform: c64
+build: make
+media: d64
+```
+
 #### The `dos` platform
 
 DOS programs (with an optional Win32 build) are published like games, from a
@@ -806,6 +818,9 @@ end
 The kinds are the `WarpEngine::AssetKinds` (`cartridge`, `source`, `html`, `docs`,
 `win_x64`, …): each knows its upload name (`<name>-<version>-win-x64.zip`) and whether
 the engine unpacks it (`html`, `docs`), so a platform only says which ones it has.
+A kind without a suffix of its own may take a list of extensions, the preferred first
+(`kind :cartridge, ext: %w[.prg .d64]`): a release then carries one of them, the first
+the upload has.
 `ci template:` is a CI-neutral template (see *Pipeline configs*; the keyword arguments
 after it are extra template variables), and `shelf_folder` takes a callable
 `(metadata, kind)` for a `folders` shelf (see *Shelves*).
@@ -835,7 +850,8 @@ knowing them itself. Three public endpoints describe them:
 | `GET /build/platforms/:name` | one description, 404 for an unknown platform |
 | `GET /build/platforms/:name/metadata-schema` | the JSON Schema (2020-12) of the platform's metadata |
 
-A description holds the platform's `kinds` (with the upload name, `required`, `optional`,
+A description holds the platform's `kinds` (with the upload name, every name it may have
+in `uploads`, `required`, `optional`,
 `built`, `always`), its `metadata` (`format` `json`, `lua` or `custom`, the `file` a developer
 edits and the keys a publish reads), where the `version` comes from, the forced
 `releaseRule`, the enabled `web` bindings with their runtime parameters, the `ci` side
@@ -1312,7 +1328,7 @@ platform unless `key:` names another.
 | `kind` | which asset of the release (`ReleaseAsset` kind), or a list of them |
 | `layout` | `flat` (default): one file a title; `folders`: one folder a title (below) |
 | `path` | the folder, relative to `file_container_path` |
-| `extension` | `flat` only: the extension on the shelf, in capitals |
+| `extension` | `flat` only: the extension on the shelf, in capitals; a title whose file has another one (a `.d64` on a `.PRG` shelf) is left out |
 | `name_length` | the longest file name, extension included (default 16); for `folders`, the longest folder name (default 8, as DOS has it) |
 | `statuses` | optional; without it, the statuses whose `default_visible` is set |
 | `urls` | optional: where the host serves the folder (`ftp`, `http`, `https`) |
@@ -2227,6 +2243,15 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.8
+
+The `c64` and `plus4` platforms take a `.d64` as the `cartridge` beside the `.prg`
+(marker option `media: d64`). Nothing changes for a PRG release. Give the C64
+builder image a disk tool (`c1541`) and the exporter a `commodore-pack` that
+accepts a `.d64`. A store client that filters the C64 or Plus/4 cartridge by
+`ext: ".prg"` misses disk releases: set its `ext` to `""` on the *Store Engines*
+page. A platform description's kinds carry `uploads` beside `upload`.
 
 ## Upgrading to 5.7
 

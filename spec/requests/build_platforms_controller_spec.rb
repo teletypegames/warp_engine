@@ -21,7 +21,8 @@ RSpec.describe "Build platforms endpoint", type: :request do
 
     json = JSON.parse(response.body)
     expect(json).to include("name" => "c64", "label" => "C64", "releaseRule" => nil, "tooling" => {})
-    expect(json["kinds"].first).to include("name" => "cartridge", "upload" => "NAME-VERSION.prg", "required" => true)
+    expect(json["kinds"].first).to include("name" => "cartridge", "upload" => "NAME-VERSION.prg",
+                                                "uploads" => %w[NAME-VERSION.prg NAME-VERSION.d64], "required" => true)
     expect(json["metadata"]).to include("format" => "json", "file" => "metadata.json")
     expect(json["version"]).to eq("source" => "metadata", "command" => nil, "file" => nil)
     expect(json["web"].first).to include("key" => "emulatorjs", "runtime" => "emulatorjs", "default" => true)

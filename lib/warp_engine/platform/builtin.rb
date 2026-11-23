@@ -36,7 +36,7 @@ module WarpEngine
     { c64: [ "C64", "vice_x64sc" ], plus4: [ "Plus/4", "vice_xplus4" ] }.each do |machine, (name, core)|
       define machine do
         label name
-        kind :cartridge, ext: ".prg", required: true
+        kind :cartridge, ext: %w[.prg .d64], required: true
         kinds :win_x64, :linux_x64, :mac_arm64
         web :emulatorjs, core: core, options: { "keyboardInput" => "enabled" }
         ci template: "commodore", machine: machine.to_s

@@ -16,10 +16,10 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder do
 
   after { FileUtils.rm_rf(container) }
 
-  def publish(name, version, content: "#{name}-#{version}", platform: "c64", status: "released", kind: "cartridge", **attributes)
+  def publish(name, version, content: "#{name}-#{version}", platform: "c64", status: "released", kind: "cartridge", ext: ".prg", **attributes)
     software = WarpEngine::Software.find_by(name: name) ||
                create(:software, name: name, title: name.titleize, platform: platform, status: status, **attributes)
-    path = File.join(container, "#{name}-#{version}.prg")
+    path = File.join(container, "#{name}-#{version}#{ext}")
     File.binwrite(path, content)
     release = create(:release, software: software, version: version)
     WarpEngine::ReleaseAsset.create!(release: release, kind: kind, path: path)
@@ -114,6 +114,16 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder do
 
     expect(entries.map(&:file)).to eq([ "ARIADNE.PRG" ])
     expect(skipped.map(&:to_s)).to eq([ "nocart: no cartridge asset in any release" ])
+  end
+
+  it "skips a title whose program is a disk image, not a file of the shelf's extension" do
+    publish("ariadne", "1.0.0")
+    publish("prypjat", "1.0.0", ext: ".d64")
+
+    entries, skipped = described_class.new(shelf).plan
+
+    expect(entries.map(&:file)).to eq([ "ARIADNE.PRG" ])
+    expect(skipped.map(&:to_s)).to eq([ "prypjat: the cartridge is a .D64, not a .PRG" ])
   end
 
   it "skips a gated title" do

@@ -21,6 +21,24 @@ RSpec.describe "the c64 platform" do
     expect(release.release_assets.map(&:kind)).to eq([ "cartridge" ])
   end
 
+  it "publishes a disk image as the cartridge when the build made one instead of a program" do
+    File.delete(File.join(dir, "we-c64-0.1.1.prg"))
+    File.binwrite(File.join(dir, "we-c64-0.1.1.d64"), "disk")
+
+    release = platform.publish("we-c64", "0.1.1").reload
+
+    expect(release.release_assets.map { |asset| [ asset.kind, File.basename(asset.path.to_s) ] })
+      .to eq([ [ "cartridge", "we-c64-0.1.1.d64" ] ])
+  end
+
+  it "prefers the program when the build made a program and a disk image" do
+    File.binwrite(File.join(dir, "we-c64-0.1.1.d64"), "disk")
+
+    release = platform.publish("we-c64", "0.1.1").reload
+
+    expect(release.release_assets.map { |asset| File.basename(asset.path.to_s) }).to eq([ "we-c64-0.1.1.prg" ])
+  end
+
   it "refuses a release without the program, its required kind, and records nothing" do
     File.delete(File.join(dir, "we-c64-0.1.1.prg"))
 

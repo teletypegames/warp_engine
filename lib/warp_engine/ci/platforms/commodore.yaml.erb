@@ -1,18 +1,20 @@
+<%- disk = options["media"] == "d64" -%>
+<%- file = disk ? "#{name}.d64" : "#{name}.prg" -%>
 steps:
   - name: build
-    artifacts: [ "*.prg", "*.metadata.json" ]
+    artifacts: [ "*.prg", "*.d64", "*.metadata.json" ]
     image: <%= builder %>
     pull: true
     commands:
       - |
         VERSION=$(cat .version)
-<%- if options["build"] == "make" -%>
-        make <%= name %>.prg
+<%- if options["build"] == "make" || disk -%>
+        make <%= file %>
 <%- else -%>
-        acme -f cbm -o <%= name %>.prg main.asm
+        acme -f cbm -o <%= file %> main.asm
 <%- end -%>
         echo "==> Creating versioned files for $VERSION"
-        cp <%= name %>.prg <%= name %>-$VERSION.prg
+        cp <%= file %> <%= name %>-$VERSION.<%= disk ? "d64" : "prg" %>
         cp metadata.json <%= name %>-$VERSION.metadata.json
         ls -lh <%= name %>-$VERSION.*
 

@@ -25,8 +25,14 @@ module WarpEngine
 
           # Returns <tt>[nil, file name, nil]</tt> for the offered +item+ (a
           # WarpEngine::Catalog::Offer item), or <tt>[reason]</tt> when the
-          # software has no usable shelf name.
+          # software has no usable shelf name or its file has another extension
+          # than the shelf's (a <tt>.d64</tt> on a <tt>.PRG</tt> shelf).
           def name_for(item)
+            source_extension = File.extname(item.source.to_s).upcase
+            if shelf.extension.present? && source_extension != shelf.extension
+              return [ "the #{item.kind} is a #{source_extension.presence || 'file without extension'}, not a #{shelf.extension}" ]
+            end
+
             file = shelf.file_name_for(item.software)
             file ? [ nil, file, nil ] : [ "no usable shelf name" ]
           end

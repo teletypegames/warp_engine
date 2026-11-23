@@ -3,7 +3,10 @@ module WarpEngine
     # One asset kind a platform publishes.
     #
     # [kind]     the WarpEngine::AssetKind
-    # [ext]      the extension of a kind without a suffix (<tt>.prg</tt>)
+    # [kind]     the WarpEngine::AssetKind
+    # [ext]      the extension of a kind without a suffix (<tt>.prg</tt>), or
+    #            the alternatives it may have, the preferred first
+    #            (<tt>[".prg", ".d64"]</tt>): a release carries one of them
     # [required] a publish fails without it
     # [optional] the build checks do not miss it
     # [built]    the platform's pipeline produces it (else it is a manual upload)
@@ -12,14 +15,35 @@ module WarpEngine
       # Returns the kind name.
       def name = kind.name
 
-      # Returns the uploaded file name for +versioned+ (<tt>name-version</tt>).
-      def upload_name(versioned) = kind.upload_name(versioned, ext: ext)
+      # Returns the extensions the kind may have, the preferred first; one
+      # +nil+ for a kind with a suffix of its own.
+      def extensions
+        list = Array(ext).compact_blank
+        list.empty? ? [ nil ] : list
+      end
 
-      # Returns the name of the asset in the file container for +versioned+.
-      def asset_name(versioned) = kind.asset_name(versioned, ext: ext)
+      # Returns the uploaded file name for +versioned+ (<tt>name-version</tt>)
+      # with the preferred extension.
+      def upload_name(versioned) = upload_names(versioned).first
 
-      # Returns what follows <tt>name-version</tt> in the upload name.
+      # Returns the uploaded file name for +versioned+ with each of the
+      # #extensions, the preferred first.
+      def upload_names(versioned) = extensions.map { |extension| kind.upload_name(versioned, ext: extension) }
+
+      # Returns the name of the asset in the file container for +versioned+
+      # with the preferred extension.
+      def asset_name(versioned) = asset_names(versioned).first
+
+      # Returns the asset names for +versioned+ with each of the #extensions.
+      def asset_names(versioned) = extensions.map { |extension| kind.asset_name(versioned, ext: extension) }.uniq
+
+      # Returns what follows <tt>name-version</tt> in the upload name, with the
+      # preferred extension.
       def upload_suffix = upload_name("")
+
+      # Returns what follows <tt>name-version</tt> in each upload name the
+      # kind may have, the preferred first.
+      def upload_suffixes = upload_names("")
     end
 
     # Everything the engine knows of a platform, built by a Builder.
@@ -85,7 +109,8 @@ module WarpEngine
 
       # Adds the asset kind +name+ (a WarpEngine::AssetKinds name).
       #
-      # [ext]      the extension, for +cartridge+ and +source+
+      # [ext]      the extension, for +cartridge+ and +source+, or a list of
+      #            alternatives, the preferred first
       # [required] a publish fails without it (it is then also always built)
       # [optional] the build checks do not miss it
       # [built]    the pipeline builds it (default +true+)
