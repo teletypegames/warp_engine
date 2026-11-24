@@ -141,7 +141,7 @@ RSpec.describe WarpEngine::AssetCoverageService do
 
       expect(totals[:softwares]).to eq(2)
       expect(totals[:releases]).to eq(2)
-      expect(totals[:expected]).to eq(11)
+      expect(totals[:expected]).to eq(12)
       expect(totals[:present]).to eq(7)
       expect(totals[:missing]).to eq(4)
       expect(totals[:incomplete_softwares]).to eq(1)

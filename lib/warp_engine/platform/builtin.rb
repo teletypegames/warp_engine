@@ -38,6 +38,7 @@ module WarpEngine
       define machine do
         label name
         kind :cartridge, ext: %w[.prg .d64], required: true
+        kind :docs, optional: true
         kinds :win_x64, :linux_x64, :mac_arm64
         libretro core, name: core_name
         web :emulatorjs, core: :libretro, options: { "keyboardInput" => "enabled" }

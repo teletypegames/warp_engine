@@ -583,7 +583,8 @@ pipelines package the `.prg` into the browser player and the native players
 there — and an empty map (default) disables the feature. `tools` is an optional
 image for the helper steps (version, lint, minify, docs, upload, publish): without
 it they run in `alpine` and install what they need first on every run (`apk add`
-git, jq, curl, zip, lua5.4; `luarocks install` luacheck and ldoc for tic80); with
+git, jq, curl, zip, lua5.4; `luarocks install` luacheck and ldoc for tic80;
+doxygen for the c64 and plus4 docs); with
 it they run in that image and install nothing, so it must already have those, with
 Lua 5.4 as `lua`. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
@@ -771,6 +772,15 @@ platform: c64
 build: make
 media: d64
 ```
+
+A repo with C sources under `src/` (Oscar64, cc65) also gets the docs of every
+release: the `docs` step runs Doxygen over `src/` with `README.md` as the main
+page and the source browser on, and uploads `<name>-<version>-docs.zip`, which
+the catalog opens like the docs of a TIC-80 cart. The comments may stay plain
+`/* */` ones: a filter reads the first comment of a file as its description and
+a comment above a declaration as its documentation. A `Doxyfile` in the repo is
+read first, so it can add to the settings. An assembly-only repo builds no docs;
+the kind is optional, so nothing is missing.
 
 #### The `dos` platform
 

@@ -7,8 +7,8 @@ RSpec.describe WarpEngine::Platform do
       "tic80"      => [ %w[cartridge source html docs win_x64 linux_x64 mac_x64], %w[cartridge] ],
       "ebitengine" => [ %w[html win_x86 win_x64 linux_x64 linux_arm64 mac_x64 mac_arm64], %w[html] ],
       "love"       => [ %w[html win_x64 linux_x64 mac_universal], %w[html] ],
-      "c64"        => [ %w[cartridge win_x64 linux_x64 mac_arm64], %w[cartridge] ],
-      "plus4"      => [ %w[cartridge win_x64 linux_x64 mac_arm64], %w[cartridge] ],
+      "c64"        => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
+      "plus4"      => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
       "godot"      => [ %w[html win_x86 win_x64 linux_x64 mac_universal], %w[html] ],
       "bevy"       => [ %w[html win_x64 linux_x64 linux_arm64], %w[html] ],
       "phaser"     => [ %w[html], %w[html] ],
@@ -25,6 +25,7 @@ RSpec.describe WarpEngine::Platform do
     it "keeps the kinds a pipeline does not build out of the built ones" do
       expect(described_class.find!("ebitengine").built_kinds).to eq(%w[html win_x86 win_x64 linux_x64 linux_arm64])
       expect(described_class.find!("dos").optional_kinds).to eq(%w[win_x86])
+      expect(described_class.find!("c64").optional_kinds).to eq(%w[docs])
     end
 
     it "names every builtin and only them in BUILTIN" do

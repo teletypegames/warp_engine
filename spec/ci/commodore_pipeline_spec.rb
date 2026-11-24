@@ -33,6 +33,31 @@ RSpec.describe "Commodore pipelines" do
         expect { YAML.safe_load(yaml) }.not_to raise_error
       end
 
+      it "generates versioned Doxygen docs from the C sources under src/" do
+        yaml = render(config_class, { "build" => "make" })
+
+        expect(yaml).to include("doxygen -", "PROJECT_NUMBER", "we-c64-$VERSION-docs.zip")
+        expect { YAML.safe_load(yaml) }.not_to raise_error
+      end
+
+      it "skips the docs of a repository without C sources" do
+        script = step_script(render(config_class), "docs")
+
+        Dir.mktmpdir do |dir|
+          output, status = Open3.capture2e("sh", "-c", script, chdir: dir)
+          expect(status).to be_success
+          expect(output).to include("No C sources under src/")
+        end
+      end
+
+      it "uploads the docs when the build made them" do
+        script = step_script(render(config_class, { "build" => "make" }), "upload")
+
+        calls, status = run_with_fake_curl(script, files: { "we-c64-1.0.prg" => "prg", "we-c64-1.0-docs.zip" => "z", "metadata.json" => "{}" })
+        expect(status).to be_success
+        expect(uploaded_files(calls)).to contain_exactly("we-c64-1.0.prg", "we-c64-1.0-docs.zip", "we-c64-1.0.metadata.json")
+      end
+
       it "uploads a disk image in place of the program when the build made one" do
         script = step_script(render(config_class, { "media" => "d64" }), "upload")
 
