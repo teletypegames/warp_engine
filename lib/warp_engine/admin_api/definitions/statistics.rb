@@ -58,7 +58,8 @@ module WarpEngine
         end
 
         # The kept downloads matching the filters of +ctx+ (substring matches, software
-        # title, +from+/+to+ times). Raises a 400 Error for a malformed time.
+        # title, +from+/+to+ times or dates; a +to+ date takes in the whole day). Raises a 400
+        # Error for a malformed time.
         def filtered(ctx)
           scope = WarpEngine::Download.kept.includes(:release)
           { filePath: :file_path, ipAddress: :ip_address, userAgent: :user_agent, referer: :referer }.each do |param, column|
@@ -68,7 +69,7 @@ module WarpEngine
             scope = scope.joins(release: :software).where("softwares.title LIKE ?", like(ctx[:software]))
           end
           scope = scope.where(created_at: time(ctx[:from], :from)..) if ctx[:from].present?
-          scope = scope.where(created_at: ...time(ctx[:to], :to)) if ctx[:to].present?
+          scope = scope.where(created_at: ...time(ctx[:to], :to, day_after: true)) if ctx[:to].present?
           scope
         end
 
@@ -80,11 +81,16 @@ module WarpEngine
           (ctx[:limit] || default).to_i.clamp(1, 100)
         end
 
-        # Parses the ISO 8601 +value+. Raises a 400 Error naming the param +name+ when malformed.
-        def time(value, name)
-          Time.iso8601(value.to_s)
-        rescue ArgumentError
-          raise Error.bad_request("#{name} must be an ISO 8601 time")
+        # Parses the ISO 8601 time or date +value+; a date is its midnight (UTC), or with
+        # +day_after+ the next midnight. Raises a 400 Error naming the param +name+ when malformed.
+        def time(value, name, day_after: false)
+          text = value.to_s
+          return Time.iso8601(text) unless text.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+
+          date = Date.iso8601(text)
+          (day_after ? date + 1 : date).to_time(:utc)
+        rescue ArgumentError, Date::Error
+          raise Error.bad_request("#{name} must be an ISO 8601 time or date")
         end
 
         # +value+ with every hash key, at any depth, in lower camel case.

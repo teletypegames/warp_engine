@@ -136,9 +136,11 @@ module WarpEngine
           end
         end
 
-        # An SQL condition: the +scopes+ JSON column contains +scope+.
+        # An SQL condition: the +scopes+ JSON column contains +scope+, on every database
+        # (the column's text holds the scope as a quoted JSON string).
         def contains(scope)
-          ActiveRecord::Base.sanitize_sql_array([ "JSON_CONTAINS(COALESCE(scopes, '[]'), ?)", scope.to_json ])
+          pattern = "%#{ActiveRecord::Base.sanitize_sql_like(scope.to_json)}%"
+          ActiveRecord::Base.sanitize_sql_array([ "COALESCE(scopes, '[]') LIKE ?", pattern ])
         end
 
         # An SQL condition: the token holds any admin scope.

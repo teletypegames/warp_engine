@@ -78,6 +78,12 @@ RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :r
       api_get "/downloads", params: { from: 1.day.ago.iso8601 }
       expect(json["data"].size).to eq(2)
 
+      api_get "/downloads", params: { from: Date.current.iso8601 }
+      expect(json["data"].size).to eq(2)
+
+      api_get "/downloads", params: { to: 1.month.ago.to_date.iso8601 }
+      expect(json["data"].map { |d| d["filePath"] }).to eq(%w[ra-1.0.tic])
+
       api_get "/downloads", params: { from: "yesterday" }
       expect(response).to have_http_status(:bad_request)
     end
