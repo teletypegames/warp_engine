@@ -14,7 +14,7 @@ for choices in $ALWAYS; do
   for suffix in $(echo "$choices" | tr '|' ' '); do
     if [ -z "$chosen" ] && [ -f "$NAME-$VERSION$suffix" ]; then chosen="$NAME-$VERSION$suffix"; fi
   done
-  [ -n "$chosen" ] || chosen="$NAME-$VERSION${choices%%|*}"
+  [ -n "$chosen" ] || chosen="$NAME-$VERSION$(printf '%s' "$choices" | cut -d'|' -f1)"
   FILES="$FILES $chosen"
 done
 for suffix in $MAYBE; do

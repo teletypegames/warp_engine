@@ -9,14 +9,21 @@ module WarpEngine
     # (<tt>platform: godot</tt>). A pipeline is a list of CI::Step objects:
     #
     # 1. +version+, which writes <tt>.version</tt> (<tt>scripts/version.sh</tt>);
-    # 2. the platform's own steps, from its CI-neutral template
+    # 2. +check+, which runs <tt>make check</tt> in the builder image when the
+    #    repository's Makefile has that target (a template with
+    #    <tt>check: false</tt> runs its own checks instead);
+    # 3. the platform's own steps, from its CI-neutral template
     #    (<tt>lib/warp_engine/ci/platforms/<template>.yaml.erb</tt>, or the
-    #    host's, see WarpEngine::Platform::Builder#ci);
-    # 3. +upload+ and +publish+, generated from the platform's kinds
+    #    host's, see WarpEngine::Platform::Builder#ci). A step on the builder
+    #    or exporter image pulls it on every run; a step that builds native
+    #    targets calls +warp_target+ (<tt>scripts/pack.sh</tt>), and the
+    #    template gets +targets+, the upload suffix and mode of every native
+    #    kind the pipeline builds;
+    # 4. +upload+ and +publish+, generated from the platform's kinds
     #    (<tt>scripts/upload.sh</tt>, <tt>scripts/publish.sh</tt>): the kinds
     #    the pipeline always builds (and the metadata) must be there, every
     #    other kind the platform accepts is uploaded when the build made it;
-    # 4. +tag+ after a push build when releases follow tags, and the forge
+    # 5. +tag+ after a push build when releases follow tags, and the forge
     #    +release+ when the host asks for it.
     #
     # The adapter's renderer then writes the steps in its YAML dialect. This is
@@ -25,9 +32,11 @@ module WarpEngine
     # forge scripts and secrets.
     #
     # A CI-neutral template renders to a mapping with +steps+ (each +name+,
-    # +image+, +commands+, optionally +environment+, +artifacts+ and +pull+) and
-    # an optional +upload+ (+prepare+: shell lines run before the upload,
-    # +packages+: what the upload needs from apk without a tools image).
+    # +image+, +commands+, optionally +environment+, +artifacts+, +pull+ and
+    # +release+: true for a step that only a release build runs), an optional
+    # +upload+ (+prepare+: shell lines run before the upload, +packages+: what
+    # the upload needs from apk without a tools image) and an optional
+    # <tt>check: false</tt>.
     class PipelineConfig
       # The pattern a platform name must match before its template is looked up.
       PLATFORM_FORMAT = /\A[a-z0-9_-]+\z/
@@ -35,8 +44,20 @@ module WarpEngine
       OPTION_FORMAT = /\A[A-Za-z0-9_.-]{1,64}\z/
       # The directory of the builtin CI-neutral platform templates.
       TEMPLATES_DIR = Pathname.new(__dir__).join("platforms")
-      # The step (job) names that release a build and run on tags only when releases follow tags.
-      RELEASE_STEPS = %w[package upload publish release].freeze
+      # The shared steps that release a build and run on tags only when releases follow tags.
+      RELEASE_STEPS = %w[upload publish release].freeze
+      # The step name a legacy template's tag-only step has.
+      LEGACY_RELEASE_STEPS = %w[package].freeze
+      # The kinds that are native programs: built for one system and packed by +warp_target+.
+      NATIVE_KIND = /\A(?:cli_)?(?:win|linux|mac)_/
+      # The commands of the +check+ step.
+      CHECK_SCRIPT = <<~'SH'.chomp.freeze
+        if command -v make >/dev/null 2>&1 && [ -f Makefile ] && make -n check >/dev/null 2>&1; then
+          make check
+        else
+          echo "==> No make check target: nothing to check"
+        fi
+      SH
       # The accepted values of the +release+ marker option.
       RELEASE_RULES = %w[push tag].freeze
       # The shell command that prints the +version+ of the repository's metadata.json.
@@ -82,13 +103,15 @@ module WarpEngine
         found = WarpEngine::Platform.find(platform_name, app: options["app"])
         return nil if spec.nil? || found.nil?
 
+        options = allowed_options(found, options)
+
         body = found.legacy? ? legacy_steps(found, spec, name, update_server, options) : platform_steps(found, spec, name, update_server, options)
         return body unless body.is_a?(Array)
 
         steps, extras = body
         steps = [ version_step(platform_name, spec) ] + steps
         if release_rule(platform_name, options) == "tag"
-          steps = steps.map { |step| RELEASE_STEPS.include?(step.name) ? step.with(on: :tag) : step }
+          steps = steps.map { |step| step.release || RELEASE_STEPS.include?(step.name) ? step.with(on: :tag) : step }
           steps << tag_step(spec)
         end
         steps << release_step(name.to_s, spec) if spec[:forge_release]
@@ -114,6 +137,23 @@ module WarpEngine
           next unless key.match?(OPTION_FORMAT) && value.to_s.match?(OPTION_FORMAT)
 
           clean[key] = value.to_s
+        end
+      end
+
+      # Returns +options+ without a value +platform+ declares a MarkerOption
+      # for and does not allow.
+      def allowed_options(platform, options)
+        declared = platform.options.index_by(&:name)
+        options.select { |key, value| declared[key].nil? || declared[key].allows?(value) }
+      end
+
+      # Returns the native kinds the pipeline of +platform+ builds, as a Hash
+      # of kind name to the +warp_target+ arguments <tt>'SUFFIX' MODE</tt>
+      # (MODE: required, optional or expected).
+      def targets(platform)
+        platform.kind_specs.select { |spec| spec.built && spec.name.match?(NATIVE_KIND) }.to_h do |spec|
+          mode = if spec.required then "required" elsif spec.optional then "optional" else "expected" end
+          [ spec.name, "#{Scripts.quote(spec.upload_suffix)} #{mode}" ]
         end
       end
 
@@ -184,6 +224,7 @@ module WarpEngine
           tools:            spec[:tools],
           web_shell:        spec[:web_shell],
           bundle_id_prefix: spec[:bundle_id_prefix] || "org.warpengine",
+          targets:          targets(platform),
           options:          options }.merge(platform.definition.ci_variables.to_h.symbolize_keys)
       end
 
@@ -197,10 +238,24 @@ module WarpEngine
         return nil unless path.file?
 
         document = YAML.safe_load(evaluate(path, locals(platform, spec, name, update_server, options)))
-        steps = Array(document["steps"]).map { |step| Step.from_template(step) }
+        moving = [ spec[:builder], spec[:exporter] ].compact
+        steps = Array(document["steps"]).map { |step| template_step(Step.from_template(step), moving, name.to_s) }
+        steps.unshift(check_step(spec)) unless document["check"] == false
         upload = document["upload"].to_h
         [ steps + [ upload_step(platform, spec, name.to_s, update_server.to_s, upload),
                     publish_step(platform, spec, name.to_s, update_server.to_s) ], {} ]
+      end
+
+      def template_step(step, moving, name)
+        step = step.with(pull: true) if moving.include?(step.image)
+        return step unless step.commands.any? { |command| command.include?("warp_target") }
+
+        step.with(commands: [ Scripts.assign(NAME: name) + Scripts.read("pack") ] + step.commands)
+      end
+
+      def check_step(spec)
+        image = spec[:builder] || spec[:tools] || "alpine"
+        Step.new(name: "check", image: image, pull: image == spec[:builder], commands: [ CHECK_SCRIPT ])
       end
 
       def legacy_steps(platform, spec, name, update_server, options)
@@ -209,7 +264,10 @@ module WarpEngine
 
         config = evaluate(path, locals(platform, spec, name, update_server, options))
         document = YAML.safe_load(config)
-        document.is_a?(Hash) ? renderer.parse(document) : config
+        return config unless document.is_a?(Hash)
+
+        steps, extras = renderer.parse(document)
+        [ steps.map { |step| LEGACY_RELEASE_STEPS.include?(step.name) ? step.with(release: true) : step }, extras ]
       end
 
       def helper_commands(spec, packages, script)
@@ -224,7 +282,7 @@ module WarpEngine
         specs = platform.kind_specs
         metadata = platform.definition.metadata.to_s == "json"
         always = specs.select { |spec| spec.built && spec.always }.map { |spec| spec.upload_suffixes.join("|") } + (metadata ? [ ".metadata.json" ] : [])
-        maybe = specs.reject { |spec| spec.built && spec.always }.flat_map(&:upload_suffixes)
+        maybe = specs.reject { |spec| spec.built && spec.always }.flat_map(&:upload_suffixes) + (metadata ? [] : [ ".metadata.json" ])
         inputs = Scripts.assign(NAME: name, ALWAYS: always.join(" "), MAYBE: maybe.join(" "), METADATA: metadata ? "yes" : "")
         script = inputs + "VERSION=$(cat .version)\n" + upload["prepare"].to_s + Scripts.read("upload")
         Step.new(name: "upload", image: spec[:tools] || "alpine", environment: { "UPDATE_SERVER" => update_server },

@@ -11,6 +11,17 @@ module WarpEngine
     # optional pre-release or build suffix.
     VERSION_PATTERN = '^[0-9]+(\.[0-9]+){0,3}([-+][0-9A-Za-z.-]+)?$'.freeze
 
+    # The form of a +license+: an SPDX licence id or expression (<tt>MIT</tt>,
+    # <tt>GPL-3.0-or-later</tt>, <tt>MIT OR Apache-2.0</tt>), not a name
+    # like <tt>MIT License</tt>.
+    LICENSE_PATTERN = "^[A-Za-z0-9.+-]+( (AND|OR|WITH) [A-Za-z0-9.+-]+)*$".freeze
+
+    # The marker keys every platform takes, with what they change.
+    COMMON_OPTIONS = [
+      { "name" => "release", "values" => WarpEngine::CI::PipelineConfig::RELEASE_RULES,
+        "description" => "tag (default): a new version is released by the tag the pipeline sets; push: every push to the default branch releases" }
+    ].freeze
+
     # The longest +shelf_name+ (WarpEngine::Software validates it too).
     SHELF_NAME_LENGTH = 32
 
@@ -51,6 +62,10 @@ module WarpEngine
     #                  +file+ it reads (a JSON file with a top-level +version+) or +nil+
     # [apps]           the variants (empty without): +name+, +default+, +marker+
     #                  (the marker line that picks it) and +kinds+ as above
+    # [options]        the CI marker keys besides +platform+ and +name+:
+    #                  +name+, +values+ and +description+ (+release+ unless the
+    #                  platform forces it, +app+ with variants, then the
+    #                  platform's own WarpEngine::Platform::MarkerOption list)
     # [releaseRule]    the forced CI release rule (+tag+), or +nil+
     # [web]            the enabled web bindings: +key+, +runtime+, +label+,
     #                  +payload+, +default+, +params+ (the runtime's parameter names
@@ -64,6 +79,7 @@ module WarpEngine
         "label" => platform.label,
         "kinds" => platform.kind_specs.map { |spec| kind(spec, platform) },
         "apps" => apps(platform),
+        "options" => options(platform),
         "metadata" => metadata(platform),
         "version" => version(platform),
         "releaseRule" => platform.release_rule,
@@ -95,7 +111,7 @@ module WarpEngine
         "fork_of_name" => { "type" => "string", "description" => "For a fork: the parent's name on its engine" },
         "fork_of_version" => { "type" => "string", "description" => "For a fork: the parent release it was forked from" },
         "fork_of_repo" => { "type" => "string", "description" => "For a fork: the parent's repository it was forked from" },
-        "license" => { "type" => "string", "description" => "An SPDX licence id, e.g. MIT" },
+        "license" => { "type" => "string", "pattern" => LICENSE_PATTERN, "description" => "An SPDX licence id, e.g. MIT" },
         "category" => { "type" => "string", "maxLength" => CATEGORY_LENGTH, "examples" => categories,
                         "description" => "A category key; a new key is registered for review" },
         "shelf_name" => { "type" => "string", "maxLength" => SHELF_NAME_LENGTH, "pattern" => "^[A-Za-z0-9-]+$",
@@ -131,6 +147,16 @@ module WarpEngine
         { "name" => name, "default" => name == platform.apps.first, "marker" => "app: #{name}",
           "kinds" => variant.kind_specs.map { |spec| kind(spec, variant) } }
       end
+    end
+
+    def options(platform)
+      common = platform.release_rule ? [] : COMMON_OPTIONS
+      app = if platform.apps.any?
+        [ { "name" => "app", "values" => platform.apps, "description" => "The kind of program; #{platform.apps.first} when missing" } ]
+      else
+        []
+      end
+      common + app + platform.options.map { |option| { "name" => option.name, "values" => option.values, "description" => option.description } }
     end
 
     def metadata(platform)

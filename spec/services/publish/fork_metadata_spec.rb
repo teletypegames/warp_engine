@@ -22,6 +22,18 @@ RSpec.describe "publishing the source and the parent of a fork" do
     expect(metadata).to include(name: "mine", fork_of_engine: "https://games.example", fork_of_name: "parent")
   end
 
+  it "lays a metadata.json over the Lua header, for the keys a header cannot hold" do
+    upload = Struct.new(:versioned) { def path(name) = File.join(Dir.tmpdir, name) }.new("both-1.0.0")
+    File.write(upload.path("both-1.0.0.lua"), "-- name: both\n-- title: From the header\nprint()\n")
+    File.write(upload.path("both-1.0.0.metadata.json"), %({"title": "From the JSON", "web": {"enabled": false}}))
+
+    metadata = WarpEngine::Publish::MetadataReader.read(:lua, upload)
+
+    expect(metadata).to include(name: "both", title: "From the JSON", web: { enabled: false })
+  ensure
+    File.delete(upload.path("both-1.0.0.metadata.json"))
+  end
+
   it "makes the repo the source link and records the parent" do
     release = recorder.record({ name: "mine", title: "Mine", repo: "https://git.example/mine.git", forks_allowed: "false",
                                 fork_of_engine: "https://games.example/", fork_of_name: "parent" }, "1.0.0", { "cartridge" => "mine-1.0.0.prg" })

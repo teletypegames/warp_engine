@@ -11,18 +11,19 @@ RSpec.describe "The electron pipeline" do
   let(:yaml) { render }
   let(:steps) { YAML.safe_load(yaml)["steps"].to_h { |step| [ step["name"], step ] } }
 
-  it "builds Linux, then Windows, in the builder image, then uploads, publishes and tags" do
-    expect(steps.keys).to eq(%w[version linux windows upload publish tag])
-    expect(steps.values_at("linux", "windows").map { |step| step["image"] }).to all(eq("registry.example/electron-builder:1"))
+  it "builds Linux, then Windows, in the builder image, then uploads, publishes and tags, with its npm check in place of make check" do
+    expect(steps.keys).to eq(%w[version binaries upload publish tag])
+    expect(steps["binaries"]).to include("image" => "registry.example/electron-builder:1", "pull" => true)
   end
 
   it "runs the app's own build and packages with the project's electron-builder" do
     expect(yaml).to include("npm run check --if-present", "npm run build --if-present", "npx --no-install electron-builder --linux AppImage --x64",
-                            "electron-builder --win nsis --x64", "mystore-$VERSION-linux-x64", "mystore-$VERSION-win-x64")
+                            "electron-builder --win nsis --x64", "warp_target '-linux-x64.zip' required electron_linux",
+                            "warp_target '-win-x64.zip' optional electron_windows")
   end
 
   it "leaves the Windows installer out where Wine cannot start" do
-    expect(steps["windows"]["commands"].join).to include("if ! wine cmd /c exit", "exit 0")
+    expect(steps["binaries"]["commands"].join).to include("wine cmd /c exit", "warp_target '-win-x64.zip' optional")
   end
 
   it "reads the version from package.json" do

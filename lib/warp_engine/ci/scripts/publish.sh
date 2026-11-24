@@ -5,4 +5,6 @@
 # variant.
 VERSION=$(cat .version)
 echo "==> Publishing version $VERSION"
-curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=$NAME&platform=$PLATFORM&version=$VERSION&commit=${CI_COMMIT_SHA:-}${APP:+&app=$APP}"
+APP_QUERY=""
+if [ -n "$APP" ]; then APP_QUERY="&app=$APP"; fi
+curl -fsS -X POST -H "X-Update-Secret: $UPDATE_SECRET" "$UPDATE_SERVER/build/publish?name=$NAME&platform=$PLATFORM&version=$VERSION&commit=$CI_COMMIT_SHA$APP_QUERY"

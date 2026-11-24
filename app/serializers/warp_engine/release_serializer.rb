@@ -41,8 +41,10 @@ module WarpEngine
 
     # Returns the URL the release plays at: its runtime page when it was
     # published bound to an installed runtime, else its +html+ folder, else
-    # an empty String.
+    # an empty String. A release whose metadata says <tt>web.enabled:
+    # false</tt> does not play on the web at all.
     def self.play_url(release)
+      return "" if release.web_options.to_h["enabled"] == false
       return play_path(release) if bound?(release)
 
       asset_path(release, "html")

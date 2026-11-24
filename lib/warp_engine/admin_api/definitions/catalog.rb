@@ -64,7 +64,8 @@ module WarpEngine
                      summary: "Start a software: forge repository, CI, CI token and a draft catalog entry",
                      body: X.scaffold_body, required: %i[name title platform], item: X.scaffold do |ctx|
               result = WarpEngine::ScaffoldService.new.scaffold(
-                name: ctx[:name].to_s, title: ctx[:title].to_s, platform: ctx[:platform].to_s, owner: ctx.principal.owner,
+                name: ctx[:name].to_s, title: ctx[:title].to_s, platform: ctx[:platform].to_s, app: ctx[:app].presence,
+                owner: ctx.principal.owner,
                 category: ctx[:category], description: ctx[:description], license: ctx[:license],
                 fork_of: ctx[:forkOf].presence
               )

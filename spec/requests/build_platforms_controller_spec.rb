@@ -30,6 +30,18 @@ RSpec.describe "Build platforms endpoint", type: :request do
                              "marker" => { "file" => ".woodpecker.yaml", "content" => "platform: c64\n" })
   end
 
+  it "lists the marker options each platform takes" do
+    get "/build/platforms/c64"
+    options = JSON.parse(response.body)["options"].to_h { |option| [ option["name"], option["values"] ] }
+    expect(options).to eq("release" => %w[push tag], "build" => %w[make], "media" => %w[prg d64])
+
+    get "/build/platforms/golang"
+    expect(JSON.parse(response.body)["options"].map { |option| option["name"] }).to eq(%w[release app])
+
+    get "/build/platforms/dos"
+    expect(JSON.parse(response.body)["options"]).to eq([])
+  end
+
   it "tells a platform whose version comes from a command and whose metadata is Lua" do
     get "/build/platforms/tic80"
 

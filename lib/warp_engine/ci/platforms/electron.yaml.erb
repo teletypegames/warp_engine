@@ -1,53 +1,38 @@
+<%- (targets.keys - %w[linux_x64 win_x64]).each { |kind| raise ArgumentError, "electron template cannot build #{kind}" } -%>
 # An Electron app with electron-builder in its devDependencies. The app's own
 # "check" script (tests that need no display) and "build" script run first when
-# it has them; electron-builder then packages
-# the AppImage and the NSIS installer, each zipped under the upload name.
-# A dev or other non-semver build version leaves package.json's version in the app.
+# it has them; electron-builder then packages the AppImage and the NSIS
+# installer. A dev or other non-semver build version leaves package.json's
+# version in the app. The Windows installer needs Wine: on an agent where it
+# does not start, the optional win_x64 is left out.
+check: false
 steps:
-  - name: linux
+  - name: binaries
     artifacts: [ "*.zip" ]
     image: <%= builder %>
-    pull: true
     commands:
       - |
-        VERSION=$(cat .version)
         npm ci --no-audit --no-fund
         npm run check --if-present
         npm run build --if-present
-        set -- --publish never -c.directories.output=.warp-dist
-        if printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-          set -- "$@" -c.extraMetadata.version="$VERSION"
-        fi
-        npx --no-install electron-builder --linux AppImage --x64 "$@"
-        PKG="<%= name %>-$VERSION-linux-x64"
-        rm -rf "$PKG" "$PKG.zip" && mkdir -p "$PKG"
-        cp .warp-dist/*.AppImage "$PKG/"
-        python3 -m zipfile -c "$PKG.zip" "$PKG"
-        rm -rf "$PKG" .warp-dist
-        echo "==> $PKG.zip ready"
-
-  - name: windows
-    artifacts: [ "*.zip" ]
-    image: <%= builder %>
-    pull: true
-    commands:
-      - |
-        VERSION=$(cat .version)
-        if ! wine cmd /c exit >/dev/null 2>&1; then
-          echo "WARNING: Wine does not start on this agent (an emulated amd64 on Apple Silicon, most likely):"
-          echo "         this release goes without the Windows installer. Build it on an x86_64 CI agent."
-          exit 0
-        fi
-        [ -d node_modules ] || npm ci --no-audit --no-fund
-        npm run build --if-present
-        set -- --publish never -c.directories.output=.warp-dist
-        if printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-          set -- "$@" -c.extraMetadata.version="$VERSION"
-        fi
-        npx --no-install electron-builder --win nsis --x64 "$@"
-        PKG="<%= name %>-$VERSION-win-x64"
-        rm -rf "$PKG" "$PKG.zip" && mkdir -p "$PKG"
-        cp .warp-dist/*.exe "$PKG/"
-        python3 -m zipfile -c "$PKG.zip" "$PKG"
-        rm -rf "$PKG" .warp-dist
-        echo "==> $PKG.zip ready"
+        builder_version() {
+          if printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            printf '%s' "-c.extraMetadata.version=$VERSION"
+          fi
+        }
+        electron_linux() {
+          rm -rf .warp-dist
+          npx --no-install electron-builder --linux AppImage --x64 --publish never -c.directories.output=.warp-dist $(builder_version)
+          cp .warp-dist/*.AppImage "$PKG_DIR/"
+          rm -rf .warp-dist
+        }
+        electron_windows() {
+          wine cmd /c exit >/dev/null 2>&1
+          rm -rf .warp-dist
+          npx --no-install electron-builder --win nsis --x64 --publish never -c.directories.output=.warp-dist $(builder_version)
+          cp .warp-dist/*.exe "$PKG_DIR/"
+          rm -rf .warp-dist
+        }
+        <%- targets.each do |kind, args| -%>
+        warp_target <%= args %> <%= { "linux_x64" => "electron_linux", "win_x64" => "electron_windows" }.fetch(kind) %>
+        <%- end -%>

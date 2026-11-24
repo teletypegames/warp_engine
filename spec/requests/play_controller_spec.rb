@@ -81,6 +81,13 @@ RSpec.describe "GET /play/:name/:version", type: :request do
     expect(json[:playUrl]).to eq("/file/rabbit-0.9")
     expect(json[:players]).to eq([])
   end
+
+  it "does not play a release whose metadata turned the web off, its html folder neither" do
+    other = create(:release, software: software, version: "0.8", web_options: { "enabled" => false })
+    other.release_assets.create!(kind: "html", path: File.join(tmpdir, "rabbit-0.8"))
+
+    expect(WarpEngine::ReleaseSerializer.render_as_hash(other)[:playUrl]).to eq("")
+  end
 end
 
 RSpec.describe "GET /play-preview/:platform", type: :request do

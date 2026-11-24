@@ -11,8 +11,8 @@ RSpec.describe "Generated pipeline options" do
       steps = YAML.safe_load(render(WarpEngine::CI::Woodpecker::PipelineConfig, "c64", options: { "release" => "tag" }))["steps"]
       by_name = steps.to_h { |step| [ step["name"], step ] }
 
-      expect(by_name.values_at("package", "upload", "publish").map { |step| step["when"] }).to all(eq([ { "event" => "tag" } ]))
-      expect(by_name.values_at("version", "build").map { |step| step["when"] }).to all(be_nil)
+      expect(by_name.values_at("upload", "publish").map { |step| step["when"] }).to all(eq([ { "event" => "tag" } ]))
+      expect(by_name.values_at("version", "check", "build", "package").map { |step| step["when"] }).to all(be_nil)
     end
 
     it "puts the GitLab release jobs behind a tag rule" do
@@ -50,7 +50,7 @@ RSpec.describe "Generated pipeline options" do
       %w[bevy ebitengine phaser].each do |platform|
         it "takes the #{platform} web shell from the host, or the repo's web/index.html" do
           expect(render(config_class, platform, spec: { web_shell: "https://shell.example/index.html" }))
-            .to include("curl -sSL https://shell.example/index.html")
+            .to include("curl -fsSL https://shell.example/index.html")
           expect(render(config_class, platform)).to include("cp web/index.html")
           expect(render(config_class, platform)).not_to include("teletypegames")
         end

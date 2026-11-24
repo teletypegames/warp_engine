@@ -40,6 +40,8 @@ module WarpEngine
         kinds :win_x64, :linux_x64, :mac_arm64
         web :emulatorjs, core: core, options: { "keyboardInput" => "enabled" }
         ci template: "commodore", machine: machine.to_s
+        option :build, values: %w[make], description: "make: the repository's Makefile builds <name>.prg (or .d64) instead of ACME on main.asm"
+        option :media, values: %w[prg d64], description: "d64: the release is a disk image the Makefile builds; prg (default): a program file"
       end
     end
 
@@ -63,7 +65,7 @@ module WarpEngine
     define :electron do
       label "Electron"
       kind :linux_x64, required: true
-      kind :win_x64
+      kind :win_x64, optional: true
       kind :mac_x64, built: false
       kind :mac_arm64, built: false
       version_source "sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' package.json 2>/dev/null | head -n 1",

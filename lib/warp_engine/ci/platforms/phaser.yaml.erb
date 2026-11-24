@@ -5,18 +5,18 @@ steps:
     commands:
       - |
         VERSION=$(cat .version)
-        # Ketfele projektforma el egymas mellett: a sima JS (a forrasok
-        # osszefuzve, a Phaser CDN-rol) es a bundleres (Vite + TypeScript),
-        # ami maga allitja elo a kesz webes csomagot.
+        # Two project forms: plain JS (the sources concatenated, Phaser from
+        # the CDN) and a bundled one (Vite + TypeScript) whose build makes the
+        # whole web package itself.
         if [ -f package.json ] && grep -q '"build"' package.json; then
           echo "==> Bundled project — npm ci && npm run build"
           npm ci
           npm run build
-          # A Vite kimenete onmagaban teljes: index.html + a beforgatott
-          # assetek. A vite.config base-enek relativnak kell lennie, mert a
-          # jatek a /file/<nev>/<verzio>/html/ alkonyvtarbol szolgal ki.
+          # The Vite output is complete: index.html and the hashed assets. The
+          # vite.config base must be relative: the game is served from
+          # /file/<name>/<version>/html/.
           if [ ! -f dist/index.html ]; then
-            echo "ERROR: a build nem hagyott dist/index.html-t" >&2
+            echo "ERROR: the build left no dist/index.html" >&2
             exit 1
           fi
           echo "==> Packaging web build for $VERSION"
@@ -25,16 +25,15 @@ steps:
           rm -rf dist
         else
           echo "==> Checking JS syntax"
-          # A bundleres projektben nincs src/*.js, es a shell ilyenkor a
-          # mintat adja tovabb literalkent — a node MODULE_NOT_FOUND-dal
-          # szall el rajta.
+          # A bundled project has no src/*.js, and the shell then passes the
+          # pattern on literally, which node fails on.
           for f in src/*.js; do [ -e "$f" ] || continue; node --check "$f"; done
           mkdir -p dist/web
           echo "==> Downloading Phaser 3.90.0"
-          curl -sSL https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js -o dist/web/phaser.min.js
+          curl -fsSL https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js -o dist/web/phaser.min.js
           echo "==> Downloading index.html"
           <%- if web_shell -%>
-          curl -sSL <%= web_shell %> -o dist/web/index.html
+          curl -fsSL <%= web_shell %> -o dist/web/index.html
           <%- else -%>
           cp web/index.html dist/web/index.html
           <%- end -%>

@@ -9,6 +9,7 @@ steps:
       - dos-test
 
   - name: package
+    release: true
     artifacts: [ dist/, .release-assets ]
     image: <%= builder %>
     commands:
@@ -28,4 +29,3 @@ upload:
     if [ -n "$WIN32_FOLDER" ]; then
       cp "dist/$WIN32_FOLDER-$TAG.zip" <%= name %>-$VERSION-win-x86.zip
     fi
-    jq --arg version "$VERSION" '. + {version: $version}' metadata.json > <%= name %>-$VERSION.metadata.json

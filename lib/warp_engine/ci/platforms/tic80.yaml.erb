@@ -1,6 +1,7 @@
+<%- (targets.keys - %w[win_x64 linux_x64 mac_x64]).each { |kind| raise ArgumentError, "tic80 template cannot build #{kind}" } -%>
 # The version comes from the source (inc/meta/meta.header.lua "-- version:"
-# comment) — WarpEngine parses tic80 metadata from the Lua header too, hence
-# no metadata.json.
+# comment) and the metadata from the Lua header; a metadata.json, when the
+# repository has one, adds the keys a header cannot hold (web, fork_of).
 steps:
   - name: lint
     image: <%= tools || "alpine" %>
@@ -109,7 +110,6 @@ steps:
         ldoc <%= name %>.original.lua -d docs
         echo "==> Zipping docs for version $VERSION"
         (cd docs && zip -r ../<%= name %>-$VERSION-docs.zip .)
-        cp <%= name %>-$VERSION-docs.zip <%= name %>-docs.zip
         echo "==> Docs zip created"
 
   - name: export
@@ -123,14 +123,8 @@ steps:
         echo "==> Exporting HTML for version $VERSION"
         tic80 --cli --skip --fs=. \
           --cmd="load <%= name %>.lua & save <%= name %>-$VERSION & export html <%= name %>-$VERSION.html & exit"
-        if [ -f "<%= name %>-$VERSION.tic" ]; then
-          cp <%= name %>-$VERSION.tic <%= name %>.tic
-        fi
-        if [ -f "<%= name %>-$VERSION.html.zip" ]; then
-          cp <%= name %>-$VERSION.html.zip <%= name %>.html.zip
-        fi
         echo "==> Generated files:"
-        ls -lh <%= name %>-$VERSION.* <%= name %>.tic <%= name %>.html.zip 2>/dev/null || true
+        ls -lh <%= name %>-$VERSION.* 2>/dev/null || true
 
   - name: binaries
     artifacts: [ "*.zip" ]
@@ -139,28 +133,15 @@ steps:
       XDG_RUNTIME_DIR: /tmp
     commands:
       - |
-        VERSION=$(cat .version)
-        CART=<%= name %>-$VERSION.tic
-        echo "==> Embedding $CART into the native players"
-        tic80-export win "$CART" <%= name %>-win.exe
-        tic80-export linux "$CART" <%= name %>-linux
-        tic80-export mac "$CART" <%= name %>-mac
-        # unix zip preserves the executable bit
-        pack_binary() {
-          SLUG="$1"; SRC_FILE="$2"; DST_FILE="$3"
-          PKG_DIR="<%= name %>-$VERSION-$SLUG"
-          rm -rf "$PKG_DIR" "$PKG_DIR.zip"
-          mkdir -p "$PKG_DIR"
-          mv "$SRC_FILE" "$PKG_DIR/$DST_FILE"
-          chmod +x "$PKG_DIR/$DST_FILE"
-          zip -r "$PKG_DIR.zip" "$PKG_DIR" >/dev/null
-          rm -rf "$PKG_DIR"
-          echo "==> $PKG_DIR.zip kesz"
+        tic80_export() {
+          tic80-export "$1" "<%= name %>-$VERSION.tic" "$PKG_DIR/<%= name %>$2"
+          chmod +x "$PKG_DIR/<%= name %>$2"
         }
-        pack_binary win-x64 <%= name %>-win.exe <%= name %>.exe
-        pack_binary linux-x64 <%= name %>-linux <%= name %>
-        pack_binary mac-x64 <%= name %>-mac <%= name %>
+        <%- targets.each do |kind, args| -%>
+        warp_target <%= args %> tic80_export <%= { "win_x64" => "win '.exe'", "linux_x64" => "linux ''", "mac_x64" => "mac ''" }.fetch(kind) %>
+        <%- end -%>
 
 upload:
   prepare: |
     cp <%= name %>.lua <%= name %>-$VERSION.lua
+    if [ -f metadata.json ]; then cp metadata.json <%= name %>-$VERSION.metadata.json; fi

@@ -9,13 +9,12 @@ steps:
       - sh scripts/ci-test.sh
 
   - name: package
+    release: true
     artifacts: [ dist/ ]
     image: <%= builder %>
     commands:
       - sh scripts/pack.sh
 
 upload:
-  packages: [ jq ]
   prepare: |
     cp dist/release.tar.gz <%= name %>-$VERSION.tar.gz
-    jq --arg version "$VERSION" '. + {version: $version}' metadata.json > <%= name %>-$VERSION.metadata.json

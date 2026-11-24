@@ -14,7 +14,7 @@ RSpec.describe "store engine pipelines" do
         yaml = render(host)
         steps = YAML.safe_load(yaml)["steps"].to_h { |step| [ step["name"], step ] }
 
-        expect(steps.keys).to eq(%w[version test package upload publish tag])
+        expect(steps.keys).to eq(%w[version check test package upload publish tag])
         expect(yaml).to include("sh scripts/ci-test.sh", "sh scripts/pack.sh", "PLATFORM='#{host}'")
         expect(steps.values_at("package", "upload", "publish").map { |step| step["when"] }).to all(eq([ { "event" => "tag" } ]))
       end

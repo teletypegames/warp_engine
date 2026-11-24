@@ -143,8 +143,8 @@ RSpec.describe "platform variants" do
     it "builds every cli target without cgo and publishes without an app parameter of its own" do
       yaml = render
 
-      expect(yaml).to include('binary_build "darwin" "arm64" "0" "" "mac-arm64" "-cli" "no"')
-      expect(yaml).to include('binary_build "linux" "amd64" "0" "" "linux-x64" "-cli" "yes"')
+      expect(yaml).to include("warp_target '-mac-arm64-cli.zip' optional go_build 'darwin' 'arm64' '0'")
+      expect(yaml).to include("warp_target '-linux-x64-cli.zip' required go_build 'linux' 'amd64' '0'")
       expect(yaml).not_to include("GOOS=js")
       expect(yaml).to include("APP='cli'")
     end
@@ -152,7 +152,7 @@ RSpec.describe "platform variants" do
     it "builds the gui variant natively, with cgo on Linux and an optional web build" do
       yaml = render("app" => "gui")
 
-      expect(yaml).to include('binary_build "linux" "amd64" "1" "" "linux-x64" "" "yes"')
+      expect(yaml).to include("warp_target '-linux-x64.zip' required go_build 'linux' 'amd64' '1' ''")
       expect(yaml).to include("-H=windowsgui")
       expect(yaml).to include("GOOS=js GOARCH=wasm")
       expect(yaml).to include("APP='gui'")

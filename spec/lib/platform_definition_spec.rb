@@ -99,7 +99,7 @@ RSpec.describe WarpEngine::Platform do
       yaml = WarpEngine::CI::Gitlab::PipelineConfig.new(platforms: { "amiga" => { builder: "registry.example/vbcc:1" } })
                                                    .render(platform: "amiga", name: "lemmings", update_server: "u")
 
-      expect(YAML.safe_load(yaml)["stages"]).to eq(%w[version build upload publish tag])
+      expect(YAML.safe_load(yaml)["stages"]).to eq(%w[version check build upload publish tag])
       expect(yaml).to include("registry.example/vbcc:1", "vc -o lemmings.adf main.c", "ALWAYS='.adf .metadata.json'", "MAYBE='.html.zip'")
     end
 

@@ -6,7 +6,9 @@ module WarpEngine
     # (WarpEngine::Platform::Definition +metadata+): +:json+ reads
     # <tt>name-version.metadata.json</tt>, +:lua+ the <tt>-- key: value</tt>
     # header comments of <tt>name-version.lua</tt> (the TIC-80 cartridge
-    # style), a callable is called with the Upload.
+    # style), overlaid by <tt>name-version.metadata.json</tt> when the upload
+    # has one (for the keys a header cannot hold: +web+, +fork_of+), a
+    # callable is called with the Upload.
     module MetadataReader
       # The metadata keys a publish takes over: onto the WarpEngine::Software,
       # except +web+, which goes to the release (Publish::WebBinder); every
@@ -27,7 +29,7 @@ module WarpEngine
       def read(reader, upload)
         raw = case reader
         when :json, "json" then json(upload.path("#{upload.versioned}.metadata.json"))
-        when :lua, "lua" then lua(upload.path("#{upload.versioned}.lua"))
+        when :lua, "lua" then lua_with_json(upload)
         else reader.call(upload)
         end
         flatten_fork_of(raw.to_h.symbolize_keys).slice(*KEYS)
@@ -41,6 +43,14 @@ module WarpEngine
 
         spread = FORK_OF_KEYS.to_h { |key| [ :"fork_of_#{key}", nested[key] || nested[key.to_s] ] }.compact
         spread.merge(metadata.compact)
+      end
+
+      # Returns the Lua header of +upload+ (#lua) with the keys of its
+      # <tt>name-version.metadata.json</tt> over it, when that file exists.
+      def lua_with_json(upload)
+        header = lua(upload.path("#{upload.versioned}.lua"))
+        json_path = upload.path("#{upload.versioned}.metadata.json")
+        File.exist?(json_path) ? header.merge(json(json_path)) : header
       end
 
       # Returns the JSON object in the file +path+, with symbol keys.

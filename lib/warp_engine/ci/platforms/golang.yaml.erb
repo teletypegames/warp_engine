@@ -1,66 +1,32 @@
+<%- go = if app == "gui"
+           { "linux_x64" => [ "linux", "amd64", "1", "" ], "win_x64" => [ "windows", "amd64", "0", ".exe", "", "-H=windowsgui" ],
+             "linux_arm64" => [ "linux", "arm64", "1", "", "aarch64-linux-gnu-gcc" ] }
+         else
+           { "cli_linux_x64" => %w[linux amd64 0], "cli_win_x64" => [ "windows", "amd64", "0", ".exe" ],
+             "cli_linux_arm64" => %w[linux arm64 0], "cli_mac_x64" => %w[darwin amd64 0], "cli_mac_arm64" => %w[darwin arm64 0] }
+         end -%>
+<%- (targets.keys - go.keys).each { |kind| raise ArgumentError, "golang template cannot build #{kind}" } -%>
 steps:
   - name: binaries
     artifacts: [ "*.zip" ]
     image: <%= builder %>
-    pull: true
     commands:
       - |
-        VERSION=$(cat .version)
-        # binary_build GOOS GOARCH CGO EXT TARGET SUFFIX REQUIRED [CC] [LDFLAGS]
-        # builds the main package at the repository root into
-        # <name>-<version>-<target>/ with the README and LICENSE, zipped as
-        # <name>-<version>-<target><suffix>.zip (unix zip keeps the executable
-        # bit). A target that does not compile is left out with a warning,
-        # unless it is required: then the step fails.
-        binary_build() {
-          B_GOOS="$1"; B_GOARCH="$2"; B_CGO="$3"; B_EXT="$4"; B_TARGET="$5"; B_SUFFIX="$6"; B_REQUIRED="$7"; B_CC="$8"; B_LDFLAGS="$9"
-          PKG_DIR="<%= name %>-$VERSION-$B_TARGET"
-          echo "==> Building $PKG_DIR$B_SUFFIX"
-          rm -rf "$PKG_DIR" "$PKG_DIR$B_SUFFIX.zip"
-          mkdir -p "$PKG_DIR"
-          # a cgo cross-build needs its cross gcc; a native build must not see CC
-          if [ -n "$B_CC" ]; then export CC="$B_CC"; else unset CC; fi
-          if ! CGO_ENABLED=$B_CGO GOOS=$B_GOOS GOARCH=$B_GOARCH go build -trimpath -ldflags "-s -w $B_LDFLAGS" -o "$PKG_DIR/<%= name %>$B_EXT" .; then
-            rm -rf "$PKG_DIR"
-            if [ "$B_REQUIRED" = "yes" ]; then
-              echo "ERROR: $B_TARGET is required and does not build"
-              exit 1
-            fi
-            echo "WARNING: $B_TARGET does not build, left out of the release"
-            return 0
-          fi
-          if [ -f LICENSE ]; then cp LICENSE "$PKG_DIR/"; fi
-          if [ -f README.md ]; then cp README.md "$PKG_DIR/"; fi
-          zip -r "$PKG_DIR$B_SUFFIX.zip" "$PKG_DIR" >/dev/null
-          rm -rf "$PKG_DIR"
-          echo "==> $PKG_DIR$B_SUFFIX.zip done"
+        go_build() {
+          if [ -n "$5" ]; then export CC="$5"; else unset CC; fi
+          CGO_ENABLED="$3" GOOS="$1" GOARCH="$2" go build -trimpath -ldflags "-s -w $6" -o "$PKG_DIR/<%= name %>$4" .
         }
-<%- if app == "gui" -%>
-        # gui: a desktop program. Windows builds without cgo (Gio), Linux needs
-        # cgo and the X11/Wayland/GL headers of the builder; macOS is not built
-        # here (no cross toolchain), it is a manual upload.
-        binary_build "linux" "amd64" "1" "" "linux-x64" "" "yes"
-        binary_build "windows" "amd64" "0" ".exe" "win-x64" "" "no" "" "-H=windowsgui"
-        binary_build "linux" "arm64" "1" "" "linux-arm64" "" "no" "aarch64-linux-gnu-gcc"
-<%- else -%>
-        # cli: a command-line program, cgo off, every target cross-compiled.
-        binary_build "linux" "amd64" "0" "" "linux-x64" "-cli" "yes"
-        binary_build "windows" "amd64" "0" ".exe" "win-x64" "-cli" "no"
-        binary_build "linux" "arm64" "0" "" "linux-arm64" "-cli" "no"
-        binary_build "darwin" "amd64" "0" "" "mac-x64" "-cli" "no"
-        binary_build "darwin" "arm64" "0" "" "mac-arm64" "-cli" "no"
-<%- end -%>
+        <%- targets.each do |kind, args| -%>
+        warp_target <%= args %> go_build <%= go.fetch(kind).map { |a| "'#{a}'" }.join(" ") %>
+        <%- end -%>
 <%- if app == "gui" -%>
 
   - name: web
     artifacts: [ "*.zip" ]
     image: <%= builder %>
-    pull: true
     commands:
       - |
         VERSION=$(cat .version)
-        # The web build is optional: a program that does not compile to wasm
-        # is published without the html asset.
         rm -rf web-dist && mkdir -p web-dist
         if ! GOOS=js GOARCH=wasm go build -trimpath -o web-dist/main.wasm .; then
           echo "WARNING: the program does not build for the web, no html asset"

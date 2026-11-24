@@ -11,7 +11,7 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
     yaml = render(config_class, {})
     jobs = jobs_of.call(YAML.safe_load(yaml))
 
-    expect(jobs.keys).to eq(%w[version test package upload publish tag])
+    expect(jobs.keys).to eq(%w[version check test package upload publish tag])
     expect(yaml).not_to include("ssh", "dist/store", "store_secret")
   end
 
@@ -30,7 +30,8 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
 
   it "uploads the program folder and the Win32 folder under WarpEngine names, with the dos block kept for the shelf" do
     yaml = render(config_class, {})
-    expect(yaml).to include("'. + {version: $version}'", "PLATFORM='dos'")
+    expect(yaml).to include("PLATFORM='dos'")
+    expect(yaml).not_to include("'. + {version: $version}'")
     expect(yaml).not_to include("del(.dos)")
     skip "the upload's prepare lines need jq" unless system("command -v jq >/dev/null 2>&1")
 
@@ -68,7 +69,7 @@ RSpec.describe WarpEngine::CI::Gitlab::PipelineConfig do
     document = YAML.safe_load(described_class.new(platforms: { "dos" => { builder: "b", forge_release: true } })
                                              .render(platform: "dos", name: "x", update_server: "u"))
 
-    expect(document["stages"]).to eq(%w[version test package upload publish tag release])
+    expect(document["stages"]).to eq(%w[version check test package upload publish tag release])
     expect(document.keys.first(2)).to eq(%w[stages version])
   end
 end

@@ -596,22 +596,51 @@ adapter's renderer (`CI::Woodpecker::Renderer`, `CI::Gitlab::Renderer`) writes t
 and the shared steps around them — in its YAML dialect:
 
 ```yaml
+check: false                         # optional: the template runs its own checks, no make check
 steps:
   - name: build
-    image: <%= builder %>
-    pull: true                       # Woodpecker pulls the image on every run
+    image: <%= builder %>            # the builder and exporter images are pulled on every run
     artifacts: [ "*.prg" ]           # what a GitLab job hands to the later stages
     environment: { KEY: value }
     commands:
       - make <%= name %>.prg
+  - name: package
+    release: true                    # only a release build runs it (on tags, when releases follow tags)
+    image: <%= builder %>
+    commands:
+      - make dist
 upload:                              # optional
   packages: [ jq ]                   # what the upload needs from apk without a tools image
   prepare: |                         # shell lines run before the upload
     cp dist/game.zip <%= name %>-$VERSION.zip
 ```
 
+**Native targets** go through one shell function every template shares,
+`warp_target` (`lib/warp_engine/ci/scripts/pack.sh`, prepended to a step that calls
+it). The template gets `targets`, a Hash of every native kind the pipeline builds
+(`kind` with `built`, a `win_`, `linux_` or `mac_` kind, `cli_` ones too) to its
+arguments, so the list of targets lives only in the platform's kinds:
+
+```erb
+<%- targets.each do |kind, args| -%>
+warp_target <%= args %> go_build <%= GO.fetch(kind).join(" ") %>
+<%- end -%>
+```
+
+`warp_target SUFFIX MODE FUNCTION ARGS…` makes the folder `<name>-<version>-<target>`
+(`$PKG_DIR`), runs the function in it with errexit, adds the repo's `LICENSE` and
+`README`, zips it with that one root folder (`zip`, or `python3 -m zipfile` where the
+image has none) and removes the folder. When the function fails, a target whose kind is
+`optional` is left out with a warning; a `required` or an `expected` one (built, but
+neither required nor optional) fails the step. A template must not use `${…}`:
+Woodpecker substitutes it before the shell runs.
+
 Keys of the marker besides `platform` and `name` are **options** the platform's
-template may read (letters, digits, `_ . -` only; anything else is dropped). The
+template may read (letters, digits, `_ . -` only; anything else is dropped). A
+platform declares the ones it reads with `option` (`option :media, values: %w[prg d64],
+description: "…"`); a value outside them does not reach the template, and the
+platform description lists them for the developer tools. `release` (every platform
+that does not force it) and `app` (a platform with variants) are listed there too. The
 generated pipeline takes the marker file's place; the repo's **other** config
 files (`.woodpecker/*.yaml`) are passed back unchanged, so a repo can keep a
 workflow of its own — a server deploy, say — next to the generated one.
@@ -632,6 +661,9 @@ Their shell scripts are plain `sh` files, linted by shellcheck: `lib/warp_engine
   `dev-<version>-<branch>`, and on a `dev-<branch>` tag likewise; with no version at
   all the build is `dev-<commit>`, which is never the latest. It writes `.version`,
   which every later step reads.
+- **`check`**, second, in the builder image: `make check` when the repo's Makefile has
+  a `check` target, nothing otherwise. A template with `check: false` runs its own
+  checks instead (electron: the app's `npm run check`).
 - **`upload`** and **`publish`**, after the platform's steps, generated from the
   platform's kinds: the upload sends `<name>-<version>` plus the suffix of every kind
   the pipeline always builds (a required kind, or one declared `always: true`) and of
@@ -646,13 +678,15 @@ Their shell scripts are plain `sh` files, linted by shellcheck: `lib/warp_engine
   Forgejo release made with the `gitea_token` secret; on GitLab a GitLab release whose
   files are in the project's generic package registry, made with the job token.
 
-The upload and publish steps are named `upload` and `publish`, and a template names a
-packaging step `package`: with releases from tags these run on tags only.
+The `upload`, `publish` and `release` steps, and a template step with `release: true`
+(the `dos` and store-engine `package`), run on tags only when releases follow tags.
+Every other template step, native packaging included, runs on every build, so a push
+finds a broken target before the tag does.
 
 #### When a pipeline publishes: tags
 
-A generated pipeline builds on every event; the release steps (`package`, `upload`,
-`publish`, `release`) run on tags only — Woodpecker `when: event: tag`, GitLab
+A generated pipeline builds on every event; the release steps (`upload`, `publish`,
+`release` and a template's `release: true` steps) run on tags only — Woodpecker `when: event: tag`, GitLab
 `rules: if: $CI_COMMIT_TAG`. Nobody has to make the tags: the `tag` step, after
 every push build, makes them from the version.
 
@@ -692,8 +726,9 @@ A platform's entry may carry values that differ from host to host; the templates
 hold no host's addresses:
 
 - `web_shell:` — the bevy, ebitengine and phaser browser builds wrap the game in an
-  `index.html` page. With a URL here the pipeline downloads it; without one it
-  takes the repo's own `web/index.html`.
+  `index.html` page. With a URL here the pipeline downloads it (and fails when it
+  cannot); without one it takes the repo's own `web/index.html`, and bevy and
+  ebitengine generate a minimal page where the repo has none.
 - `bundle_id_prefix:` — the LÖVE macOS app's bundle id is `<prefix>.<name>`
   (default `org.warpengine`).
 
@@ -778,13 +813,13 @@ Electron project with `electron-builder` in its `devDependencies`, plus the
 `platform: electron` marker and a `metadata.json`. The version comes from `package.json`.
 
 The builder image (`git.teletypegames.org/build/electron-builder`, `electronuserland/builder:22-wine`
-unchanged) runs two steps:
+unchanged) runs one `binaries` step: `npm ci`, then the app's own `check` script (tests
+that need no display, in place of `make check`) and `build` script when it has them, then
 
-- `linux`: `npm ci`, then the app's own `check` script (tests that need no display) and
-  `build` script when it has them, then `electron-builder --linux AppImage --x64`;
-  the AppImage is uploaded as `linux_x64` (`<name>-<version>-linux-x64.zip`), always;
-- `windows`: `electron-builder --win nsis --x64` through Wine; the installer is the
-  `win_x64` asset.
+- `electron-builder --linux AppImage --x64`: the AppImage is the required `linux_x64`
+  (`<name>-<version>-linux-x64.zip`);
+- `electron-builder --win nsis --x64` through Wine: the installer is the optional
+  `win_x64`.
 
 A semver build version is written into the app (`extraMetadata.version`); a development
 build keeps `package.json`'s. macOS (`mac_x64`, `mac_arm64`) is expected but not built:
@@ -792,10 +827,9 @@ Apple's signing needs a Mac, so a macOS package is built there and uploaded with
 `/build/upload` like any other asset. Electron releases are download only, with no web
 build to play.
 
-The Windows step needs an x86_64 CI agent: Wine does not start in an emulated amd64
-container on an Apple Silicon machine (16 KB memory pages). The step tries Wine first, and
-where it does not start it says so and leaves the Windows installer out, so the rest of the
-release still goes out.
+The Windows installer needs an x86_64 CI agent: Wine does not start in an emulated amd64
+container on an Apple Silicon machine (16 KB memory pages). There the optional `win_x64`
+is left out with a warning, so the rest of the release still goes out.
 
 #### The `golang` platform
 
@@ -819,8 +853,8 @@ app: cli          # the default; or app: gui
   `GOOS=js GOARCH=wasm` build when the program compiles to it (with `web/index.html`, or
   a generated page); `mac_x64` and `mac_arm64` are uploaded by hand.
 
-Each zip holds a `<name>-<version>-<target>/` folder with the binary, `README.md` and
-`LICENSE`. The version is `metadata.json`'s.
+Each zip holds one root folder (`<name>-<version>-<target>`, `-cli` at the end for the
+cli kinds) with the binary, `README.md` and `LICENSE`. The version is `metadata.json`'s.
 
 ### Platforms of your own
 
@@ -895,9 +929,10 @@ in `uploads`, `required`, `optional`,
 edits and the keys a publish reads), where the `version` comes from, the forced
 `releaseRule`, the enabled `web` bindings with their runtime parameters, the `ci` side
 (adapter, the marker file and its content, the builder image, whether the adapter builds
-it) and the host's `tooling`.
+it), the marker `options` (`name`, `values`, `description`) and the host's `tooling`.
 
-The schema has every key `MetadataReader` reads, `version` where the pipeline reads it
+The schema has every key `MetadataReader` reads (a `license` is an SPDX id or
+expression: `MIT`, not `MIT License`), `version` where the pipeline reads it
 from `metadata.json`, the known categories as examples, the shelf-name rules and the `web`
 section with the platform's binding keys and parameters.
 
@@ -934,7 +969,8 @@ working copy to its run and its release.
 ### Starting a software in one step (scaffold)
 
 `POST /api/admin/v1/softwares/scaffold` (scope `admin:write`; body `name`, `title`,
-`platform`, optional `category` and `description`) does what starting a game takes:
+`platform`, optional `app` (the variant of a platform that has them), `category`,
+`description`, `license` and `forkOf`) does what starting a game takes:
 
 1. an empty repository on the forge, in the configured organisation;
 2. CI for it (`activate_forge_repo`) and its `Pipeline`, linked to the software;
@@ -1201,7 +1237,7 @@ binding names; otherwise the release stays unbound and plays (if at all) from it
 { "web": { "runtime": "fast", "params": { "options": { "keyboardInput": "enabled" } }, "enabled": true } }
 ```
 
-`enabled: false` keeps a release off the web. The catalog API gives every release
+`enabled: false` keeps a release off the web, its `html` folder too. The catalog API gives every release
 `playUrl` (its runtime page, else its `html` folder) and `players` (every binding
 it can play in now, with its URL: `/play/<name>/<version>/<binding>`).
 
@@ -1951,7 +1987,8 @@ catalog) when its `forks_allowed` switch is on (the default) and its source is
 public.
 
 **A fork's parent** comes in the metadata, flat so a Lua header can carry it
-too: `fork_of_engine` (the parent engine's base URL), `fork_of_name`, and
+too (a tic80 repo may also keep a `metadata.json` beside its header: its keys, `web`
+and a nested `fork_of` among them, win over the header's): `fork_of_engine` (the parent engine's base URL), `fork_of_name`, and
 optionally `fork_of_version` and `fork_of_repo`; a JSON metadata may nest them
 as `fork_of: { engine, name, version, repo }`. `forks_allowed: false` turns
 forking off.
@@ -2286,6 +2323,29 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.10
+
+Nothing to migrate. Every generated pipeline changes in ways a repo may notice:
+
+- a `check` step runs `make check` in the builder image where the Makefile has that
+  target — a repo whose `check` target needs more than the builder image has must fix
+  it or rename it;
+- native targets are packed by the shared `warp_target`: each zip now has the repo's
+  `LICENSE` and `README` (bevy, tic80, LÖVE and electron had none), the golang cli zips'
+  root folder ends in `-cli`, and a target whose kind is neither required nor
+  optional fails the build when it does not compile;
+- electron's `win_x64` is optional, and its two steps are one, `binaries`;
+- the c64/plus4 native players are built on every push, not only on tags; only the
+  `dos` and store-engine `package` steps (`release: true`) wait for the tag;
+- every step on the builder or exporter image pulls it;
+- a `web_shell` that cannot be downloaded fails the build instead of packing an error
+  page; bevy and ebitengine generate an `index.html` where the repo has none;
+- `web.enabled: false` keeps a release off the web even when it has an `html` folder.
+
+A template of the host's own gets `targets` and may use `warp_target`, `release: true`
+and `check: false`; a platform may declare its marker `option`s. The metadata schema
+wants an SPDX `license`. The Admin API's scaffold takes `app`.
 
 ## Upgrading to 5.9
 

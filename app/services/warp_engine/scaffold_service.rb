@@ -40,6 +40,8 @@ module WarpEngine
     # [name]        the software and repository name (NAME_FORMAT)
     # [title]       the catalog title
     # [platform]    a WarpEngine::Platform name
+    # [app]         the platform variant (+cli+, +gui+), or +nil+ for the
+    #               default one
     # [owner]       the record owning the software and the CI token
     # [category]    a category key, or +nil+
     # [description] the repository and catalog description, or +nil+
@@ -50,12 +52,12 @@ module WarpEngine
     # The repository becomes the software's +source+ link. Returns a Result. Raises Error before anything is created when the name,
     # the platform or the forge does not do; raises WarpEngine::Forge::Error
     # when the forge refuses the repository.
-    def scaffold(name:, title:, platform:, owner:, category: nil, description: nil, fork_of: nil, license: nil)
-      check!(name, title, platform)
+    def scaffold(name:, title:, platform:, owner:, app: nil, category: nil, description: nil, fork_of: nil, license: nil)
+      check!(name, title, platform, app)
       repo = @forge.create_repo(name: name, description: description.presence || title)
       warnings = []
 
-      software = WarpEngine::Software.create!(name: name, title: title, platform: platform, status: STATUS,
+      software = WarpEngine::Software.create!(name: name, title: title, platform: platform, app: app.presence, status: STATUS,
                                               category: category.presence, desc: description.presence, owner: owner,
                                               license: license.presence, **fork_attributes(fork_of))
       WarpEngine::ExternalLink.create!(software: software, label: Publish::Recorder::REPO_LABEL, url: source_url(repo), kind: "source")
@@ -97,10 +99,11 @@ module WarpEngine
       { fork_of_engine: parent[:engine], fork_of_name: parent[:name], fork_of_version: parent[:version], fork_of_repo: parent[:repo] }
     end
 
-    def check!(name, title, platform)
+    def check!(name, title, platform, app)
       raise Error, "the name may have lower-case letters, digits and dashes" unless name.to_s.match?(NAME_FORMAT)
       raise Error, "the title is missing" if title.blank?
       raise Error, "#{platform} is not a platform" unless WarpEngine::Platform.exists?(platform)
+      raise Error, "#{platform} has no app #{app}" unless WarpEngine::Platform.find(platform, app: app)
       raise Error, "#{name} is taken in the catalog" if WarpEngine::Software.exists?(name: name)
       raise Error, "no forge is configured" unless @forge.configured?
     end

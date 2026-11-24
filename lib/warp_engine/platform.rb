@@ -144,6 +144,10 @@ module WarpEngine
       legacy || definition.built_kinds
     end
 
+    # Returns the Platform::MarkerOption list: the CI marker keys the
+    # platform declares besides +platform+, +name+, +release+ and +app+.
+    def options = definition.options
+
     # Returns the CI release rule the platform forces (<tt>"tag"</tt>), or +nil+.
     def release_rule = definition.release_rule
 

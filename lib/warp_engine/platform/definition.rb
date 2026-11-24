@@ -46,6 +46,16 @@ module WarpEngine
       def upload_suffixes = upload_names("")
     end
 
+    # One key the CI marker of a platform may set (<tt>media: d64</tt>).
+    #
+    # [name]        the key
+    # [values]      the values it takes
+    # [description] what it changes, for the developer tools
+    MarkerOption = ::Data.define(:name, :values, :description) do
+      # Returns +true+ when +value+ is one of #values.
+      def allows?(value) = values.include?(value.to_s)
+    end
+
     # Everything the engine knows of a platform, built by a Builder.
     #
     # [name]           the platform name
@@ -69,12 +79,14 @@ module WarpEngine
     #                  empty for a platform without variants
     # [default_app]    the variant a software without an +app+ is, or +nil+
     # [app]            the variant this Definition describes (#variant), or +nil+
+    # [options]        the MarkerOption list: the keys besides +platform+,
+    #                  +name+, +release+ and +app+ the CI marker may set
     Definition = ::Data.define(:name, :label, :kind_specs, :metadata, :release_rule, :shelf_folder,
                                :ci_template, :ci_variables, :version_source, :web_bindings,
-                               :version_file, :variants, :default_app, :app) do
-      # Builds a Definition; +web_bindings+ and +variants+ default to none,
-      # +version_file+, +default_app+ and +app+ to +nil+.
-      def initialize(web_bindings: [], version_file: nil, variants: {}, default_app: nil, app: nil, **attributes) = super
+                               :version_file, :variants, :default_app, :app, :options) do
+      # Builds a Definition; +web_bindings+, +variants+ and +options+ default
+      # to none, +version_file+, +default_app+ and +app+ to +nil+.
+      def initialize(web_bindings: [], version_file: nil, variants: {}, default_app: nil, app: nil, options: [], **attributes) = super
 
       # Returns the variant names, the default first; empty without variants.
       def apps = variants.keys
@@ -138,6 +150,7 @@ module WarpEngine
         @ci = { template: @name, variables: {} }
         @web_bindings = []
         @variants = {}
+        @options = []
       end
 
       # Sets the human-readable name (default: the titleized name).
@@ -174,6 +187,13 @@ module WarpEngine
         @default_app = key if default || @default_app.nil?
       ensure
         @kind_specs = shared
+      end
+
+      # Declares the CI marker key +name+ taking one of +values+; a marker
+      # value outside them does not reach the template. +description+ tells
+      # the developer tools what it changes.
+      def option(name, values:, description:)
+        @options << MarkerOption.new(name: name.to_s, values: Array(values).map(&:to_s).freeze, description: description.to_s)
       end
 
       # Sets where the metadata is read: +:json+ (default), +:lua+ or a callable.
@@ -227,7 +247,7 @@ module WarpEngine
                               release_rule: @release_rule, shelf_folder: @shelf_folder, ci_template: @ci[:template],
                               ci_variables: @ci[:variables], version_source: @version_source, version_file: @version_file,
                               web_bindings: Platform.with_default(@web_bindings).freeze, variants: variants,
-                              default_app: @default_app)
+                              default_app: @default_app, options: @options.freeze)
         base.variants? ? base.variant(nil) : base
       end
     end

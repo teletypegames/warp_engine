@@ -13,20 +13,24 @@ module WarpEngine
     # [artifacts]   the paths a GitLab job hands to the later stages
     # [pull]        whether Woodpecker pulls the image on every run
     # [raw]         adapter-specific keys copied verbatim (a legacy template's)
-    Step = ::Data.define(:name, :image, :commands, :environment, :secrets, :on, :artifacts, :pull, :raw) do
+    # [release]     whether only a release build runs it (on tags, when
+    #               releases follow tags)
+    Step = ::Data.define(:name, :image, :commands, :environment, :secrets, :on, :artifacts, :pull, :raw, :release) do
       # Creates a step; everything but +name+ and +commands+ is optional.
-      def initialize(name:, commands:, image: "alpine", environment: {}, secrets: {}, on: nil, artifacts: [], pull: false, raw: {})
+      def initialize(name:, commands:, image: "alpine", environment: {}, secrets: {}, on: nil, artifacts: [], pull: false, raw: {},
+                     release: false)
         super(name: name.to_s, image: image, commands: Array(commands), environment: environment.to_h, secrets: secrets.to_h,
-              on: on&.to_sym, artifacts: Array(artifacts), pull: pull ? true : false, raw: raw.to_h)
+              on: on&.to_sym, artifacts: Array(artifacts), pull: pull ? true : false, raw: raw.to_h, release: release ? true : false)
       end
 
       # Returns a Step built from one step of a CI-neutral template: a Hash of
-      # +name+, +image+, +commands+ and optionally +environment+, +artifacts+
-      # and +pull+.
+      # +name+, +image+, +commands+ and optionally +environment+, +artifacts+,
+      # +pull+ and +release+.
       def self.from_template(hash)
         hash = hash.transform_keys(&:to_s)
         new(name: hash.fetch("name"), image: hash["image"] || "alpine", commands: hash.fetch("commands"),
-            environment: hash["environment"] || {}, artifacts: hash["artifacts"] || [], pull: hash["pull"])
+            environment: hash["environment"] || {}, artifacts: hash["artifacts"] || [], pull: hash["pull"],
+            release: hash["release"])
       end
     end
 

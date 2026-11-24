@@ -19,6 +19,14 @@ RSpec.describe WarpEngine::ScaffoldService do
     described_class.new(forge: forge, ci: ci).scaffold(name: "rabbit", title: "Rabbit", platform: "c64", owner: owner, **options)
   end
 
+  it "gives the software the platform variant it asks for, and refuses one the platform does not have" do
+    result = described_class.new(forge: forge, ci: ci).scaffold(name: "rabbit", title: "Rabbit", platform: "golang", app: "gui", owner: owner)
+
+    expect(result.software).to have_attributes(platform: "golang", app: "gui")
+    expect { described_class.new(forge: forge, ci: ci).scaffold(name: "hare", title: "Hare", platform: "golang", app: "tui", owner: owner) }
+      .to raise_error(described_class::Error, /no app tui/)
+  end
+
   it "creates the repository, the draft software, its pipeline and the CI token in one step" do
     events = []
     subscriber = ActiveSupport::Notifications.subscribe(described_class::NOTIFICATION) { |*, payload| events << payload }

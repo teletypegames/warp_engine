@@ -71,7 +71,9 @@ module WarpEngine
         # The body of a scaffold (<tt>POST /softwares/scaffold</tt>).
         def scaffold_body
           S.object({ name: S.string("Software and repository name: a-z, 0-9 and dashes"), title: S.string,
-                     platform: S.enum(WarpEngine::Platform.names), category: text, description: text, license: text,
+                     platform: S.enum(WarpEngine::Platform.names),
+                     app: S.nullable(S.string("The platform variant (cli, gui); the platform's default when missing")),
+                     category: text, description: text, license: text,
                      forkOf: S.nullable(S.object({ engine: S.string("The parent engine's base URL"), name: S.string("The parent's name"),
                                                    version: text, repo: text }, required: %i[engine name])) })
         end
