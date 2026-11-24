@@ -7,9 +7,9 @@ RSpec.describe "platform variants" do
     it "is the cli variant by default, with download-only kinds" do
       expect(golang.app).to eq("cli")
       expect(golang.apps).to eq(%w[cli gui])
-      expect(golang.expected_kinds).to eq(%w[cli_linux_x64 cli_win_x64 cli_linux_arm64 cli_mac_x64 cli_mac_arm64])
+      expect(golang.expected_kinds).to eq(%w[cli_linux_x64 cli_win_x64 cli_linux_arm64 cli_mac_x64 cli_mac_arm64 docs])
       expect(golang.required_kinds).to eq(%w[cli_linux_x64])
-      expect(golang.expected_kinds.map { |kind| WarpEngine::AssetKinds.launchable?(kind) }.uniq).to eq([ false ])
+      expect(golang.expected_kinds.grep(/\Acli_/).map { |kind| WarpEngine::AssetKinds.launchable?(kind) }.uniq).to eq([ false ])
     end
 
     it "gives the gui variant launchable native kinds, the macOS ones not built" do
@@ -17,7 +17,7 @@ RSpec.describe "platform variants" do
 
       expect(gui.app).to eq("gui")
       expect(gui.required_kinds).to eq(%w[linux_x64])
-      expect(gui.built_kinds).to eq(%w[linux_x64 win_x64 linux_arm64 html])
+      expect(gui.built_kinds).to eq(%w[linux_x64 win_x64 linux_arm64 html docs])
       expect(gui.expected_kinds).to include("mac_x64", "mac_arm64")
       expect(gui.expected_kinds.all? { |kind| WarpEngine::AssetKinds.launchable?(kind) }).to be(true)
     end
@@ -167,8 +167,8 @@ RSpec.describe "platform variants" do
     end
 
     it "names the built kinds of each variant" do
-      expect(config.built_kinds("golang")).to eq(%w[cli_linux_x64 cli_win_x64 cli_linux_arm64 cli_mac_x64 cli_mac_arm64])
-      expect(config.built_kinds("golang", app: "gui")).to eq(%w[linux_x64 win_x64 linux_arm64 html])
+      expect(config.built_kinds("golang")).to eq(%w[cli_linux_x64 cli_win_x64 cli_linux_arm64 cli_mac_x64 cli_mac_arm64 docs])
+      expect(config.built_kinds("golang", app: "gui")).to eq(%w[linux_x64 win_x64 linux_arm64 html docs])
     end
   end
 

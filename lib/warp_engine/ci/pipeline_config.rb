@@ -16,7 +16,8 @@ module WarpEngine
     #    (<tt>lib/warp_engine/ci/platforms/<template>.yaml.erb</tt>, or the
     #    host's, see WarpEngine::Platform::Builder#ci). A step on the builder
     #    or exporter image pulls it on every run; a step that builds native
-    #    targets calls +warp_target+ (<tt>scripts/pack.sh</tt>), and the
+    #    targets calls +warp_target+ (<tt>scripts/pack.sh</tt>), a step that
+    #    writes Go docs +warp_godoc+ (<tt>scripts/godoc.sh</tt>), and the
     #    template gets +targets+, the upload suffix and mode of every native
     #    kind the pipeline builds;
     # 4. +upload+ and +publish+, generated from the platform's kinds
@@ -48,6 +49,9 @@ module WarpEngine
       RELEASE_STEPS = %w[upload publish release].freeze
       # The step name a legacy template's tag-only step has.
       LEGACY_RELEASE_STEPS = %w[package].freeze
+      # The shell functions a template step may call, each with the script in
+      # <tt>scripts/</tt> that defines it and is put before the step's commands.
+      HELPER_SCRIPTS = { "warp_target" => "pack", "warp_godoc" => "godoc" }.freeze
       # The kinds that are native programs: built for one system and packed by +warp_target+.
       NATIVE_KIND = /\A(?:cli_)?(?:win|linux|mac)_/
       # The commands of the +check+ step.
@@ -248,9 +252,10 @@ module WarpEngine
 
       def template_step(step, moving, name)
         step = step.with(pull: true) if moving.include?(step.image)
-        return step unless step.commands.any? { |command| command.include?("warp_target") }
+        scripts = HELPER_SCRIPTS.filter_map { |call, script| script if step.commands.any? { |command| command.include?(call) } }
+        return step if scripts.empty?
 
-        step.with(commands: [ Scripts.assign(NAME: name) + Scripts.read("pack") ] + step.commands)
+        step.with(commands: [ Scripts.assign(NAME: name) + scripts.map { |script| Scripts.read(script) }.join ] + step.commands)
       end
 
       def check_step(spec)

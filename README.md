@@ -866,6 +866,18 @@ app: cli          # the default; or app: gui
 Each zip holds one root folder (`<name>-<version>-<target>`, `-cli` at the end for the
 cli kinds) with the binary, `README.md` and `LICENSE`. The version is `metadata.json`'s.
 
+#### Go docs (`golang` and `ebitengine`)
+
+Every release of a Go program gets its docs as well: the `docs` step runs
+[doc2go](https://abhinav.github.io/doc2go/) in the builder image over every package of
+the module, with the version on the pages, and uploads `<name>-<version>-docs.zip`,
+which the catalog opens like the docs of a TIC-80 cart. doc2go leaves `package main`
+out, so the step reads a copy of the sources in which the root package is named after
+the module; like every Go doc, the pages show the package comments and the exported
+names with their doc comments. The builder's own `doc2go` is used when it has one,
+otherwise the step installs a pinned version with `go install` (the Go of the builder
+reads the module). The kind is optional: a build without docs misses nothing.
+
 ### Platforms of your own
 
 The built-in platforms are the gem's; a host adds its own in the initializer, with the

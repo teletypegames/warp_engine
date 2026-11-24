@@ -17,10 +17,11 @@ RSpec.describe WarpEngine::AssetCoverageChecklist do
   it "checks off what is there and leaves the rest open" do
     lines = output.lines.map(&:chomp)
 
-    expect(lines).to include("rabbitroller  ebitengine  v1.1.1  1/7")
+    expect(lines).to include("rabbitroller  ebitengine  v1.1.1  1/8")
     expect(lines).to include("  [x] html")
     expect(lines).to include("  [ ] linux_arm64")
     expect(lines).to include("  [-] mac_arm64")
+    expect(lines).to include("  [~] docs")
   end
 
   it "lists what the CI could build and the release does not have" do
@@ -29,7 +30,7 @@ RSpec.describe WarpEngine::AssetCoverageChecklist do
   end
 
   it "counts the assets and says how many the CI does not build" do
-    expect(output).to include("1 softwares, 1 releases, 1/7 assets present, 4 missing from CI-built kinds")
+    expect(output).to include("1 softwares, 1 releases, 1/8 assets present, 4 missing from CI-built kinds")
     expect(output).to include("2 assets are expected but this CI does not build them")
   end
 

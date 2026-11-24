@@ -42,3 +42,9 @@ steps:
         <%- targets.each do |kind, args| -%>
         warp_target <%= args %> go_build <%= go.fetch(kind).map { |a| "'#{a}'" }.join(" ") %>
         <%- end -%>
+
+  - name: docs
+    artifacts: [ "*-docs.zip" ]
+    image: <%= builder %>
+    commands:
+      - warp_godoc

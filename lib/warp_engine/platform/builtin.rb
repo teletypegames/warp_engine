@@ -24,6 +24,7 @@ module WarpEngine
       label "Ebitengine"
       kind :html, required: true
       kinds :win_x86, :win_x64, :linux_x64, :linux_arm64
+      kind :docs, optional: true
       kind :mac_x64, built: false
       kind :mac_arm64, built: false
     end
@@ -83,12 +84,14 @@ module WarpEngine
         kind :cli_linux_arm64, optional: true
         kind :cli_mac_x64, optional: true
         kind :cli_mac_arm64, optional: true
+        kind :docs, optional: true
       end
       variant :gui do
         kind :linux_x64, required: true
         kind :win_x64, optional: true
         kind :linux_arm64, optional: true
         kind :html, optional: true
+        kind :docs, optional: true
         kind :mac_x64, built: false
         kind :mac_arm64, built: false
       end
