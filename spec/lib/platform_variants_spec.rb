@@ -158,6 +158,10 @@ RSpec.describe "platform variants" do
       expect(yaml).to include("APP='gui'")
     end
 
+    it "uses no braced positional parameter, which Woodpecker would substitute away" do
+      expect([ render, render("app" => "gui") ].join).not_to match(/\$\{[0-9]/)
+    end
+
     it "renders nothing for an app the platform does not have" do
       expect(render("app" => "tui")).to be_nil
     end
