@@ -125,6 +125,9 @@ module WarpEngine
     # Returns the human-readable platform name.
     def label = definition.label
 
+    # Returns the Definition::LibretroCore the platform's releases run on, or +nil+.
+    def libretro = definition.libretro
+
     # Returns the KindSpec list.
     def kind_specs = definition.kind_specs
 

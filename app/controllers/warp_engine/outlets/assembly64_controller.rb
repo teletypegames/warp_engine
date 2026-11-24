@@ -75,7 +75,7 @@ module WarpEngine
 
       # <tt>GET /leet/search/bin/:id/:category/:file</tt>: one file of a
       # title, through WarpEngine::DownloadService (access check and download
-      # log). Sends it as an attachment, redirects to it when the storage
+      # log, with the request's <tt>Client-Id</tt> and the outlet's key). Sends it as an attachment, redirects to it when the storage
       # serves it elsewhere, or answers 404 with an empty body when there is
       # no such file; 403 with an empty body when the access policy refuses.
       def bin
@@ -84,7 +84,8 @@ module WarpEngine
 
         location = WarpEngine::DownloadService.new.locate(
           path: item.relative_path, ip: request.remote_ip, user_agent: request.user_agent,
-          referer: request.referer, request: request
+          referer: request.referer, request: request,
+          client_id: request.headers["Client-Id"], outlet: outlet.key
         )
         if location.nil?
           head :not_found

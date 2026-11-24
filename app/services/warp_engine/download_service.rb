@@ -12,6 +12,8 @@ module WarpEngine
     # [referer]    the referer, logged (truncated to 500 characters)
     # [subject]    the caller, or +nil+ when anonymous
     # [request]    the Rack request, passed to the access policy
+    # [client_id]  the caller's <tt>Client-Id</tt> header, logged (truncated to 100 characters)
+    # [outlet]     the key of the outlet the download came through, logged; +nil+ for the catalog API
     #
     # A path of the flat layout before 3.4 is served from where it is now
     # (WarpEngine::ReleaseLayoutService#relocate) and logged under that path.
@@ -22,7 +24,7 @@ module WarpEngine
     # <tt>warp_engine.download</tt> unless the user agent is ignored
     # (<tt>WarpEngine.config.ignored_user_agent?</tt>). Raises WarpEngine::AccessDenied when the
     # access policy refuses.
-    def locate(path:, ip:, user_agent:, referer:, subject: nil, request: nil)
+    def locate(path:, ip:, user_agent:, referer:, subject: nil, request: nil, client_id: nil, outlet: nil)
       relative = path.to_s
       relative = WarpEngine::ReleaseLayoutService.new.relocate(relative) || relative unless storage.file?(relative)
       return nil unless storage.file?(relative)
@@ -30,7 +32,8 @@ module WarpEngine
       asset = find_asset(relative)
       grant = authorize_download!(asset: asset, subject: subject, request: request)
 
-      log_download(relative, asset: asset, ip: ip, user_agent: user_agent, referer: referer, subject: subject)
+      log_download(relative, asset: asset, ip: ip, user_agent: user_agent, referer: referer, subject: subject,
+                             client_id: client_id, outlet: outlet)
 
       storage.locate(relative,
                      filename: grant.filename.presence || File.basename(relative),
@@ -57,7 +60,7 @@ module WarpEngine
       WarpEngine::ReleaseAsset.for_relative_path(relative)
     end
 
-    def log_download(relative, asset:, ip:, user_agent:, referer:, subject:)
+    def log_download(relative, asset:, ip:, user_agent:, referer:, subject:, client_id:, outlet:)
       return if WarpEngine.config.ignored_user_agent?(user_agent)
 
       download = WarpEngine::Download.create!(
@@ -65,12 +68,14 @@ module WarpEngine
         release: asset&.release,
         ip_address: ip,
         user_agent: user_agent&.truncate(500),
-        referer: referer&.truncate(500)
+        referer: referer&.truncate(500),
+        client_id: client_id.presence&.truncate(100),
+        outlet: outlet.presence
       )
 
       ActiveSupport::Notifications.instrument("warp_engine.download",
         path: relative, asset: asset, release: asset&.release,
-        software: asset&.release&.software, subject: subject, download: download, ip: ip)
+        software: asset&.release&.software, subject: subject, download: download, ip: ip, outlet: outlet)
     end
   end
 end

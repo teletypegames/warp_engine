@@ -83,7 +83,42 @@ module WarpEngine
       raise
     end
 
+    # Asks +peer+ to remove the release +version+ of the software +name+ (the
+    # whole software when +version+ is +nil+) through its transport
+    # (WarpEngine::Sync::Transport#deliver_removal), logging on +event+ (a
+    # queued WarpEngine::SyncEvent, or +nil+ to start one) as attempt
+    # +attempt+. Returns a Result: +skipped+ when outbound sync is off, the
+    # peer takes no outbound pushes, its transport carries no removals, or
+    # the other side has nothing of ours to remove or refuses on purpose;
+    # +failed+ or +succeeded+ otherwise. Raises
+    # WarpEngine::Sync::Transport::Unreachable (after logging it).
+    def push_removal(peer, name:, version: nil, event: nil, attempt: 1)
+      event ||= SyncEvent.log(direction: "outbound", status: "queued", sync_peer: peer, step: "remove",
+                              software_name: name, version: version)
+      @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      @step = "remove"
+      reason = removal_skip_reason(peer)
+      return finish(event, peer, status: "skipped", message: reason) if reason
+
+      event&.update!(status: "running", attempt: attempt)
+      delivery = peer.transport_instance.deliver_removal(name, version)
+      return finish(event, peer, status: "skipped", message: "the #{peer.transport} transport carries no removals") if delivery.nil?
+
+      finish(event, peer, status: delivery.status, code: delivery.code, message: delivery.message)
+    rescue Sync::Transport::Unreachable => e
+      finish(event, peer, status: "failed", message: e.message)
+      raise
+    end
+
     private
+
+    def removal_skip_reason(peer)
+      return "outbound sync is not enabled" unless @config.outbound.enabled?
+      return "the peer takes no outbound pushes" unless peer.outbound_enabled && peer.deleted_at.nil?
+      return "unknown sync transport #{peer.transport}" if peer.transport_class.nil?
+
+      nil
+    end
 
     def images_skip_reason(peer)
       return "outbound sync is not enabled" unless @config.outbound.enabled?

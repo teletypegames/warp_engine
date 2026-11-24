@@ -15,7 +15,7 @@ module WarpEngine
       # read from its public <tt>GET /api/softwares/:name/builds</tt>. A
       # software's images go through <tt>POST /build/images</tt> (the gallery
       # by digest) and <tt>POST /build/images/upload</tt> (the files it
-      # lacks). Files are streamed, never read into memory; redirects are not
+      # lacks), a removal through <tt>DELETE /build/release</tt>. Files are streamed, never read into memory; redirects are not
       # followed, so the token goes to no other host.
       class Http < Transport
         # What a request answered: the HTTP +status+, the parsed JSON +body+
@@ -157,6 +157,20 @@ module WarpEngine
           return Delivery.new(status: "failed", code: response.status, message: "the images were not applied") unless response.body["applied"]
 
           Delivery.new(status: "succeeded", code: response.status, message: nil)
+        end
+
+        # Asks the other engine to remove what it got from us of the software
+        # +name+ (<tt>DELETE /build/release</tt>): the release +version+, or
+        # the whole software when +version+ is +nil+. A 404 (nothing of it
+        # there), 403 or 409 (not ours, or the inbound settings refuse) is
+        # +skipped+, another error +failed+. Returns a Transport::Delivery.
+        # Raises Transport::Unreachable.
+        def deliver_removal(name, version)
+          response = perform(Net::HTTP::Delete.new(uri("/build/release", name: name, version: version)))
+          return Delivery.new(status: "succeeded", code: response.status, message: nil) if response.success?
+          return Delivery.new(status: "skipped", code: 404, message: response.message) if response.status == 404
+
+          refused(response)
         end
 
         # Asks the other engine for the builds of the software +name+. Returns a

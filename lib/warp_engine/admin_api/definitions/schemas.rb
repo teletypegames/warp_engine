@@ -195,6 +195,8 @@ module WarpEngine
         def download
           named("Download", { id: S.id, filePath: S.string, releaseId: S.nullable(S.integer),
                               softwareId: S.nullable(S.integer), ipAddress: text, userAgent: text, referer: text,
+                              outlet: S.nullable(S.string("Key of the outlet it came through; null for the catalog API")),
+                              clientId: S.nullable(S.string("The caller's Client-Id header")),
                               **timestamps })
         end
 
@@ -428,11 +430,30 @@ module WarpEngine
                            value: { description: "An object, or an array of objects when multiple" } })
         end
 
+        # The +Outlet+ schema: one configured outlet.
+        def outlet
+          named("Outlet", { key: S.string, type: S.string, platforms: S.array(S.string, "Empty for every platform"),
+                            description: S.string, materialized: S.boolean("It writes files"),
+                            served: S.boolean("It answers requests"),
+                            details: { type: "object", description: "The rest of the descriptor GET /api/service lists" } })
+        end
+
+        # The +OutletCheck+ schema: what one outlet offers and leaves out.
+        def outlet_check
+          named("OutletCheck", {
+            key: S.string, type: S.string, offer: S.boolean("False for the catalog API, which decides per caller"),
+            items: S.array(S.object({ softwareId: S.integer, name: S.string, title: S.string, version: S.string, kind: S.string },
+                                    required: %i[softwareId name title version kind])),
+            skipped: S.array(S.object({ softwareId: S.integer, name: S.string, reason: S.string },
+                                      required: %i[softwareId name reason]))
+          })
+        end
+
         # Every Named component schema.
         def all
           [ software, release, release_asset, external_link, fork_link, software_image, platform_link, store_client, software_status,
             software_category, download, download_summary, file_downloads, software_downloads,
-            software_download_stats, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
+            software_download_stats, outlet, outlet_check, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
             runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,
             local_component, local_operation, local_credentials, sync_peer, sync_pairing, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
         end

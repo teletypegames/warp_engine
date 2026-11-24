@@ -71,6 +71,43 @@ module WarpEngine
       nil
     end
 
+    # What #remove did: the +status+ to answer (200, 404 or 409), the
+    # removed release +versions+, whether the +software+ went too, and a
+    # +message+ when nothing was removed.
+    Removal = ::Data.define(:status, :versions, :software, :message)
+
+    # Returns a Refusal (403) when a removal with +token+ is not taken: sync
+    # inbound is off, the token belongs to no peer, or the peer may not push
+    # here; +nil+ when it is.
+    def refuse_removal(token:) = refuse_peer(token)
+
+    # Removes (soft-deletes) what +peer+ pushed here of the software +name+:
+    # the release +version+, or with +version+ +nil+ every release the peer
+    # pushed. A release published here, or pushed by another peer, is never
+    # touched. The software goes too once no release of it is left. Returns
+    # a Removal: 404 when the software or version is not here, 409 when it
+    # is not the peer's to remove, 200 otherwise.
+    def remove(peer:, name:, version: nil)
+      software = Software.kept.find_by(name: name.to_s)
+      return Removal.new(status: 404, versions: [], software: false, message: "no such software here") if software.nil?
+
+      releases = software.releases.to_a
+      releases = releases.select { |release| release.version == version.to_s } if version.present?
+      return Removal.new(status: 404, versions: [], software: false, message: "no such version here") if releases.empty?
+
+      own = releases.select { |release| release.synced? && release.sync_peer_id == peer.id }
+      return Removal.new(status: 409, versions: [], software: false, message: "not pushed here by #{peer.label}") if own.empty?
+
+      ActiveRecord::Base.transaction do
+        own.each do |release|
+          release.release_assets.each(&:soft_delete!)
+          release.soft_delete!
+        end
+        software.soft_delete! if software.releases.reload.empty?
+      end
+      Removal.new(status: 200, versions: own.map(&:version), software: software.discarded?, message: nil)
+    end
+
     private
 
     def refuse_peer(token)

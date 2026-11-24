@@ -42,30 +42,21 @@
       "label": "Commodore 64",
       "kind": "cartridge",
       "ext": "",
-      "core": {
-        "file": "vice_x64_libretro",
-        "name": "VICE x64"
-      },
+      "core": null,
       "enabled": true
     },
     "plus4": {
       "label": "Commodore Plus/4",
       "kind": "cartridge",
       "ext": "",
-      "core": {
-        "file": "vice_xplus4_libretro",
-        "name": "VICE xplus4"
-      },
+      "core": null,
       "enabled": true
     },
     "tic80": {
       "label": "TIC-80",
       "kind": "cartridge",
       "ext": ".tic",
-      "core": {
-        "file": "tic80_libretro",
-        "name": "TIC-80"
-      },
+      "core": null,
       "enabled": true
     }
   },

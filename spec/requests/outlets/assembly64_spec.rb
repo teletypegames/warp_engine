@@ -69,6 +69,7 @@ RSpec.describe "Assembly64 outlet", type: :request do
 
     expect { get "/leet/search/bin/#{ariadne.id}/0/ARIADNE.PRG", headers: firmware_headers }
       .to change(WarpEngine::Download, :count).by(1)
+    expect(WarpEngine::Download.last).to have_attributes(outlet: "assembly64", client_id: "Ultimate")
     expect(response).to have_http_status(:ok)
     expect(response.body).to eq("PRGDATA")
     expect(response.headers["Content-Type"]).to eq("application/octet-stream")

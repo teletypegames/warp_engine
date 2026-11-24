@@ -70,6 +70,32 @@ module WarpEngine
       SyncPeer.outbound.to_a.select { |peer| images_go?(software, peer, newest) }.map { |peer| enqueue_images(software, peer) }
     end
 
+    # Queues the removal of +record+ (a soft-deleted WarpEngine::Release, or a
+    # WarpEngine::Software for the whole title) on every peer that takes
+    # outbound pushes and would have got it (WarpEngine::SyncRemovalJob):
+    # the release passes the peer's filters, or for a software any release of
+    # it published here does. Does nothing while outbound sync is off and for
+    # what came by sync (a synced release, a software with no release of its
+    # own), so a removal is not passed along.
+    #
+    # Returns the WarpEngine::SyncEvent of each queued removal (+nil+ entries
+    # while the events are off), or an empty Array.
+    def dispatch_removal(record)
+      return [] unless @config.outbound.enabled?
+
+      releases = removable_releases(record)
+      return [] if releases.empty?
+
+      version = record.is_a?(Release) ? record.version : nil
+      software = record.is_a?(Release) ? record.software : record
+      SyncPeer.outbound.to_a.filter_map do |peer|
+        filter = @filter.for(peer)
+        next unless releases.any? { |release| filter.reason(release).nil? }
+
+        enqueue_removal(software, version, peer)
+      end
+    end
+
     # Returns what a run with +criteria+ (WarpEngine::Sync::Criteria) would
     # send to +peer+ (a WarpEngine::SyncPeer whose channels narrow it, or
     # +nil+ for none), as a Plan: per kept software the narrowings leave in, in name
@@ -177,6 +203,21 @@ module WarpEngine
     def enqueue(release, peer, criteria: nil)
       event = SyncEvent.log(direction: "outbound", status: "queued", sync_peer: peer, **SyncEvent.release_attributes(release))
       SyncPushJob.perform_later(release.id, peer.id, event&.id, criteria&.to_h&.transform_keys(&:to_s))
+      event
+    end
+
+    def removable_releases(record)
+      case record
+      when Release then record.synced? || record.software.nil? ? [] : [ record ]
+      when Software then Release.where(software_id: record.id).to_a.reject(&:synced?)
+      else []
+      end
+    end
+
+    def enqueue_removal(software, version, peer)
+      event = SyncEvent.log(direction: "outbound", status: "queued", sync_peer: peer, step: "remove",
+                            software_id: software.id, software_name: software.name, platform: software.platform, version: version)
+      SyncRemovalJob.perform_later(peer.id, software.name, version, event&.id)
       event
     end
 

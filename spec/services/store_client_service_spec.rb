@@ -81,6 +81,15 @@ RSpec.describe WarpEngine::StoreClientService do
       expect(config.dig("catalog", "statuses")).to eq(%w[released])
       expect(config.dig("playlist", "icon")).to eq("https://x.example/l.png")
     end
+
+    it "boots each platform with the libretro core its web runtime loads" do
+      config = service.config(client: "retroarch", base_url: "https://teletypegames.org", release_path: "/r")
+
+      expect(config.dig("platforms", "c64", "core")).to eq("file" => "vice_x64sc_libretro", "name" => "VICE x64sc")
+      expect(config.dig("platforms", "c64", "core", "file")).to eq("#{WarpEngine::Platform.find!('c64').web_binding.params[:core]}_libretro")
+      expect(config.dig("platforms", "plus4", "core", "file")).to eq("vice_xplus4_libretro")
+      expect(config.dig("platforms", "tic80", "core", "file")).to eq("tic80_libretro")
+    end
   end
 
   describe "#installer" do

@@ -56,6 +56,15 @@ module WarpEngine
       def allows?(value) = values.include?(value.to_s)
     end
 
+    # The libretro core a platform's releases run on: its +key+ (the core's
+    # name, e.g. +vice_x64sc+; the web runtimes load it by that name, and
+    # RetroArch as <tt>key_libretro</tt>) and the human +name+.
+    LibretroCore = ::Data.define(:key, :name) do
+      # Returns the core's file name without the extension, as RetroArch
+      # names it (<tt>vice_x64sc_libretro</tt>).
+      def file = "#{key}_libretro"
+    end
+
     # Everything the engine knows of a platform, built by a Builder.
     #
     # [name]           the platform name
@@ -81,12 +90,15 @@ module WarpEngine
     # [app]            the variant this Definition describes (#variant), or +nil+
     # [options]        the MarkerOption list: the keys besides +platform+,
     #                  +name+, +release+ and +app+ the CI marker may set
+    # [libretro]       the LibretroCore its releases run on, or +nil+: the one
+    #                  place the web runtimes and the store engines take it from
     Definition = ::Data.define(:name, :label, :kind_specs, :metadata, :release_rule, :shelf_folder,
                                :ci_template, :ci_variables, :version_source, :web_bindings,
-                               :version_file, :variants, :default_app, :app, :options) do
+                               :version_file, :variants, :default_app, :app, :options, :libretro) do
       # Builds a Definition; +web_bindings+, +variants+ and +options+ default
-      # to none, +version_file+, +default_app+ and +app+ to +nil+.
-      def initialize(web_bindings: [], version_file: nil, variants: {}, default_app: nil, app: nil, options: [], **attributes) = super
+      # to none, +version_file+, +default_app+, +app+ and +libretro+ to +nil+.
+      def initialize(web_bindings: [], version_file: nil, variants: {}, default_app: nil, app: nil, options: [], libretro: nil,
+                     **attributes) = super
 
       # Returns the variant names, the default first; empty without variants.
       def apps = variants.keys
@@ -127,7 +139,8 @@ module WarpEngine
     #   kind :cartridge, ext: ".adf", required: true
     #   kinds :html, :win_x64
     #   kind :mac_arm64, built: false
-    #   web :emulatorjs, core: "puae"
+    #   libretro "puae", name: "PUAE"
+    #   web :emulatorjs, core: :libretro
     #   ci template: Rails.root.join("ci/amiga.yaml.erb")
     #
     # A platform whose software comes in kinds of program that publish
@@ -206,6 +219,11 @@ module WarpEngine
       # release metadata.
       def shelf_folder(callable) = @shelf_folder = callable
 
+      # Sets the libretro core the platform's releases run on (LibretroCore):
+      # +key+ the core's name, +name+ the human one. A #web binding takes it
+      # with <tt>core: :libretro</tt>, the store engines from the platform.
+      def libretro(key, name:) = @libretro = LibretroCore.new(key: key.to_s, name: name.to_s)
+
       # Binds the platform to the runtime +runtime+ (see WebBinding): its
       # releases play in it on the web. Call it again for more runtimes; the
       # first binding, or the one with <tt>default: true</tt>, is the default.
@@ -214,10 +232,17 @@ module WarpEngine
       # [payload]  the asset kind the runtime plays (default +:cartridge+)
       # [default]  makes this the default binding
       # [isolated] serves the page cross-origin isolated
-      # [params]   the runtime parameters
+      # [params]   the runtime parameters; <tt>core: :libretro</tt> is the
+      #            core #libretro set
       #
-      # Raises ArgumentError when the key is taken.
+      # Raises ArgumentError when the key is taken, or for <tt>core: :libretro</tt>
+      # before #libretro.
       def web(runtime, **options)
+        if options[:core] == :libretro
+          raise ArgumentError, "platform #{@name}: web binding names core: :libretro before libretro" if @libretro.nil?
+
+          options = options.merge(core: @libretro.key)
+        end
         binding = WebBinding.build(runtime, **options)
         raise ArgumentError, "platform #{@name}: web binding #{binding.key} is declared twice" if @web_bindings.any? { |other| other.key == binding.key }
 
@@ -247,7 +272,7 @@ module WarpEngine
                               release_rule: @release_rule, shelf_folder: @shelf_folder, ci_template: @ci[:template],
                               ci_variables: @ci[:variables], version_source: @version_source, version_file: @version_file,
                               web_bindings: Platform.with_default(@web_bindings).freeze, variants: variants,
-                              default_app: @default_app, options: @options.freeze)
+                              default_app: @default_app, options: @options.freeze, libretro: @libretro)
         base.variants? ? base.variant(nil) : base
       end
     end

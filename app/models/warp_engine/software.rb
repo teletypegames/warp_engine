@@ -18,6 +18,7 @@ module WarpEngine
 
     include SoftDeletable
     include OutletRefreshing
+    include RemovalNotifying
 
     belongs_to :owner, polymorphic: true, optional: true
 

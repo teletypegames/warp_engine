@@ -64,6 +64,12 @@ module WarpEngine
       rescue StandardError => e
         Rails.logger.error("[WarpEngine::Sync] image dispatch failed: #{e.class}: #{e.message}")
       end
+
+      ActiveSupport::Notifications.subscribe("warp_engine.remove") do |*, payload|
+        WarpEngine::SyncService.new.dispatch_removal(payload[:record]) if WarpEngine::Sync.outbound?
+      rescue StandardError => e
+        Rails.logger.error("[WarpEngine::Sync] removal dispatch failed: #{e.class}: #{e.message}")
+      end
     end
 
     initializer "warp_engine.forks" do

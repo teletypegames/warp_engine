@@ -67,6 +67,8 @@ module WarpEngine
     #                  platform forces it, +app+ with variants, then the
     #                  platform's own WarpEngine::Platform::MarkerOption list)
     # [releaseRule]    the forced CI release rule (+tag+), or +nil+
+    # [libretro]       the libretro core its releases run on, +key+, +file+
+    #                  and +name+, or +nil+
     # [web]            the enabled web bindings: +key+, +runtime+, +label+,
     #                  +payload+, +default+, +params+ (the runtime's parameter names
     #                  and types)
@@ -83,6 +85,7 @@ module WarpEngine
         "metadata" => metadata(platform),
         "version" => version(platform),
         "releaseRule" => platform.release_rule,
+        "libretro" => platform.libretro&.then { |core| { "key" => core.key, "file" => core.file, "name" => core.name } },
         "web" => platform.web_bindings.map { |binding| web_binding(binding) },
         "ci" => ci(platform),
         "tooling" => WarpEngine.config.platform_toolings.fetch(platform.name, {}).deep_stringify_keys

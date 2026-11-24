@@ -11,6 +11,7 @@ module WarpEngine
           Definitions::Catalog,
           Definitions::Vocabulary,
           Definitions::Statistics,
+          Definitions::Outlets,
           Definitions::Pipelines,
           Definitions::Files,
           Definitions::Runtimes,

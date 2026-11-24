@@ -64,7 +64,18 @@ RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :r
     before do
       create(:download, file_path: "ra-1.0.tic", release: release, user_agent: "curl/8")
       create(:download, file_path: "ra-1.0.tic", release: release, created_at: 2.months.ago)
-      create(:download, file_path: "other.zip", ip_address: "10.0.0.9")
+      create(:download, file_path: "other.zip", ip_address: "10.0.0.9", outlet: "assembly64", client_id: "Ultimate")
+    end
+
+    it "tells the outlet and the Client-Id apart" do
+      api_get "/downloads", params: { outlet: "assembly64" }
+      expect(json["data"].map { |d| [ d["filePath"], d["outlet"], d["clientId"] ] }).to eq([ %w[other.zip assembly64 Ultimate] ])
+
+      api_get "/downloads", params: { outlet: "none" }
+      expect(json["data"].size).to eq(2)
+
+      api_get "/downloads", params: { clientId: "ultim" }
+      expect(json["data"].map { |d| d["filePath"] }).to eq(%w[other.zip])
     end
 
     it "lists the log with the admin's filters" do

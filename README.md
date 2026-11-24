@@ -1201,7 +1201,8 @@ WarpEngine.configure do
 
   register_platform "amiga" do
     kind :cartridge, ext: ".adf", required: true
-    web :emulatorjs, core: "puae"                                # bind a platform of your own
+    libretro "puae", name: "PUAE"                                # the platform's libretro core
+    web :emulatorjs, core: :libretro                             # bind a platform of your own
   end
 
   register_runtime "ruffle" do                                   # a runtime of your own
@@ -1212,6 +1213,13 @@ WarpEngine.configure do
   end
 end
 ```
+
+A platform's libretro core is declared once, with `libretro` (the builtin ones:
+`c64` `vice_x64sc`, `plus4` `vice_xplus4`, `dos` `dosbox_pure`, `tic80` `tic80`).
+A web binding takes it with `core: :libretro`, the RetroArch store engine's config
+boots the platform's playlist with `<core>_libretro`, and `GET
+/build/platforms/:name` lists it under `libretro`: the browser and RetroArch run a
+release on the same core.
 
 A DOS program plays from its cartridge zip as it is: the page appends a
 `start.conf` to the zip in the browser (DOSBox Pure takes a `.conf`), copies the
@@ -1310,6 +1318,11 @@ bin/rails warp_engine:outlets:check   # every outlet and what it offers (STRICT=
 bin/rails warp_engine:outlets:sync    # rewrite every materialized outlet (DRY_RUN=1 only says what would change)
 ```
 
+The Admin API (and its MCP tools) has the same view: `GET /outlets` lists the outlets
+(the descriptor, `description`, `materialized`, `served`), `GET /outlets/:key/check`
+what one offers (`items`) and leaves out (`skipped`, with the reason); both answer 409
+while the configuration is invalid.
+
 **A type of your own** subclasses `WarpEngine::Outlets::Base`, names itself with
 `type_name`, includes `WarpEngine::Outlets::Materialized` (and defines `sync!`) or
 `WarpEngine::Outlets::Served` (and defines `self.draw_routes(mapper)`), and is
@@ -1359,6 +1372,12 @@ outlet :assembly64, type: :assembly64,
 | `GET /leet/search/aql/START/COUNT?query=` | a page of a search |
 | `GET /leet/search/entries/ID/CATEGORY` | `contentEntry`: the title's files (`path`, `id`, `size`, `date`) |
 | `GET /leet/search/bin/ID/CATEGORY/FILE` | the file, `application/octet-stream`, through the download service (access check, download log) |
+
+A download through the outlet is logged with the outlet's key (`outlet`) and the
+caller's `Client-Id` (`client_id`), so the statistics tell the Ultimate's downloads
+from the catalog API's: the admin's *Download Stats* shows and filters both, the Admin
+API's `GET /downloads` takes `outlet` (exact; `none` for the catalog API) and
+`clientId`.
 
 A result is `id` (the software id, a string), `name` (title), `group` (author), `year`,
 `category` (the Assembly64 id of the category) `updated` and `type`. The query is
@@ -1817,8 +1836,8 @@ A peer record describes both sides of one partnership:
   `rake "warp_engine:sync:inbound_token[label]" FILE=…`), owned by the peer. It is shown
   once; the other engine stores it as the secret of the peer that points back here.
 
-A `sync` token opens `POST /build/upload`, `POST /build/publish` and `POST /build/images`
-only, is always `unrestricted`, belongs to a peer and is never written to a pipeline. The
+A `sync` token opens `POST /build/upload`, `POST /build/publish`, `POST /build/images` and
+`DELETE /build/release` only, is always `unrestricted`, belongs to a peer and is never written to a pipeline. The
 receiving side needs `application_tokens from: :database`.
 
 A peer may narrow the outbound channels for itself (5.3, `allowed_channels`, the admin's
@@ -1826,6 +1845,20 @@ A peer may narrow the outbound channels for itself (5.3, `allowed_channels`, the
 the global `outbound { allowed_channels }` lets go; filled, only those of them — it never
 widens the global list. A release it holds back says so: *the beta channel is not in
 Studio's channels*.
+
+### Removals
+
+A release soft-deleted here (the admin, the Admin API, the dev-release cleanup) is
+removed on every outbound peer that would have got it: a `WarpEngine::SyncRemovalJob`
+asks the peer's transport, logged as an outbound `remove` event. A soft-deleted
+software goes the same way, without a version. What came here by sync is not passed
+along. The `http` transport sends `DELETE /build/release?name=&version=` (no
+`version`: the software); `rsync` carries no removals and logs the event `skipped`.
+
+The receiving engine removes only what that peer pushed there (`origin` `sync` and its
+`sync_peer_id`): never a release its own CI published or another peer pushed (409), and
+the software too once no release of it is left. Nothing of it there is a 404, which the
+sender logs as `skipped`.
 
 ### Pairing (5.3)
 

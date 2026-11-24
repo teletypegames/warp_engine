@@ -15,6 +15,7 @@ module WarpEngine
       kind :docs, always: true
       kinds :win_x64, :linux_x64, :mac_x64
       metadata :lua
+      libretro "tic80", name: "TIC-80"
       web :tic80
       version_source "sed -n 's/^-- version: //p' inc/meta/meta.header.lua 2>/dev/null | head -n 1 | tr -d '[:space:]'"
     end
@@ -33,12 +34,13 @@ module WarpEngine
       kinds :win_x64, :linux_x64, :mac_universal
     end
 
-    { c64: [ "C64", "vice_x64sc" ], plus4: [ "Plus/4", "vice_xplus4" ] }.each do |machine, (name, core)|
+    { c64: [ "C64", "vice_x64sc", "VICE x64sc" ], plus4: [ "Plus/4", "vice_xplus4", "VICE xplus4" ] }.each do |machine, (name, core, core_name)|
       define machine do
         label name
         kind :cartridge, ext: %w[.prg .d64], required: true
         kinds :win_x64, :linux_x64, :mac_arm64
-        web :emulatorjs, core: core, options: { "keyboardInput" => "enabled" }
+        libretro core, name: core_name
+        web :emulatorjs, core: :libretro, options: { "keyboardInput" => "enabled" }
         ci template: "commodore", machine: machine.to_s
         option :build, values: %w[make], description: "make: the repository's Makefile builds <name>.prg (or .d64) instead of ACME on main.asm"
         option :media, values: %w[prg d64], description: "d64: the release is a disk image the Makefile builds; prg (default): a program file"
@@ -95,7 +97,8 @@ module WarpEngine
       label "DOS"
       kind :cartridge, ext: ".zip", required: true
       kind :win_x86, optional: true
-      web :emulatorjs, core: "dosbox_pure", launcher: "dos", isolated: true
+      libretro "dosbox_pure", name: "DOSBox Pure"
+      web :emulatorjs, core: :libretro, launcher: "dos", isolated: true
       release_rule :tag
       shelf_folder DosShelfFolder
     end

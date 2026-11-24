@@ -16,6 +16,7 @@ module WarpEngine
 
     include SoftDeletable
     include OutletRefreshing
+    include RemovalNotifying
 
     belongs_to :software
     belongs_to :runtime_version, optional: true

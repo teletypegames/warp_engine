@@ -31,7 +31,9 @@ module WarpEngine
 
     # Returns the store config of +client+ as a Hash: its template with this
     # catalog's +base_url+, the store's name, id, folders, statuses and logo,
-    # the platforms the engine has, and <tt>store.api.release</tt> set to
+    # the platforms the engine has (a platform's +core+, where the template
+    # has one, is the libretro core the platform declares, the one its web
+    # runtime loads too), and <tt>store.api.release</tt> set to
     # +release_path+ so the engine updates itself. Raises
     # ActiveRecord::RecordNotFound when +client+ is not a store engine.
     def config(client:, base_url:, release_path:)
@@ -47,6 +49,7 @@ module WarpEngine
         config["emulationstation"]["folder_name"] = name if config.key?("emulationstation")
         config["catalog"]["statuses"] = Array(record.statuses).presence || SoftwareStatus.default_visible_keys
         config["platforms"].select! { |platform, _| Platform.exists?(platform) }
+        apply_cores(config["platforms"])
         apply_logo(config, Array(record.logo_urls))
       end
     end
@@ -67,6 +70,15 @@ module WarpEngine
     end
 
     private
+
+    def apply_cores(platforms)
+      platforms.each do |name, spec|
+        next unless spec.key?("core")
+
+        core = Platform.find!(name).libretro
+        spec["core"] = core ? { "file" => core.file, "name" => core.name } : nil
+      end
+    end
 
     def client_definition(client)
       StoreClients.find(client) || raise(ActiveRecord::RecordNotFound, "#{client} is not a store engine")

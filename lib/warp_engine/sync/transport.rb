@@ -92,6 +92,13 @@ module WarpEngine
       # images (the default). Raises Unreachable.
       def deliver_images(_name, _images) = nil
 
+      # Removes from the other side what this engine pushed there of the
+      # software +name+: the release +version+, or every such release and
+      # the software itself when +version+ is +nil+. Returns a Delivery, or
+      # +nil+ when the transport carries no removals (the default). Raises
+      # Unreachable.
+      def deliver_removal(_name, _version) = nil
+
       private
 
       def option(name) = peer.option(name)

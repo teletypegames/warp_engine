@@ -14,6 +14,16 @@ RSpec.describe WarpEngine::Platform::WebBinding do
     expect(platform("godot").web_bindings).to be_empty
   end
 
+  it "takes the core from the platform's libretro core" do
+    expect(platform("c64").libretro).to have_attributes(key: "vice_x64sc", file: "vice_x64sc_libretro", name: "VICE x64sc")
+    expect(platform("dos").libretro.key).to eq(platform("dos").web_binding.params[:core])
+    expect(platform("godot").libretro).to be_nil
+
+    expect do
+      WarpEngine::Platform::Builder.new("amiga").instance_eval { web :emulatorjs, core: :libretro }
+    end.to raise_error(ArgumentError, /before libretro/)
+  end
+
   it "makes the first binding the default unless another one says so" do
     builder = WarpEngine::Platform::Builder.new("amiga")
     builder.web :emulatorjs, core: "puae"

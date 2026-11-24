@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_200000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -37,16 +37,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_120000) do
   end
 
   create_table "downloads", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "client_id", limit: 100
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
     t.string "file_path", null: false
     t.string "ip_address"
+    t.string "outlet", limit: 32
     t.string "referer", limit: 500
     t.bigint "release_id", unsigned: true
     t.datetime "updated_at", precision: 3
     t.string "user_agent", limit: 500
     t.index ["deleted_at"], name: "idx_downloads_deleted_at"
     t.index ["file_path"], name: "index_downloads_on_file_path"
+    t.index ["outlet"], name: "index_downloads_on_outlet"
     t.index ["release_id"], name: "index_downloads_on_release_id"
   end
 

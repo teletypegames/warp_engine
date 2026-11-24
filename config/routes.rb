@@ -16,6 +16,7 @@ WarpEngine::Engine.routes.draw do
   post "build/publish", to: "build/publish#create"
   post "build/images",  to: "build/images#create"
   post "build/images/upload", to: "build/images#upload"
+  delete "build/release", to: "build/removals#destroy"
   post "build/runtime", to: "build/runtimes#create"
   get  "build/config",  to: "build/configs#show"
   post "build/config",  to: "build/configs#create"
