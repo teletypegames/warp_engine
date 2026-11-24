@@ -70,6 +70,16 @@ RSpec.describe "Steps every generated pipeline shares" do
           expect(run_version(script, { "CI_COMMIT_BRANCH" => "master" }, metadata).first).to eq("1.2.0")
         end
 
+        it "warns when a package.json names another version, and still builds the source's" do
+          files = metadata.merge("package.json" => %({\n  "name": "game",\n  "version": "1.1.0"\n}\n))
+          version, output = run_version(script, { "CI_COMMIT_BRANCH" => "master" }, files)
+
+          expect(version).to eq("1.2.0")
+          expect(output).to include("WARNING: package.json says 1.1.0, the source says 1.2.0")
+          expect(run_version(script, { "CI_COMMIT_BRANCH" => "master" }, metadata.merge("package.json" => %({"version": "1.2.0"}))).last)
+            .not_to include("WARNING")
+        end
+
         it "is a dev version on another branch" do
           expect(run_version(script, { "CI_COMMIT_BRANCH" => "feature/x" }, metadata).first).to eq("dev-1.2.0-feature-x")
         end

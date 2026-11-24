@@ -3,6 +3,7 @@
 # the source names), BRANCH_SOURCE and DEFAULT_BRANCH_SOURCE (the CI's branch
 # and default branch). A version tag must match the source; a build off the
 # default branch, or of a dev-<branch> tag, is dev-<version>-<branch>.
+# A package.json whose version differs from the source's gets a warning.
 TAG="${CI_COMMIT_TAG:-}"
 TAG_VERSION=""
 DEV_TAG=""
@@ -21,6 +22,10 @@ if [ -z "$VERSION" ]; then
   SHA="${CI_COMMIT_SHA:-unknown}"
   VERSION="dev-$(printf '%.7s' "$SHA")"
   echo "No version in the source and no version tag: this build is $VERSION"
+fi
+PACKAGE_VERSION=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json 2>/dev/null | head -n 1)
+if [ -n "$PACKAGE_VERSION" ] && [ -n "$SOURCE_VERSION" ] && [ "$PACKAGE_VERSION" != "$SOURCE_VERSION" ]; then
+  echo "WARNING: package.json says $PACKAGE_VERSION, the source says $SOURCE_VERSION: this build is $SOURCE_VERSION"
 fi
 DEFAULT_BRANCH=$(printf '%s' "$DEFAULT_BRANCH_SOURCE" | tr '/' '-')
 ON_DEFAULT=""
