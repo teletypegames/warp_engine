@@ -8,6 +8,7 @@ shared_examples "pipeline config built kinds" do |config_class|
     when "html" then ".html.zip"
     when "docs" then "-docs.zip"
     when "cartridge", "source" then nil
+    when /\Acli_/ then kind.delete_prefix("cli_").tr("_", "-")
     else kind.tr("_", "-")
     end
   end

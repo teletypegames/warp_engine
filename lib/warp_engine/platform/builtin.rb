@@ -70,6 +70,25 @@ module WarpEngine
                      file: "package.json"
     end
 
+    define :golang do
+      label "Go"
+      variant :cli, default: true do
+        kind :cli_linux_x64, required: true
+        kind :cli_win_x64, optional: true
+        kind :cli_linux_arm64, optional: true
+        kind :cli_mac_x64, optional: true
+        kind :cli_mac_arm64, optional: true
+      end
+      variant :gui do
+        kind :linux_x64, required: true
+        kind :win_x64, optional: true
+        kind :linux_arm64, optional: true
+        kind :html, optional: true
+        kind :mac_x64, built: false
+        kind :mac_arm64, built: false
+      end
+    end
+
     define :dos do
       label "DOS"
       kind :cartridge, ext: ".zip", required: true

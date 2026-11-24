@@ -66,7 +66,7 @@ module WarpEngine
     def page(name:, version:, binding: nil, subject: nil, authorize: true)
       software = WarpEngine::Software.kept.find_by(name: name.to_s) || raise(NotFound, "no software #{name}")
       release = software.releases.find_by(version: version.to_s) || raise(NotFound, "no release #{version}")
-      platform = WarpEngine::Platform.find(software.platform) || raise(NotFound, "unknown platform")
+      platform = WarpEngine::Platform.for(software) || raise(NotFound, "unknown platform")
       chosen, runtime_version = resolve(platform, release, binding)
       raise NotFound, "the release does not play on the web" if chosen.nil? || runtime_version.nil? || runtime_version.deleted_at
       raise NotFound, "#{runtime_version.label} lacks a component" unless Publish::WebBinder.components_installed?(runtime_version, chosen)

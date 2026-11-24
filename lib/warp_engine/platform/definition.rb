@@ -64,11 +64,35 @@ module WarpEngine
     # [version_file]   the file that command reads, for the tools that write the
     #                  version (a JSON file with a top-level +version+), or +nil+
     # [web_bindings]   the WebBinding list: the runtimes its releases play in
+    # [variants]       the KindSpec list of each variant, by name (see
+    #                  Builder#variant), the kinds every variant shares included;
+    #                  empty for a platform without variants
+    # [default_app]    the variant a software without an +app+ is, or +nil+
+    # [app]            the variant this Definition describes (#variant), or +nil+
     Definition = ::Data.define(:name, :label, :kind_specs, :metadata, :release_rule, :shelf_folder,
                                :ci_template, :ci_variables, :version_source, :web_bindings,
-                               :version_file) do
-      # Builds a Definition; +web_bindings+ defaults to none, +version_file+ to +nil+.
-      def initialize(web_bindings: [], version_file: nil, **attributes) = super
+                               :version_file, :variants, :default_app, :app) do
+      # Builds a Definition; +web_bindings+ and +variants+ default to none,
+      # +version_file+, +default_app+ and +app+ to +nil+.
+      def initialize(web_bindings: [], version_file: nil, variants: {}, default_app: nil, app: nil, **attributes) = super
+
+      # Returns the variant names, the default first; empty without variants.
+      def apps = variants.keys
+
+      # Returns +true+ when the platform has variants.
+      def variants? = variants.any?
+
+      # Returns the Definition of the variant +name+ (blank: the default one):
+      # its kinds, and +app+ among the CI template variables. A platform
+      # without variants returns itself for a blank +name+. Raises
+      # ArgumentError for a variant the platform does not have.
+      def variant(name)
+        chosen = name.to_s.presence || default_app
+        return self if chosen.nil? && !variants?
+        raise ArgumentError, "platform #{self.name} has no app #{name}" unless variants.key?(chosen)
+
+        with(kind_specs: variants.fetch(chosen), ci_variables: ci_variables.to_h.merge(app: chosen), app: chosen)
+      end
 
       # Returns the names of every kind the platform publishes.
       def expected_kinds = kind_specs.map(&:name)
@@ -93,6 +117,17 @@ module WarpEngine
     #   kind :mac_arm64, built: false
     #   web :emulatorjs, core: "puae"
     #   ci template: Rails.root.join("ci/amiga.yaml.erb")
+    #
+    # A platform whose software comes in kinds of program that publish
+    # different assets declares a #variant for each; the software's +app+
+    # picks one (WarpEngine::Platform.for):
+    #
+    #   variant :cli, default: true do
+    #     kind :cli_linux_x64, required: true
+    #   end
+    #   variant :gui do
+    #     kind :linux_x64, required: true
+    #   end
     class Builder
       # [name] the platform name
       def initialize(name)
@@ -102,6 +137,7 @@ module WarpEngine
         @metadata = :json
         @ci = { template: @name, variables: {} }
         @web_bindings = []
+        @variants = {}
       end
 
       # Sets the human-readable name (default: the titleized name).
@@ -122,6 +158,23 @@ module WarpEngine
 
       # Adds each of +names+ with the defaults of #kind.
       def kinds(*names) = names.flatten.each { |name| kind(name) }
+
+      # Declares the variant +name+: the #kind calls of the block are its own
+      # kinds, next to the ones declared outside every variant. The first
+      # variant, or the one with <tt>default: true</tt>, is the default.
+      # Raises ArgumentError when the variant is declared twice.
+      def variant(name, default: false, &block)
+        key = name.to_s
+        raise ArgumentError, "platform #{@name}: variant #{key} is declared twice" if @variants.key?(key)
+
+        shared = @kind_specs
+        @kind_specs = []
+        instance_eval(&block)
+        @variants[key] = @kind_specs
+        @default_app = key if default || @default_app.nil?
+      ensure
+        @kind_specs = shared
+      end
 
       # Sets where the metadata is read: +:json+ (default), +:lua+ or a callable.
       def metadata(reader) = @metadata = reader
@@ -166,12 +219,16 @@ module WarpEngine
         @ci[:variables] = variables
       end
 
-      # Returns the Definition.
+      # Returns the Definition; with variants it describes the default one.
       def build
-        Definition.new(name: @name, label: @label, kind_specs: @kind_specs.freeze, metadata: @metadata,
-                       release_rule: @release_rule, shelf_folder: @shelf_folder, ci_template: @ci[:template],
-                       ci_variables: @ci[:variables], version_source: @version_source, version_file: @version_file,
-                       web_bindings: Platform.with_default(@web_bindings).freeze)
+        variants = @variants.transform_values { |specs| (@kind_specs + specs).freeze }
+        variants = variants.slice(@default_app).merge(variants).freeze
+        base = Definition.new(name: @name, label: @label, kind_specs: @kind_specs.freeze, metadata: @metadata,
+                              release_rule: @release_rule, shelf_folder: @shelf_folder, ci_template: @ci[:template],
+                              ci_variables: @ci[:variables], version_source: @version_source, version_file: @version_file,
+                              web_bindings: Platform.with_default(@web_bindings).freeze, variants: variants,
+                              default_app: @default_app)
+        base.variants? ? base.variant(nil) : base
       end
     end
   end

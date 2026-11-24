@@ -105,7 +105,7 @@ module WarpEngine
     end
 
     def metadata_of(input)
-      platform = WarpEngine::Platform.find!(input.platform)
+      platform = WarpEngine::Platform.find!(input.platform, app: input.try(:app))
       upload = Publish::Upload.new(name: input.name, version: input.version,
                                    root: WarpEngine::ReleaseLayout.absolute_directory(input.name, input.version))
       Publish::MetadataReader.read(platform.definition.metadata, upload)

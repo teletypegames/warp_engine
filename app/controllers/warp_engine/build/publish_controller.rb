@@ -18,6 +18,7 @@ module WarpEngine
       param :platform, String, required: true, desc: "Platform (one of WarpEngine::Platform.names)"
       param :version, String, required: true, desc: "Version string"
       param :commit, String, required: false, desc: "The commit the CI built (hex)"
+      param :app, String, required: false, desc: "The platform variant (cli, gui) of a platform with variants; blank: the default one"
       returns code: 200, desc: "JSON with the published name/platform/version"
       error code: 401, desc: "Invalid secret"
       error code: 403, desc: "Token does not own this software"
@@ -30,6 +31,7 @@ module WarpEngine
       # [platform] one of WarpEngine::Platform.names
       # [version]  the version string
       # [commit]   the commit the CI built, stored on the release (optional)
+      # [app]      the platform variant, stored on the software (optional)
       #
       # Validates the input (WarpEngine::PublishInputDto), publishes through
       # WarpEngine::PublishService (creating or updating the software, its release
@@ -53,7 +55,8 @@ module WarpEngine
           platform: params[:platform],
           name:     params[:name],
           version:  params[:version],
-          commit:   params[:commit].presence
+          commit:   params[:commit].presence,
+          app:      params[:app].presence
         )
         return render json: { error: input.error_message }, status: :bad_request unless input.valid?
 

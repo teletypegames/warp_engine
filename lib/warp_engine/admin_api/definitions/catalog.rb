@@ -374,7 +374,7 @@ module WarpEngine
 
         # Raises a 422 Error when +kind+ is +html+ and the platform of +release+ is download only.
         def check_web_playable!(release, kind)
-          platform = WarpEngine::Platform.find(release.software&.platform)
+          platform = WarpEngine::Platform.for(release.software)
           return if kind.to_s != "html" || platform.nil? || platform.expected_kinds.include?("html")
 
           raise Error.new(422, "Validation failed",

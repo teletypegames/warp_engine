@@ -71,9 +71,9 @@ module WarpEngine
         # Returns the configured platforms (see CI::PipelineConfig#platforms).
         def platforms = @config.platforms
 
-        # Returns the release file kinds the pipeline of +platform+ builds, or +nil+
-        # (see CI::PipelineConfig#built_kinds).
-        def built_kinds(platform) = @config.built_kinds(platform)
+        # Returns the release file kinds the pipeline of +platform+ (its variant
+        # +app+) builds, or +nil+ (see CI::PipelineConfig#built_kinds).
+        def built_kinds(platform, app: nil) = @config.built_kinds(platform, app: app)
 
         # Asks the Woodpecker server who the API token belongs to, with short
         # timeouts (3 s to connect, 5 s to answer), for the SysInfo page.

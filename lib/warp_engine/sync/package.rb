@@ -40,7 +40,7 @@ module WarpEngine
       # removed afterwards. Returns what the block returns.
       def self.build(release, filter)
         software = release.software
-        platform = WarpEngine::Platform.find!(software.platform)
+        platform = WarpEngine::Platform.find!(software.platform, app: software.try(:app))
         upload = Publish::Upload.new(name: software.name, version: release.version,
                                      root: WarpEngine::ReleaseLayout.absolute_directory(software.name, release.version))
         assets = recorded_paths(release)
@@ -57,7 +57,7 @@ module WarpEngine
       # without zipping anything.
       def self.kinds_of(release, filter)
         software = release.software
-        platform = WarpEngine::Platform.find!(software.platform)
+        platform = WarpEngine::Platform.find!(software.platform, app: software.try(:app))
         upload = Publish::Upload.new(name: software.name, version: release.version,
                                      root: WarpEngine::ReleaseLayout.absolute_directory(software.name, release.version))
         assets = recorded_paths(release)

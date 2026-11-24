@@ -23,7 +23,7 @@ module WarpEngine
     # ArgumentError for an unknown platform.
     def show(name)
       software = WarpEngine::Software.kept.find_by!(name: name)
-      platform = WarpEngine::Platform.find!(software.platform)
+      platform = WarpEngine::Platform.find!(software.platform, app: software.try(:app))
       expected = platform.expected_kinds
 
       releases = software.releases.includes(:release_assets).order(updated_at: :desc)

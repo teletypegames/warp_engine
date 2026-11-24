@@ -127,7 +127,8 @@ module WarpEngine
 
           yield "publish" if block_given?
           response = perform(Net::HTTP::Post.new(uri("/build/publish", name: package.name, platform: package.software.platform,
-                                                                       version: package.version, commit: package.commit)))
+                                                                       version: package.version, commit: package.commit,
+                                                                       app: package.software.try(:app))))
           response.success? ? Delivery.new(status: "succeeded", code: response.status, message: nil) : refused(response)
         end
 

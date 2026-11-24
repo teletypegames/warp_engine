@@ -797,6 +797,31 @@ container on an Apple Silicon machine (16 KB memory pages). The step tries Wine 
 where it does not start it says so and leaves the Windows installer out, so the rest of the
 release still goes out.
 
+#### The `golang` platform
+
+Programs written in [Go](https://go.dev), in two variants the marker picks with `app:`
+(stored on the software as its `app`):
+
+```yaml
+platform: golang
+app: cli          # the default; or app: gui
+```
+
+- `cli`: a command-line program. The pipeline cross-compiles the main package at the
+  repository root with `CGO_ENABLED=0` for `cli_linux_x64` (required), `cli_win_x64`,
+  `cli_linux_arm64`, `cli_mac_x64` and `cli_mac_arm64` (`<name>-<version>-linux-x64-cli.zip`
+  and so on); a target that does not compile is left out with a warning. These kinds are
+  *download only* (`launch: false` on their assets in the catalog): a client installs
+  them but never starts them.
+- `gui`: a desktop program (e.g. [Gio](https://gioui.org)). `linux_x64` (required, cgo),
+  `win_x64` (without cgo, `-H=windowsgui`) and `linux_arm64` (cgo with the aarch64 cross
+  gcc) are built as the usual launchable native kinds; `html` is built from a
+  `GOOS=js GOARCH=wasm` build when the program compiles to it (with `web/index.html`, or
+  a generated page); `mac_x64` and `mac_arm64` are uploaded by hand.
+
+Each zip holds a `<name>-<version>-<target>/` folder with the binary, `README.md` and
+`LICENSE`. The version is `metadata.json`'s.
+
 ### Platforms of your own
 
 The built-in platforms are the gem's; a host adds its own in the initializer, with the
@@ -818,6 +843,20 @@ end
 The kinds are the `WarpEngine::AssetKinds` (`cartridge`, `source`, `html`, `docs`,
 `win_x64`, …): each knows its upload name (`<name>-<version>-win-x64.zip`) and whether
 the engine unpacks it (`html`, `docs`), so a platform only says which ones it has.
+A platform whose software comes in kinds of program declares a `variant` for each,
+with the kinds of its own next to the shared ones; the software's `app` (the
+`app:` marker option, sent with the publish) picks one, and the first variant, or the
+one marked `default: true`, is the default:
+
+```ruby
+register_platform "amiga" do
+  kind :docs                                     # every variant
+  variant(:game, default: true) { kind :cartridge, ext: ".adf", required: true }
+  variant(:tool) { kind :cli_linux_x64, required: true }
+end
+```
+
+`WarpEngine::Platform.for(software)` is the platform of a software for its variant.
 A kind without a suffix of its own may take a list of extensions, the preferred first
 (`kind :cartridge, ext: %w[.prg .d64]`): a release then carries one of them, the first
 the upload has.
@@ -1973,6 +2012,10 @@ warp_engine_fork_recheck:
 | `POST /api/auth/device/token` | Polls a device sign-in for its token |
 | `DELETE /api/auth/token` | Revokes the bearer token on the request (signing out) |
 
+Each release lists its assets as `kind` and `path`; an asset of a download-only kind
+(the `cli_*` kinds) also has `"launch": false`, which a client reads as "install it, do
+not start it". The envelope's `api` is 4 since this flag.
+
 Every read endpoint accepts an optional `Authorization: Bearer …`; none requires
 one. What it changes is what the access policy is asked about — an anonymous
 caller is a normal, supported caller.
@@ -2243,6 +2286,15 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 5.9
+
+A new migration adds `softwares.app` (run `bin/rails db:migrate`). The catalog envelope is
+`api: 4`: an asset of a download-only kind carries `"launch": false`; a client that starts
+whatever it installs should check it. The new `golang` platform needs an entry under the CI
+adapter's `platforms:` with a Go builder image (cgo headers for the `gui` variant). A host CI
+adapter of its own gets `built_kinds(platform, app:)` with an `app` for a platform with
+variants, and a platform description has `apps`.
 
 ## Upgrading to 5.8
 

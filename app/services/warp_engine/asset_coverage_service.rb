@@ -117,24 +117,27 @@ module WarpEngine
       Row.new(
         software: software,
         release:  release,
-        platform: WarpEngine::Platform.find(software.platform),
+        platform: WarpEngine::Platform.for(software),
         expected: expected,
-        optional: WarpEngine::Platform.find(software.platform)&.optional_kinds || [],
+        optional: WarpEngine::Platform.for(software)&.optional_kinds || [],
         present:  release ? release.release_assets.map(&:kind).uniq : [],
-        ci_kinds: ci_kinds(software.platform)
+        ci_kinds: ci_kinds(software.platform, software.try(:app))
       )
     end
 
-    def ci_kinds(platform)
+    def ci_kinds(platform, app)
       @ci_kinds ||= {}
-      return @ci_kinds[platform] if @ci_kinds.key?(platform)
+      key = [ platform, app ]
+      return @ci_kinds[key] if @ci_kinds.key?(key)
 
       ci = WarpEngine.ci
-      @ci_kinds[platform] = ci.respond_to?(:built_kinds) ? ci.built_kinds(platform) : nil
+      return @ci_kinds[key] = nil unless ci.respond_to?(:built_kinds)
+
+      @ci_kinds[key] = app.present? ? ci.built_kinds(platform, app: app) : ci.built_kinds(platform)
     end
 
     def expected_kinds(software)
-      WarpEngine::Platform.find(software.platform)&.expected_kinds || []
+      WarpEngine::Platform.for(software)&.expected_kinds || []
     end
 
     def select_releases(all)

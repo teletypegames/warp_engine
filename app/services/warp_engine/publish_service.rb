@@ -14,7 +14,7 @@ module WarpEngine
     class StaleVersionError < WarpEngine::Error; end
 
     # Publishes the upload described by +input+ (a WarpEngine::PublishInputDto
-    # with +platform+, +name+ and +version+) through WarpEngine::Platform#publish,
+    # with +platform+, +name+, +version+ and optionally +app+) through WarpEngine::Platform#publish,
     # then instruments NOTIFICATION.
     #
     # [source] where the upload came from: +:ci+ (default) or +:sync+, another
@@ -28,7 +28,7 @@ module WarpEngine
     # asset was not uploaded.
     def publish(input, source: :ci, peer: nil)
       refuse_stale!(input)
-      release = WarpEngine::Platform.find!(input.platform).publish(input.name, input.version)
+      release = platform_of(input).publish(input.name, input.version)
       release.update!(commit_sha: input.commit) if input.try(:commit).present? && release.respond_to?(:commit_sha)
       if release.respond_to?(:origin) && release.persisted?
         release.update_columns(origin: source.to_s == "sync" ? "sync" : "ci", sync_peer_id: source.to_s == "sync" ? peer&.id : nil)
@@ -62,6 +62,11 @@ module WarpEngine
     end
 
     private
+
+    def platform_of(input)
+      app = input.try(:app).presence
+      app ? WarpEngine::Platform.find!(input.platform, app: app) : WarpEngine::Platform.find!(input.platform)
+    end
 
     def refuse_stale!(input)
       reason = stale_reason(input.name, input.version)

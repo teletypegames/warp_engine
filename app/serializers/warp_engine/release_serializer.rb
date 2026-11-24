@@ -1,7 +1,9 @@
 module WarpEngine
   # Catalog view of a WarpEngine::Release: id, timestamps (see
   # WarpEngine::TimestampFields), software id, version, +channel+, the paths of the
-  # cartridge, source, HTML and docs assets, every asset as kind and path,
+  # cartridge, source, HTML and docs assets, every asset as kind and path
+  # (and <tt>launch: false</tt> for a kind a client only downloads, see
+  # WarpEngine::AssetKind),
   # +downloadCount+, and how it plays on the web: +playUrl+ (the page of the
   # runtime it was published with, <tt>/play/<name>/<version></tt>, else its
   # +html+ folder, else empty) and +players+ (every web binding of the
@@ -50,7 +52,7 @@ module WarpEngine
     # +binding+, +runtime+, +label+, +url+ and +default+ (the release's own
     # binding); empty when it does not play in a runtime.
     def self.players(release)
-      platform = WarpEngine::Platform.find(release.software&.platform)
+      platform = WarpEngine::Platform.for(release.software)
       return [] if platform.nil? || release.web_options.to_h["enabled"] == false
 
       kinds = assets_of(release).map(&:kind)
@@ -100,7 +102,10 @@ module WarpEngine
     field(:htmlFolderPath) { |r| asset_path(r, "html") }
     field(:docsFolderPath) { |r| asset_path(r, "docs") }
     field(:assets) do |r|
-      assets_of(r).map { |a| { kind: a.kind, path: a.path.gsub(file_path_from, FILE_PATH_TO) } }
+      assets_of(r).map do |a|
+        asset = { kind: a.kind, path: a.path.gsub(file_path_from, FILE_PATH_TO) }
+        WarpEngine::AssetKinds.launchable?(a.kind) ? asset : asset.merge(launch: false)
+      end
     end
     field(:playUrl) { |r| play_url(r) }
     field(:players) { |r| players(r) }

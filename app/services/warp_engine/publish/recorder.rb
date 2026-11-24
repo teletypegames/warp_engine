@@ -17,7 +17,8 @@ module WarpEngine
       # +site+ becomes an external link, its +repo+ the +source+ link; a
       # +forks_allowed+ given as text is read as a boolean), creates the
       # WarpEngine::Release +version+ when new, writes a WarpEngine::ReleaseAsset
-      # for every <tt>kind => path</tt> of +assets+, soft-deletes the assets
+      # for every <tt>kind => path</tt> of +assets+ (the software's +app+ is
+      # the variant of the definition, +nil+ without variants), soft-deletes the assets
       # of kinds the platform no longer publishes, and binds the release to
       # its web runtime from the metadata's +web+ section (Publish::WebBinder).
       #
@@ -36,7 +37,7 @@ module WarpEngine
           end
           WarpEngine::ReleaseAsset.kept.where(release_id: release.id).where.not(kind: @definition.expected_kinds)
                                   .find_each(&:soft_delete!)
-          WebBinder.new(WarpEngine::Platform.find(@definition.name)).bind(release, metadata[:web])
+          WebBinder.new(WarpEngine::Platform.find(@definition.name, app: @definition.app)).bind(release, metadata[:web])
           release
         end
       end
@@ -44,7 +45,7 @@ module WarpEngine
       private
 
       def software_attributes(metadata)
-        attributes = metadata.except(:site, :repo, :web).merge(platform: @definition.name)
+        attributes = metadata.except(:site, :repo, :web).merge(platform: @definition.name, app: @definition.app)
         if attributes.key?(:forks_allowed)
           attributes[:forks_allowed] = ActiveModel::Type::Boolean.new.cast(attributes[:forks_allowed]) != false
         end

@@ -8,7 +8,9 @@ module WarpEngine
   # registers with WarpEngine::Configuration#register_platform. Everything the
   # engine knows of a platform is its Definition: the asset kinds a publish
   # accepts and the pipeline builds, the metadata source, the CI template.
-  # Platforms compare equal by name, also to a String.
+  # Platforms compare equal by name, also to a String. A platform with
+  # variants (Builder#variant) is looked up for one +app+; without one it is
+  # its default variant.
   class Platform
     # The form a registered platform name must have.
     FORMAT = /\A[a-z0-9_]{2,32}\z/
@@ -47,16 +49,30 @@ module WarpEngine
       # Returns +true+ when +name+ is a builtin platform.
       def builtin?(name) = builtin_definitions.key?(name.to_s)
 
-      # Returns the Platform named +name+, or +nil+ when there is none.
-      def find(name)
+      # Returns the Platform named +name+ for the variant +app+ (blank: the
+      # default one), or +nil+ when there is no such platform or variant.
+      def find(name, app: nil)
         return nil unless exists?(name)
 
-        new(name.to_s)
+        platform = new(name.to_s, app: app)
+        platform.definition
+        platform
+      rescue ArgumentError
+        nil
       end
 
-      # Returns the Platform named +name+. Raises ArgumentError when there is none.
-      def find!(name)
-        find(name) || raise(ArgumentError, "Unsupported platform: #{name}")
+      # Returns the Platform named +name+ for the variant +app+. Raises
+      # ArgumentError when there is no such platform or variant.
+      def find!(name, app: nil)
+        find(name, app: app) || raise(ArgumentError, app.present? ? "Unsupported platform: #{name} (app #{app})" : "Unsupported platform: #{name}")
+      end
+
+      # Returns the Platform of +software+ (a WarpEngine::Software, or anything
+      # with +platform+ and +app+) for its variant, or +nil+.
+      def for(software)
+        return nil if software.nil?
+
+        find(software.platform, app: software.try(:app))
       end
 
       # Returns what the host registered as +name+ (a Definition or a legacy
@@ -79,21 +95,32 @@ module WarpEngine
     # The platform name as a String.
     attr_reader :name
 
-    # Creates the platform +name+ without checking that it exists.
-    def initialize(name)
+    # Creates the platform +name+ for the variant +app+ (blank: the default
+    # one) without checking that they exist.
+    def initialize(name, app: nil)
       @name = name.to_s
+      @app = app.to_s.presence
     end
 
     # Returns the Definition: the registered one, the one built from a legacy
     # Registration's service class, or the builtin one. Raises ArgumentError
     # for an unknown platform.
+    #
+    # A platform with variants returns the Definition of the variant +app+
+    # (Definition#variant); ArgumentError for a variant it does not have.
     def definition
-      registered = self.class.registration(name)
-      return registered if registered.is_a?(Definition)
-      return legacy_service_class.definition if registered
-
-      self.class.builtin_definitions.fetch(name) { raise ArgumentError, "Unsupported platform: #{name}" }
+      @definition ||= base_definition.variant(@app)
     end
+
+    # Returns the variant this platform is (+cli+, +gui+), or +nil+ for a
+    # platform without variants.
+    def app = definition.app
+
+    # Returns the variant names, the default first; empty without variants.
+    def apps = definition.apps
+
+    # Returns the platform for the variant +name+.
+    def for_app(name) = self.class.find!(self.name, app: name)
 
     # Returns the human-readable platform name.
     def label = definition.label
@@ -197,6 +224,14 @@ module WarpEngine
     def hash = name.hash
 
     private
+
+    def base_definition
+      registered = self.class.registration(name)
+      return registered if registered.is_a?(Definition)
+      return legacy_service_class.definition if registered
+
+      self.class.builtin_definitions.fetch(name) { raise ArgumentError, "Unsupported platform: #{name}" }
+    end
 
     def legacy_registration
       registered = self.class.registration(name)

@@ -64,7 +64,7 @@ module WarpEngine
     # Validation: adds an error when the software's platform expects no +html+
     # kind and the release has an +html+ asset.
     def download_only_platform_cannot_be_web_playable
-      platform = WarpEngine::Platform.find(software&.platform)
+      platform = WarpEngine::Platform.for(software)
       return if platform.nil? || platform.expected_kinds.include?("html")
 
       has_html = release_assets.reject(&:marked_for_destruction?).any? { |a| a.kind == "html" }

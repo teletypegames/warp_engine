@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_22_183127) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_120000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -236,6 +236,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_22_183127) do
   end
 
   create_table "softwares", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "app", limit: 16
     t.string "author"
     t.string "category", limit: 64
     t.datetime "created_at", precision: 3

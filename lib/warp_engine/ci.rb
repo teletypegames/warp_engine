@@ -106,7 +106,7 @@ module WarpEngine
       # Returns an empty Hash: no platform has a pipeline.
       def platforms = {}
       # Returns +nil+: no kinds are built by CI.
-      def built_kinds(_platform) = nil
+      def built_kinds(_platform, app: nil) = nil
       # Returns +nil+.
       def update_server = nil
       # Returns no settings: there is no CI server.

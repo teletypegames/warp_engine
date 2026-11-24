@@ -66,10 +66,11 @@ module WarpEngine
       # [platform]      the platform name from the marker
       # [name]          the software name the release is published under
       # [update_server] the base URL of the catalog the pipeline uploads to
-      # [options]       the marker's other keys; invalid ones are dropped (#clean_options)
+      # [options]       the marker's other keys; invalid ones are dropped (#clean_options);
+      #                 +app+ picks the variant of a platform with variants
       #
       # Returns the pipeline YAML String, or +nil+ when the platform name is
-      # malformed, not configured, or has no template. A legacy template that
+      # malformed, not configured, has no template, or has no such +app+. A legacy template that
       # does not render to a YAML mapping is returned as rendered, without the
       # shared steps.
       def render(platform:, name:, update_server:, options: {})
@@ -77,10 +78,10 @@ module WarpEngine
         return nil unless platform_name.match?(PLATFORM_FORMAT)
 
         spec = @platforms[platform_name]
-        found = WarpEngine::Platform.find(platform_name)
+        options = clean_options(options)
+        found = WarpEngine::Platform.find(platform_name, app: options["app"])
         return nil if spec.nil? || found.nil?
 
-        options = clean_options(options)
         body = found.legacy? ? legacy_steps(found, spec, name, update_server, options) : platform_steps(found, spec, name, update_server, options)
         return body unless body.is_a?(Array)
 
@@ -116,14 +117,14 @@ module WarpEngine
         end
       end
 
-      # Returns the release file kinds the pipeline of +platform+ builds
-      # (WarpEngine::Platform#built_kinds), or +nil+ when the platform is not
-      # configured for this adapter.
-      def built_kinds(platform)
+      # Returns the release file kinds the pipeline of +platform+ (its variant
+      # +app+, blank: the default one) builds (WarpEngine::Platform#built_kinds),
+      # or +nil+ when the platform is not configured for this adapter.
+      def built_kinds(platform, app: nil)
         platform = platform.to_s
         return nil unless @platforms.key?(platform)
 
-        WarpEngine::Platform.find(platform)&.built_kinds
+        WarpEngine::Platform.find(platform, app: app)&.built_kinds
       end
 
       # Returns the shell command that prints the source version of +platform+:
@@ -232,7 +233,9 @@ module WarpEngine
       end
 
       def publish_step(platform, spec, name, update_server)
-        script = Scripts.assign(NAME: name, PLATFORM: platform.name) + Scripts.read("publish")
+        inputs = { NAME: name, PLATFORM: platform.name }
+        inputs[:APP] = platform.app if platform.app
+        script = Scripts.assign(**inputs) + Scripts.read("publish")
         Step.new(name: "publish", image: spec[:tools] || "alpine", environment: { "UPDATE_SERVER" => update_server },
                  secrets: { "UPDATE_SECRET" => "application_token" }, commands: helper_commands(spec, %w[curl], script))
       end

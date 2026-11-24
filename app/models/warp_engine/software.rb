@@ -1,7 +1,8 @@
 module WarpEngine
   # A title in the catalog (table +softwares+): unique +name+, +title+,
   # author, descriptions, license, +platform+ (one of
-  # WarpEngine::Platform.names), +status+ (a WarpEngine::SoftwareStatus key),
+  # WarpEngine::Platform.names), +app+ (the platform variant, +cli+ or +gui+,
+  # for a platform with variants; +nil+ otherwise), +status+ (a WarpEngine::SoftwareStatus key),
   # +category+ (a WarpEngine::SoftwareCategory key, registered on save),
   # +highlighted+ flag, optional +shelf_name+ (its name on the platform's
   # shelf) and an optional polymorphic +owner+, the publisher.
@@ -41,6 +42,7 @@ module WarpEngine
     validates :name, presence: true, uniqueness: true
     validates :title, presence: true
     validates :platform, presence: true, inclusion: { in: ->(_) { WarpEngine::Platform.names } }
+    validate :app_of_platform
     validates :status, inclusion: { in: ->(_) { WarpEngine::SoftwareStatus.keys } }, allow_blank: true
     validates :category, length: { maximum: 64 }, allow_nil: true
     validates :fork_of_name, presence: true, if: -> { fork_of_engine.present? }
@@ -88,6 +90,17 @@ module WarpEngine
 
     def register_category
       WarpEngine::SoftwareCategory.register(category) if saved_change_to_category? && category.present?
+    end
+
+    def app_of_platform
+      return unless WarpEngine::Platform.exists?(platform)
+
+      apps = WarpEngine::Platform.find(platform).apps
+      if apps.empty?
+        errors.add(:app, "is not taken by the #{platform} platform") if app.present?
+      elsif app.present? && !apps.include?(app)
+        errors.add(:app, "must be one of #{apps.join(', ')}")
+      end
     end
 
     ActiveSupport.run_load_hooks(:warp_engine_software, self)

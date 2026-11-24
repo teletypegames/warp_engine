@@ -41,7 +41,7 @@ module WarpEngine
     # with String keys:
     #
     # [name, label]    the platform's names
-    # [kinds]          each KindSpec: +name+, +upload+ (the upload name with
+    # [kinds]          each KindSpec of the default variant: +name+, +upload+ (the upload name with
     #                  <tt>NAME-VERSION</tt> and the preferred extension), +uploads+
     #                  (every upload name it may have, the preferred first), +required+, +optional+, +built+, +always+
     # [metadata]       +format+ (+json+, +lua+ or +custom+), +file+ (the file a
@@ -49,6 +49,8 @@ module WarpEngine
     # [version]        +source+: +metadata+ (the +version+ of metadata.json) or
     #                  +command+, with the +command+ when it is one and the
     #                  +file+ it reads (a JSON file with a top-level +version+) or +nil+
+    # [apps]           the variants (empty without): +name+, +default+, +marker+
+    #                  (the marker line that picks it) and +kinds+ as above
     # [releaseRule]    the forced CI release rule (+tag+), or +nil+
     # [web]            the enabled web bindings: +key+, +runtime+, +label+,
     #                  +payload+, +default+, +params+ (the runtime's parameter names
@@ -61,6 +63,7 @@ module WarpEngine
         "name" => platform.name,
         "label" => platform.label,
         "kinds" => platform.kind_specs.map { |spec| kind(spec, platform) },
+        "apps" => apps(platform),
         "metadata" => metadata(platform),
         "version" => version(platform),
         "releaseRule" => platform.release_rule,
@@ -120,6 +123,14 @@ module WarpEngine
     def kind(spec, platform)
       { "name" => spec.name, "upload" => spec.upload_name("NAME-VERSION"), "uploads" => spec.upload_names("NAME-VERSION"),
         "required" => spec.required, "optional" => spec.optional, "built" => platform.built_kinds.include?(spec.name), "always" => spec.always }
+    end
+
+    def apps(platform)
+      platform.apps.map do |name|
+        variant = platform.for_app(name)
+        { "name" => name, "default" => name == platform.apps.first, "marker" => "app: #{name}",
+          "kinds" => variant.kind_specs.map { |spec| kind(spec, variant) } }
+      end
     end
 
     def metadata(platform)

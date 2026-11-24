@@ -118,7 +118,7 @@ module WarpEngine
         software = release.software
         next if software.nil? || software.deleted_at || (platforms && !Array(platforms).map(&:to_s).include?(software.platform))
 
-        binding = WarpEngine::Platform.find(software.platform)&.web_binding
+        binding = WarpEngine::Platform.for(software)&.web_binding
         kinds = release.release_assets.map(&:kind)
         [ release, binding ] if binding&.valid? && (unplayed || kinds.include?("html")) && kinds.include?(binding.payload)
       end
