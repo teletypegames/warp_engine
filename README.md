@@ -883,9 +883,9 @@ app's `tsconfig.json`, `README.md` as the front page and the title and version o
 pages, and uploads `<name>-<version>-docs.zip`. A `typedoc.json` in the repo takes over
 the other settings. Without TypeScript sources there are no docs; the kind is optional.
 
-#### Docs of the `love` and `bevy` platforms
+#### Docs of the `love`, `bevy`, `phaser` and `godot` platforms
 
-Both give every release its source docs in a `docs` step, the kind optional on each:
+Each gives every release its source docs in a `docs` step, the kind optional on each:
 
 - **love**: [LDoc](https://github.com/lunarmodules/ldoc) over every `*.lua` of the repo
   (`bin/`, `dist/` and dot folders left out). Plain `--` comments are read as
@@ -896,9 +896,17 @@ Both give every release its source docs in a `docs` step, the kind optional on e
 - **bevy**: `cargo doc --no-deps --document-private-items` in the builder image, since a
   game is a binary crate with no public API; the comments are the usual `///` and `//!`
   ones, and an `index.html` at the top leads to the crate's page.
+- **phaser**: the same pinned TypeDoc as the electron docs, in the builder image after
+  `npm ci` when there is a `package.json`. A bundled TypeScript project uses its
+  `tsconfig.json`; a plain JavaScript one gets a temporary one with `allowJs`, and the
+  globals of its script files are listed too.
+- **godot**: Godot's own doctool (`--gdscript-docs`) writes the class reference of every
+  script, from a copy of the project in which the plain `#` comment block right above a
+  declaration becomes a `##` doc comment; a GDScript run by Godot turns it into HTML: an
+  index of the scripts and a page each with its members, methods, signals and constants.
 
-Each uploads `<name>-<version>-docs.zip`; a repo with no Lua sources or no `Cargo.toml`
-gets no docs and nothing fails.
+Each uploads `<name>-<version>-docs.zip`; a repo without sources for its tool gets no
+docs and nothing fails.
 
 #### The `golang` platform
 
@@ -1707,7 +1715,9 @@ library (`we-batocera`, `we-retroarch`). A release is one `.tar.gz` (the
 `cartridge` kind) holding the engine, the shared core and the engine's own
 `install.sh`; the `store_engine` pipeline runs the repository's
 `scripts/ci-test.sh` and `scripts/pack.sh` (which writes `dist/release.tar.gz`)
-and releases on tags.
+and releases on tags. Its `docs` step (the kind is optional) runs a pinned
+[pdoc](https://pdoc.dev) over the Python modules the archive packs, the engine
+and the core it pins, and uploads `<name>-<version>-docs.zip`.
 
 The catalog serves each of them, publicly, under `/api/stores/<client>/`:
 

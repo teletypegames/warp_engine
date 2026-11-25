@@ -9,9 +9,9 @@ RSpec.describe WarpEngine::Platform do
       "love"       => [ %w[html win_x64 linux_x64 mac_universal docs], %w[html] ],
       "c64"        => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
       "plus4"      => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
-      "godot"      => [ %w[html win_x86 win_x64 linux_x64 mac_universal], %w[html] ],
+      "godot"      => [ %w[html win_x86 win_x64 linux_x64 mac_universal docs], %w[html] ],
       "bevy"       => [ %w[html win_x64 linux_x64 linux_arm64 docs], %w[html] ],
-      "phaser"     => [ %w[html], %w[html] ],
+      "phaser"     => [ %w[html docs], %w[html] ],
       "dos"        => [ %w[cartridge win_x86 docs], %w[cartridge] ]
     }.each do |name, (expected, required)|
       it "gives #{name} the kinds it accepts and requires" do

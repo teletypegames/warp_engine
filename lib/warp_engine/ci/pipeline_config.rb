@@ -52,7 +52,8 @@ module WarpEngine
       # The shell functions a template step may call, each with the script in
       # <tt>scripts/</tt> that defines it and is put before the step's commands.
       HELPER_SCRIPTS = { "warp_target" => "pack", "warp_godoc" => "godoc", "warp_cdoc" => "cdoc", "warp_tsdoc" => "tsdoc",
-                         "warp_ldoc" => "ldoc", "warp_rustdoc" => "rustdoc" }.freeze
+                         "warp_ldoc" => "ldoc", "warp_rustdoc" => "rustdoc", "warp_pdoc" => "pdoc",
+                         "warp_gddoc" => "gddoc" }.freeze
       # The kinds that are native programs: built for one system and packed by +warp_target+.
       NATIVE_KIND = /\A(?:cli_)?(?:win|linux|mac)_/
       # The commands of the +check+ step.

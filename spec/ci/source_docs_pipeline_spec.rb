@@ -1,14 +1,22 @@
 require "rails_helper"
 require_relative "../support/pipeline_helpers"
 
-RSpec.describe "Source docs of the dos, electron, love and bevy pipelines" do
+RSpec.describe "Source docs of every platform that builds them from its sources" do
   cases = {
     "dos" => { call: "warp_cdoc c++ SOURCE '*.cpp' '*.h'", helper: "warp_cdoc() {", image: "registry.example/ci-tools:1",
                skip: "No sources under SOURCE/: no docs" },
     "electron" => { call: "warp_tsdoc", helper: "warp_tsdoc() {", image: "registry.example/builder:1",
                     skip: "No TypeScript sources under src/: no docs" },
     "love" => { call: "warp_ldoc", helper: "warp_ldoc() {", image: "registry.example/ci-tools:1", skip: "No Lua sources: no docs" },
-    "bevy" => { call: "warp_rustdoc", helper: "warp_rustdoc() {", image: "registry.example/builder:1", skip: "No Cargo.toml: no docs" }
+    "bevy" => { call: "warp_rustdoc", helper: "warp_rustdoc() {", image: "registry.example/builder:1", skip: "No Cargo.toml: no docs" },
+    "phaser" => { call: "warp_tsdoc", helper: "warp_tsdoc() {", image: "registry.example/builder:1",
+                  skip: "No TypeScript sources under src/: no docs" },
+    "godot" => { call: "warp_gddoc", helper: "warp_gddoc() {", image: "registry.example/builder:1",
+                 skip: "No GDScript in a Godot project: no docs" },
+    "batocera" => { call: "warp_pdoc dist", helper: "warp_pdoc() {", image: "registry.example/builder:1",
+                    skip: "No Python modules under dist/: no docs" },
+    "retroarch" => { call: "warp_pdoc dist", helper: "warp_pdoc() {", image: "registry.example/builder:1",
+                     skip: "No Python modules under dist/: no docs" }
   }
 
   [ WarpEngine::CI::Woodpecker::PipelineConfig, WarpEngine::CI::Gitlab::PipelineConfig ].product(cases.keys).each do |config_class, platform|
@@ -56,7 +64,7 @@ RSpec.describe "Source docs of the dos, electron, love and bevy pipelines" do
     expect(uploaded_files(calls)).to include("game-1.0-docs.zip", "game-1.0-linux-x64.zip")
   end
 
-  %w[love bevy].each do |platform|
+  %w[love bevy phaser godot].each do |platform|
     it "uploads the #{platform} docs when the build made them" do
       yaml = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { platform => { builder: "b" } })
                                                        .render(platform: platform, name: "game", update_server: "https://games.example")
@@ -66,6 +74,16 @@ RSpec.describe "Source docs of the dos, electron, love and bevy pipelines" do
       expect(status).to be_success
       expect(uploaded_files(calls)).to include("game-1.0-docs.zip", "game-1.0.html.zip")
     end
+  end
+
+  it "uploads the store engine docs beside the archive" do
+    yaml = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "batocera" => { builder: "b" } })
+                                                     .render(platform: "batocera", name: "game", update_server: "https://games.example")
+    files = { "dist/release.tar.gz" => "t", "game-1.0-docs.zip" => "z", "metadata.json" => "{}" }
+    calls, status = run_with_fake_curl(step_script(yaml, "upload"), files: files, version: "1.0", env: { "CI_COMMIT_TAG" => "v1.0" })
+
+    expect(status).to be_success
+    expect(uploaded_files(calls)).to include("game-1.0.tar.gz", "game-1.0-docs.zip")
   end
 
   it "installs LDoc for the love docs where there is no tools image" do

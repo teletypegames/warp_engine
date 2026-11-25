@@ -6,7 +6,7 @@ RSpec.describe "disabled kinds" do
   describe WarpEngine::Platform do
     it "lists what a software may turn off: the kinds it does not require, web when it plays on the web, stores when a store engine carries it" do
       expect(c64.disableable_kinds).to eq(%w[docs win_x64 linux_x64 mac_arm64 web stores])
-      expect(WarpEngine::Platform.find!("phaser").disableable_kinds).to eq(%w[web])
+      expect(WarpEngine::Platform.find!("phaser").disableable_kinds).to eq(%w[docs web])
       expect(WarpEngine::Platform.find!("golang").disableable_kinds).not_to include("web", "stores", "cli_linux_x64")
     end
 

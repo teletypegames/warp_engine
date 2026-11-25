@@ -54,6 +54,7 @@ module WarpEngine
       label "Godot"
       kind :html, required: true
       kinds :win_x86, :win_x64, :linux_x64, :mac_universal
+      kind :docs, optional: true
     end
 
     define :bevy do
@@ -66,6 +67,7 @@ module WarpEngine
     define :phaser do
       label "Phaser"
       kind :html, required: true
+      kind :docs, optional: true
     end
 
     define :electron do
@@ -115,6 +117,7 @@ module WarpEngine
       define host do
         label name
         kind :cartridge, ext: ".tar.gz", required: true
+        kind :docs, optional: true
         release_rule :tag
         ci template: "store_engine", host: host.to_s
       end

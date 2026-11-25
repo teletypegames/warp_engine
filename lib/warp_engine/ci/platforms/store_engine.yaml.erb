@@ -1,6 +1,7 @@
 # A WarpEngine store engine for <%= host %>. The repository tests itself (scripts/ci-test.sh) and packs
 # its release (scripts/pack.sh writes dist/release.tar.gz: the engine, the shared core it pins and its
-# installers); the catalog serves that archive to the machines (/api/stores/<%= host %>/*).
+# installers); the catalog serves that archive to the machines (/api/stores/<%= host %>/*). The docs step
+# documents the packed modules, the engine and the core it pins, with pdoc.
 steps:
   - name: test
     image: <%= builder %>
@@ -14,6 +15,15 @@ steps:
     image: <%= builder %>
     commands:
       - sh scripts/pack.sh
+<%- if kinds.include?("docs") -%>
+
+  - name: docs
+    release: true
+    artifacts: [ "*-docs.zip" ]
+    image: <%= builder %>
+    commands:
+      - warp_pdoc dist
+<%- end -%>
 
 upload:
   prepare: |
