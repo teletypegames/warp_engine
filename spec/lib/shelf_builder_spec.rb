@@ -126,6 +126,38 @@ RSpec.describe WarpEngine::Outlets::Shelf::Builder do
     expect(skipped.map(&:to_s)).to eq([ "prypjat: the cartridge is a .D64, not a .PRG" ])
   end
 
+  context "with a disk shelf beside it" do
+    let(:disks) { { key: "c64_disks", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64DISK", extension: ".D64" } }
+
+    before { allow(WarpEngine.config).to receive(:outlets).and_return([ definition, disks ]) }
+
+    def shelf_named(key) = WarpEngine::Outlets.all.find { |outlet| outlet.key == key }
+
+    it "reports a disk image as on the other shelf, not as left out" do
+      publish("ariadne", "1.0.0")
+      publish("prypjat", "1.0.0", ext: ".d64")
+      prg = shelf_named("c64")
+
+      left_out, elsewhere = prg.split_skipped(prg.plan.last)
+
+      expect(left_out).to be_empty
+      expect(elsewhere.map { |skip, holder| [ skip.software.name, holder ] }).to eq([ [ "prypjat", "c64_disks" ] ])
+      expect(prg.report).to include("  other   prypjat: on the c64_disks shelf")
+      expect(prg.report.grep(/skipped/)).to be_empty
+      expect(shelf_named("c64_disks").plan.first.map(&:file)).to eq([ "PRYPJAT.D64" ])
+    end
+
+    it "still leaves out a title no shelf of the platform holds" do
+      publish("nocart", "1.0.0", kind: "source", ext: ".zip")
+      prg = shelf_named("c64")
+
+      left_out, elsewhere = prg.split_skipped(prg.plan.last)
+
+      expect(left_out.map(&:to_s)).to eq([ "nocart: no cartridge asset in any release" ])
+      expect(elsewhere).to be_empty
+    end
+  end
+
   it "skips a gated title" do
     publish("ariadne", "1.0.0")
     policy = WarpEngine::AccessPolicy::Open.new

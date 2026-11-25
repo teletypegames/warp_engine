@@ -122,6 +122,8 @@ module WarpEngine
 
     def list(values) = Array(values).map(&:to_s)
 
+    def titles(count) = "#{count} #{count == 1 ? 'title' : 'titles'}"
+
     def size(bytes) = ActiveSupport::NumberHelper.number_to_human_size(bytes)
 
     def duration(seconds) = ActiveSupport::Duration.build(seconds.to_i).inspect
@@ -436,9 +438,14 @@ module WarpEngine
           node("#{key}.urls", "Served at", "not published", status: "off")
         end
       ]
-      if skipped.any?
-        children << node("#{key}.skipped", "Left out", "#{skipped.size} #{skipped.size == 1 ? 'title' : 'titles'}", status: "warn",
-                                                       hint: skipped.map(&:to_s).first(5).join(" · ").truncate(400))
+      left_out, elsewhere = shelf.split_skipped(skipped)
+      if elsewhere.any?
+        children << node("#{key}.elsewhere", "On another shelf", titles(elsewhere.size), status: "info",
+                                                                 chips: elsewhere.map { |skip, holder| "#{skip.software.name} → #{holder}" })
+      end
+      if left_out.any?
+        children << node("#{key}.skipped", "Left out", titles(left_out.size), status: "warn",
+                                                       hint: left_out.map(&:to_s).first(5).join(" · ").truncate(400))
       end
       count = "#{entries.size} #{shelf.folders? ? 'folders' : 'titles'}"
       node(key, shelf.key, "shelf · #{count}", chips: [ shelf.path ], children: children)

@@ -162,13 +162,36 @@ module WarpEngine
       # Shelf::Builder::Result.
       def sync!(dry_run: false) = builder.sync!(dry_run: dry_run)
 
+      # Returns the other shelves of the same platform (a <tt>.D64</tt> shelf
+      # beside a <tt>.PRG</tt> one).
+      def siblings
+        Outlets.all.select { |outlet| outlet.is_a?(Shelf) && outlet.platform == platform && outlet.key != key }
+      end
+
+      # Splits the +skipped+ of #plan (WarpEngine::Catalog::Offer::Skip list)
+      # into those no shelf of the platform holds and those a #siblings shelf
+      # holds. Returns <tt>[left_out, elsewhere]</tt>; +elsewhere+ pairs each
+      # Skip with the key of the shelf that holds its software.
+      def split_skipped(skipped)
+        return [ skipped, [] ] if skipped.empty?
+
+        holders = siblings.each_with_object({}) do |sibling, held|
+          sibling.plan.first.each { |entry| held[entry.software.id] ||= sibling.key }
+        end
+        elsewhere, left_out = skipped.partition { |skip| holders.key?(skip.software.id) }
+        [ left_out, elsewhere.map { |skip| [ skip, holders[skip.software.id] ] } ]
+      end
+
       # Returns the lines of the check: where the shelf is served, every file
-      # on it and every software it leaves out.
+      # on it, every software another shelf of the platform holds instead and
+      # every software it leaves out.
       def report
         entries, skipped = plan
+        left_out, elsewhere = split_skipped(skipped)
         urls.map { |url| "  served  #{url}" } +
           entries.map { |entry| "  ok      #{entry.file.ljust(name_length)} #{entry.version}  #{entry.software.name} (#{entry.kind})" } +
-          skipped.map { |skip| "  skipped #{skip}" }
+          elsewhere.map { |skip, holder| "  other   #{skip.software.name}: on the #{holder} shelf" } +
+          left_out.map { |skip| "  skipped #{skip}" }
       end
 
       private

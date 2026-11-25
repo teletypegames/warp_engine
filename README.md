@@ -1554,7 +1554,7 @@ platform unless `key:` names another.
 | `kind` | which asset of the release (`ReleaseAsset` kind), or a list of them |
 | `layout` | `flat` (default): one file a title; `folders`: one folder a title (below) |
 | `path` | the folder, relative to `file_container_path` |
-| `extension` | `flat` only: the extension on the shelf, in capitals; a title whose file has another one (a `.d64` on a `.PRG` shelf) is left out |
+| `extension` | `flat` only: the extension on the shelf, in capitals; a title whose file has another one (a `.d64` on a `.PRG` shelf) is left out, or held by another shelf of the platform with that extension (`shelf :c64, key: :c64_disks, path: "shelves/C64DISK", extension: ".D64"`) |
 | `name_length` | the longest file name, extension included (default 16); for `folders`, the longest folder name (default 8, as DOS has it) |
 | `statuses` | optional; without it, the statuses whose `default_visible` is set |
 | `urls` | optional: where the host serves the folder (`ftp`, `http`, `https`) |
@@ -1661,7 +1661,7 @@ A change the engine cannot see — an access policy that starts gating a title f
 reasons of its own — needs a rebuild by hand:
 
 ```sh
-bin/rails warp_engine:outlets:check            # what each shelf holds and leaves out (STRICT=1 fails on the latter)
+bin/rails warp_engine:outlets:check            # what each shelf holds, what another shelf of the platform holds (other) and what it leaves out (STRICT=1 fails on the last)
 bin/rails warp_engine:outlets:sync             # rebuild every shelf (every materialized outlet)
 DRY_RUN=1 bin/rails warp_engine:outlets:sync   # only say what would change
 ```

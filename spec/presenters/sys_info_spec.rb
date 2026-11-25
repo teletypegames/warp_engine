@@ -159,6 +159,25 @@ RSpec.describe WarpEngine::SysInfo do
     FileUtils.rm_rf(container)
   end
 
+  it "shows a title another shelf of the platform holds as info, not as left out" do
+    container = Dir.mktmpdir
+    allow(WarpEngine.config).to receive_messages(
+      file_container_path: container,
+      outlets: [ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG" },
+                 { key: "c64_disks", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64DISK", extension: ".D64" } ]
+    )
+    WarpEngine::SoftwareStatus.seed_defaults!
+    software = create(:software, name: "prypjat", platform: "c64", status: "released")
+    path = File.join(container, "prypjat-1.0.0.d64")
+    File.binwrite(path, "disk")
+    WarpEngine::ReleaseAsset.create!(release: create(:release, software: software, version: "1.0.0"), kind: "cartridge", path: path)
+
+    expect(find("outlets.c64.elsewhere")).to have_attributes(status: "info", chips: [ "prypjat → c64_disks" ])
+    expect(find("outlets.c64.skipped")).to be_nil
+  ensure
+    FileUtils.rm_rf(container)
+  end
+
   it "counts the catalog" do
     software = create(:software, status: "released")
     create(:release, software: software, version: "1.0.0")
