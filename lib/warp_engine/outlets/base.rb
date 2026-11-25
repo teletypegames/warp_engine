@@ -84,7 +84,7 @@ module WarpEngine
 
       private
 
-      def option_list(name) = Array(options[name]).map(&:to_s)
+      def option_list(name) = Array(options[name]).map(&:to_s) # steep:ignore
 
       def check_keys!(allowed)
         unknown = options.keys - allowed
@@ -137,7 +137,7 @@ module WarpEngine
 
       # Returns the host names the outlet answers (its +hosts+ option, lower
       # case); empty for any host.
-      def hosts = Array(options[:hosts] || options[:host]).map { |host| host.to_s.downcase }
+      def hosts = Array(options[:hosts] || options[:host]).map { |host| host.to_s.downcase } # steep:ignore
 
       # Returns +true+ when the outlet answers +request+: it has no #hosts or
       # the request's host is one of them.

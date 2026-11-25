@@ -1,0 +1,29 @@
+module WarpEngine
+  # What a client is told about one title (AccessPolicy::_Policy#access_for).
+  class Access
+    attr_reader gated: bool
+    attr_reader entitled: bool?
+    attr_reader price_cents: Integer?
+    attr_reader currency: String?
+    attr_reader purchase_url: String?
+    attr_reader web_url: String?
+
+    def initialize: (?gated: boolish, ?entitled: bool?, ?price_cents: Integer?, ?currency: String?,
+                     ?purchase_url: String?, ?web_url: String?) -> void
+
+    OPEN: Access
+
+    def as_json: (*untyped) -> Hash[Symbol, untyped]
+
+    # The policy's permission for one download (AccessPolicy::_Policy#authorize_download).
+    class Grant
+      attr_reader filename: String?
+      # Seconds, or an ActiveSupport::Duration.
+      attr_reader expires_in: Numeric?
+
+      def initialize: (?filename: String?, ?expires_in: Numeric?) -> void
+
+      OPEN: Grant
+    end
+  end
+end

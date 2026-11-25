@@ -46,7 +46,7 @@ module WarpEngine
       # there is no such image or its file is missing.
       def file_path_for(image_id)
         record = image_id.present? ? model.find_by(id: image_id) : nil
-        path = record.respond_to?(:file_path) ? record.file_path.to_s : ""
+        path = record.respond_to?(:file_path) ? record.file_path.to_s : "" # steep:ignore NoMethod
         path.present? && File.file?(path) ? path : nil
       end
 
@@ -95,7 +95,7 @@ module WarpEngine
       def available?(record) = adapter.available?(record)
       # Delegates to the adapter's +file_path_for+; +nil+ when the adapter
       # has none (its images are only served from #url_for).
-      def file_path_for(image_id) = adapter.respond_to?(:file_path_for) ? adapter.file_path_for(image_id) : nil
+      def file_path_for(image_id) = adapter.respond_to?(:file_path_for) ? adapter.file_path_for(image_id) : nil # steep:ignore NoMethod
       # Delegates to the adapter's +select_options+.
       def select_options = adapter.select_options
     end

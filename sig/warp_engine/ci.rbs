@@ -1,0 +1,133 @@
+module WarpEngine
+  module CI
+    class Error < WarpEngine::Error
+    end
+
+    class ConnectionError < Error
+    end
+
+    class NotConfigured < Error
+    end
+
+    class ApiError < Error
+      attr_reader status: Integer?
+      attr_reader body: String?
+
+      def initialize: (String message, ?status: Integer?, ?body: String?) -> void
+    end
+
+    # A repository as the CI server knows it.
+    class Repo
+      attr_reader id: Integer | String
+      attr_reader name: String
+      attr_reader owner: String
+      attr_reader active: boolish
+      attr_reader raw: Hash[untyped, untyped]?
+
+      def initialize: (?id: Integer | String, ?name: String, ?owner: String, ?active: boolish,
+                       ?raw: Hash[untyped, untyped]?) -> void
+      def active?: () -> bool
+      def full_name: () -> String
+    end
+
+    # One pipeline run.
+    class Run
+      attr_reader number: Integer | String
+      attr_reader status: String?
+      attr_reader branch: String?
+      attr_reader message: String?
+      attr_reader created_at: Time?
+      attr_reader url: String?
+      attr_reader commit: String?
+      attr_reader event: String?
+      attr_reader ref: String?
+      attr_reader raw: Hash[untyped, untyped]?
+
+      def initialize: (?number: Integer | String, ?status: String?, ?branch: String?, ?message: String?,
+                       ?created_at: Time?, ?url: String?, ?commit: String?, ?event: String?, ?ref: String?,
+                       ?raw: Hash[untyped, untyped]?) -> void
+      def success?: () -> bool
+      def as_json: (*untyped) -> Hash[Symbol, untyped]
+    end
+
+    # The answer of _Adapter#ping.
+    class Ping
+      attr_reader ok: boolish
+      attr_reader detail: String?
+      attr_reader ms: Integer?
+
+      def initialize: (?ok: boolish, ?detail: String?, ?ms: Integer?) -> void
+      def self.since: (Float started) -> Integer
+      def ok?: () -> bool
+    end
+
+    type repo_id = Integer | String
+
+    # The CI adapter a host sets with +ci+: the builtin Woodpecker and GitLab
+    # adapters, Null, or the host's own object.
+    interface _Adapter
+      def name: () -> String
+      def configured?: () -> bool
+      # Platform name to its CI settings.
+      def platforms: () -> Hash[String, untyped]
+      def built_kinds: (String | Symbol platform, ?app: String?) -> Array[String]?
+      def update_server: () -> String?
+      # <tt>[label, value]</tt> pairs for the admin.
+      def settings: () -> Array[[String, String]]
+      # +nil+ when there is no server to ask; never raises.
+      def ping: () -> Ping?
+      def repos: () -> Array[Repo]
+      def repo: (repo_id id) -> Repo
+      def activate_repo: (repo_id id) -> Repo
+      def activate_forge_repo: (repo_id forge_repo_id) -> Repo
+      def deactivate_repo: (repo_id id) -> nil
+      def runs: (repo_id id, ?page: Integer) -> Array[Run]
+      def run: (repo_id id, Integer | String number) -> Run?
+      def trigger: (repo_id id, ?branch: String?) -> Run
+      def secret_names: (repo_id id) -> Array[String]
+      def secret_set: (repo_id id, name: String, value: String) -> nil
+      def secret_delete: (repo_id id, String name) -> nil
+      # The config extension request; +true+ when its signature is valid.
+      def verify_config_request: (untyped request) -> bool
+      def config_marker: (untyped params) -> Hash[Symbol, untyped]?
+      def pipeline_config: (platform: String, name: String, update_server: String?, ?options: Hash[untyped, untyped]) -> String?
+      def config_response: (platform: String, config: String?, ?others: Array[Hash[Symbol, String]]) -> Hash[Symbol, untyped]
+    end
+
+    class Null
+
+      MESSAGE: String
+
+      def name: () -> String
+      def configured?: () -> bool
+      def platforms: () -> Hash[String, untyped]
+      def built_kinds: (String | Symbol platform, ?app: String?) -> nil
+      def update_server: () -> nil
+      def settings: () -> Array[[String, String]]
+      def ping: () -> nil
+      def repos: () -> bot
+      def repo: (repo_id id) -> bot
+      def activate_repo: (repo_id id) -> bot
+      def activate_forge_repo: (repo_id forge_repo_id) -> bot
+      def deactivate_repo: (repo_id id) -> bot
+      def runs: (repo_id id, ?page: Integer) -> bot
+      def run: (repo_id id, Integer | String number) -> bot
+      def trigger: (repo_id id, ?branch: String?) -> bot
+      def secret_names: (repo_id id) -> bot
+      def secret_set: (repo_id id, name: String, value: String) -> bot
+      def secret_delete: (repo_id id, String name) -> bot
+      def verify_config_request: (untyped request) -> false
+      def config_marker: (untyped params) -> nil
+      def pipeline_config: (platform: String, name: String, update_server: String?, ?options: Hash[untyped, untyped]) -> nil
+      def config_response: (platform: String, config: String?, ?others: Array[Hash[Symbol, String]]) -> Hash[Symbol, untyped]
+    end
+
+    def self.adapter: () -> (Object & _Adapter)
+    def self.woodpecker?: () -> bool
+    def self.gitlab?: () -> bool
+    def self.null_adapter: () -> Null
+    def self.reset!: () -> nil
+
+    self.@null_adapter: Null?
+  end
+end

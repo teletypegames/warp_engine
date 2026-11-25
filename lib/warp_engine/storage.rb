@@ -3,6 +3,8 @@ module WarpEngine
   # LocalAdapter (the filesystem under +file_container_path+); a host can set
   # any object answering +file?+, +directory?+ and +locate+ with +storage+.
   module Storage
+    # steep:ignore:start
+
     # Where a stored file is served from: +kind+ is +:file+ (an absolute +path+
     # the engine sends) or +:redirect+ (a +url+ the engine redirects to).
     # Build one with <tt>Location.file(path)</tt> or <tt>Location.redirect(url)</tt>;
@@ -14,6 +16,7 @@ module WarpEngine
       def self.file(path) = new(kind: :file, path: path)
       def self.redirect(url) = new(kind: :redirect, url: url)
     end
+    # steep:ignore:end
 
     # The default storage adapter: files under +file_container_path+ on the
     # local disk. Paths resolving outside that directory count as missing.

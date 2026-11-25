@@ -34,6 +34,8 @@ module WarpEngine
       end
     end
 
+    # steep:ignore:start
+
     # A repository as the CI server knows it, built by the adapters.
     #
     # [id]     the CI server's id of the repository (Woodpecker repo id, GitLab project id)
@@ -47,6 +49,9 @@ module WarpEngine
       # Returns <tt>owner/name</tt>.
       def full_name = "#{owner}/#{name}"
     end
+    # steep:ignore:end
+
+    # steep:ignore:start
 
     # One pipeline run, built by the adapters.
     #
@@ -80,6 +85,9 @@ module WarpEngine
         }
       end
     end
+    # steep:ignore:end
+
+    # steep:ignore:start
 
     # The answer of an adapter's +ping+: whether the server answered and took
     # the token (+ok+), what it said or what went wrong (+detail+) and how long
@@ -91,6 +99,7 @@ module WarpEngine
       # Returns +true+ when the server answered and took the token.
       def ok? = ok ? true : false
     end
+    # steep:ignore:end
 
     # The adapter used when CI is turned off (<tt>ci :none</tt>). It reports itself
     # as not configured, knows no platforms and serves no pipeline configs; every

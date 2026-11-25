@@ -40,6 +40,23 @@ coverage. Every change keeps the engine fully documented:
 
     rdoc -C -x templates app lib     # must print 100.00% documented
 
+## Typed seams: RBS
+
+Only the adapter contracts are typed (`sig/`, see *Typed adapter contracts* in
+the README): the interfaces a host implements, the base classes it subclasses
+and the value objects they pass. Do not type the rest of the engine.
+
+- A change to a seam method's parameters or return changes its signature in
+  `sig/` in the same commit; a new seam gets its interface there and its file
+  in the `Steepfile`.
+- `steep/stubs` stands in for Rails and the untyped engine; it is not shipped.
+- Where Steep cannot follow the code (`Struct.new`/`Data.define` blocks,
+  narrowing by `respond_to?`), a `# steep:ignore` directive, never a cast in
+  the code. Prefer code Steep can follow (`case` over a predicate helper).
+- Check before committing:
+
+    bundle exec rbs -I sig -I steep/stubs validate && bundle exec steep check
+
 ## Layers
 
 Keep new code in the layer its neighbours are in; 2.0 made them agree.

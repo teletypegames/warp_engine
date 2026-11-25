@@ -1,0 +1,70 @@
+# What the typed seams use from Rails, ActiveSupport and the untyped rest of
+# the engine. Only for the check (Steepfile); not shipped with the gem.
+class Object
+  def present?: () -> bool
+  def blank?: () -> bool
+  def presence: () -> self?
+end
+
+class String
+  def constantize: () -> untyped
+  def safe_constantize: () -> untyped
+  def titleize: () -> String
+end
+
+class Hash[unchecked out K, unchecked out V]
+  def symbolize_keys: () -> Hash[Symbol, V]
+end
+
+module Mime
+  class Type
+    def self.lookup_by_extension: (String ext) -> Type?
+  end
+end
+
+module WarpEngine
+  def self.config: () -> untyped
+
+  class Software
+    def self.kept: () -> untyped
+  end
+
+  class ReleaseAsset
+    KINDS: Array[String]
+  end
+
+  module Platform
+    def self.exists?: (String name) -> bool
+  end
+
+  module Local
+    def self.ci_adapter: (Object & CI::_Adapter base) -> (Object & CI::_Adapter)?
+    def self.forge_adapter: () -> (Object & Forge::_Adapter)?
+  end
+
+  module CI
+    module Woodpecker
+      class Adapter
+        include CI::_Adapter
+      end
+    end
+
+    module Gitlab
+      class Adapter
+        include CI::_Adapter
+      end
+    end
+
+    def self.woodpecker_adapter: () -> Woodpecker::Adapter
+    def self.gitlab_adapter: () -> Gitlab::Adapter
+
+    self.@woodpecker_adapter: Woodpecker::Adapter?
+    self.@gitlab_adapter: Gitlab::Adapter?
+  end
+
+  module Forge
+    class Gitea
+      include Forge::_Adapter
+    end
+  end
+end

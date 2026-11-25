@@ -1,0 +1,48 @@
+module WarpEngine
+  module StoreRegistry
+    URL: Regexp
+
+    # One registry record: a store's display name and its catalog address.
+    class Entry
+      attr_reader name: String
+      attr_reader catalog_url: String
+
+      def initialize: (name: String, catalog_url: String) -> void
+      def as_json: (*untyped) -> { name: String, catalogUrl: String }
+    end
+
+    type record = Entry | Hash[Symbol | String, untyped]
+
+    # The registry a host sets with +store_registry+ as an object.
+    interface _Registry
+      def stores: (catalog_url: String) -> Array[record]
+    end
+
+    class Own
+
+      def stores: (catalog_url: String) -> Array[record]
+    end
+
+    class Fixed
+
+      attr_reader entries: Array[record | :own | "own"]
+
+      def initialize: (Array[record | :own | "own"] entries) -> void
+      def stores: (catalog_url: String) -> Array[record]
+    end
+
+    def self.current: () -> (Object & _Registry)?
+    def self.enabled?: () -> bool
+    def self.stores: (catalog_url: String) -> Array[Entry]
+    def self.own_entry: (String catalog_url) -> Entry
+    def self.own_registry: () -> Own
+    def self.reset!: () -> nil
+
+    self.@own_registry: Own?
+
+    private
+
+    def self.entry: (untyped record) -> Entry?
+    def self.valid?: (untyped name, untyped url) -> bool
+  end
+end

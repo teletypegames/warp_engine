@@ -286,6 +286,42 @@ The block may also take the configuration as a parameter and set its attributes
 Both write the same `WarpEngine.config`, and the attribute names are the ones the
 sections below mention.
 
+## Typed adapter contracts (RBS)
+
+The seams a host fills with an object of its own have RBS signatures in `sig/`, shipped
+with the gem. The rest of the engine is not typed: its reference is the RDoc.
+
+| Seam | Interface | Set with |
+|---|---|---|
+| Storage | `WarpEngine::Storage::_Adapter` | `storage` |
+| Access policy | `WarpEngine::AccessPolicy::_Policy` | `access_policy` |
+| Images | `WarpEngine::Images::_Adapter` (+ the optional `_FilePaths`) | `image_adapter` |
+| CI | `WarpEngine::CI::_Adapter` | `ci` |
+| Forge | `WarpEngine::Forge::_Adapter` | `forge` |
+| Store registry | `WarpEngine::StoreRegistry::_Registry` | `store_registry` |
+| Sync transport | subclass of `WarpEngine::Sync::Transport` | `register_sync_transport` |
+| Outlet type | subclass of `WarpEngine::Outlets::Base` (`Materialized`, `Served`) | `register_outlet_type` |
+
+The value objects the seams pass around are typed with them (`Storage::Location`,
+`Access`, `Access::Grant`, `CI::Repo`, `CI::Run`, `CI::Ping`, `Forge::Repo`,
+`StoreRegistry::Entry`, the transport's `Option`, `CheckResult` and `Delivery`).
+
+A host that type-checks its own adapter declares it against the interface and lets
+Steep compare the two; [`rbs collection`](https://github.com/ruby/rbs/blob/master/docs/collection.md)
+picks up the gem's `sig/` from the `Gemfile.lock`:
+
+```rbs
+# sig/my_storage.rbs in the host
+class MyStorage
+  include WarpEngine::Storage::_Adapter
+end
+```
+
+In the engine, `bundle exec steep check` (the `Steepfile`) checks the seam files and the
+builtin adapters against `sig/` (`steep/stubs` stands in for Rails and the untyped rest;
+it is not shipped), and CI runs it with `rbs validate`. A seam method that changes its
+parameters or its return changes its signature in the same commit.
+
 ## Host records on a catalog page
 
 The engine owns the catalog; everything else a site wants to keep next to a

@@ -1,0 +1,49 @@
+module WarpEngine
+  module Images
+    # The image library adapter a host sets with +image_adapter+. +record+ and
+    # +upload+ are the host's image record and uploaded file.
+    interface _Adapter
+      def model_name: () -> String
+      def model: () -> untyped
+      def url_for: (untyped image_id) -> String?
+      def build_from_upload: (untyped upload) -> untyped
+      def label_for: (untyped record) -> String?
+      def available?: (untyped record) -> bool
+      def select_options: () -> Array[[String?, untyped]]
+    end
+
+    # Optional on an adapter: the local file of an image.
+    interface _FilePaths
+      def file_path_for: (untyped image_id) -> String?
+    end
+
+    class HostModel
+
+      URL_PREFIX: String
+
+      def model_name: () -> String
+      def model: () -> untyped
+      def url_for: (untyped image_id) -> String?
+      def build_from_upload: (untyped upload) -> untyped
+      def label_for: (untyped record) -> String?
+      def available?: (untyped record) -> bool
+      def file_path_for: (untyped image_id) -> String?
+      def select_options: () -> Array[[String?, untyped]]
+    end
+
+    def self.adapter: () -> (Object & _Adapter)
+    def self.host_model?: () -> bool
+    def self.host_model_adapter: () -> HostModel
+    def self.reset!: () -> nil
+    def self.model_name: () -> String
+    def self.model: () -> untyped
+    def self.url_for: (untyped image_id) -> String?
+    def self.build_from_upload: (untyped upload) -> untyped
+    def self.label_for: (untyped record) -> String?
+    def self.available?: (untyped record) -> bool
+    def self.file_path_for: (untyped image_id) -> String?
+    def self.select_options: () -> Array[[String?, untyped]]
+
+    self.@host_model_adapter: HostModel?
+  end
+end

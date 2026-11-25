@@ -1,0 +1,27 @@
+module WarpEngine
+  module AccessPolicy
+    # The access policy a host sets with +access_policy+. +subject+ is the
+    # signed-in owner of the host's access token, or +nil+.
+    interface _Policy
+      # An ActiveRecord scope of WarpEngine::Software.
+      def visible_software_scope: (?subject: untyped) -> untyped
+      def access_for: (software: untyped, ?subject: untyped) -> Access
+      # +nil+ refuses the download.
+      def authorize_download: (?asset: untyped, ?subject: untyped, ?request: untyped) -> Access::Grant?
+    end
+
+    class Open
+
+      def visible_software_scope: (?subject: untyped) -> untyped
+      def access_for: (software: untyped, ?subject: untyped) -> Access
+      def authorize_download: (?asset: untyped, ?subject: untyped, ?request: untyped) -> Access::Grant
+    end
+
+    def self.current: () -> (Object & _Policy)
+    def self.open?: () -> bool
+    def self.open_policy: () -> Open
+    def self.reset!: () -> nil
+
+    self.@open_policy: Open?
+  end
+end

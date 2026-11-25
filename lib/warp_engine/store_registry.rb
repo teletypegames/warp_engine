@@ -22,12 +22,15 @@ module WarpEngine
     # The +catalog_url+ an Entry must have: an absolute http or https address.
     URL = %r{\Ahttps?://\S+\z}
 
+    # steep:ignore:start
+
     # One registry record: the display +name+ of a store and the +catalog_url+
     # of the WarpEngine catalog it serves.
     Entry = ::Data.define(:name, :catalog_url) do
       # Returns the record as the API serves it: <tt>{ name:, catalogUrl: }</tt>.
       def as_json(*) = { name: name, catalogUrl: catalog_url }
     end
+    # steep:ignore:end
 
     # The default registry: this catalog and nothing else.
     class Own
@@ -51,12 +54,13 @@ module WarpEngine
       # Returns the entries in their configured order, +:own+ replaced by this
       # catalog's Entry (StoreRegistry.own_entry for +catalog_url+).
       def stores(catalog_url:)
-        entries.map { |entry| own?(entry) ? StoreRegistry.own_entry(catalog_url) : entry }
+        entries.map do |entry|
+          case entry
+          when :own, "own" then StoreRegistry.own_entry(catalog_url)
+          else entry
+          end
+        end
       end
-
-      private
-
-      def own?(entry) = [ :own, "own" ].include?(entry)
     end
 
     class << self

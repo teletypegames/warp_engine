@@ -1,0 +1,43 @@
+module WarpEngine
+  module Storage
+    # Where a stored file is served from: a local file or a redirect.
+    class Location
+      attr_reader kind: :file | :redirect
+      attr_reader path: String?
+      attr_reader url: String?
+
+      def self.file: (String path) -> Location
+      def self.redirect: (String url) -> Location
+      def file?: () -> bool
+      def redirect?: () -> bool
+    end
+
+    # The storage adapter a host sets with +storage+.
+    interface _Adapter
+      def file?: (String | Pathname relative_path) -> bool
+      def directory?: (String | Pathname relative_path) -> bool
+      def locate: (String | Pathname relative_path, ?filename: String?, ?expires_in: Numeric?) -> Location
+    end
+
+    class LocalAdapter
+
+      def base_path: () -> Pathname
+      def absolute_path: (String | Pathname relative_path) -> Pathname
+      def file?: (String | Pathname relative_path) -> bool
+      def directory?: (String | Pathname relative_path) -> bool
+      def locate: (String | Pathname relative_path, ?filename: String?, ?expires_in: Numeric?) -> Location
+
+      private
+
+      def inside_base?: (String | Pathname path) -> bool
+    end
+
+    def self.mime_for: (String | Pathname path) -> untyped
+    def self.adapter: () -> (Object & _Adapter)
+    def self.local?: () -> bool
+    def self.local_adapter: () -> LocalAdapter
+    def self.reset!: () -> nil
+
+    self.@local_adapter: LocalAdapter?
+  end
+end

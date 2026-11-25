@@ -14,4 +14,5 @@ group :development, :test do
   gem "rubocop-rails-omakase", require: false
   gem "mcp", "~> 1.6"
   gem "regexp_parser", "< 2.13"
+  gem "steep", "2.0.0", require: false
 end

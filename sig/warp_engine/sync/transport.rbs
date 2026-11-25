@@ -1,0 +1,68 @@
+module WarpEngine
+  module Sync
+    # How a sync package gets to a peer: the base a host's transport
+    # (registered with +register_sync_transport+) subclasses. +peer+ is a
+    # WarpEngine::SyncPeer, +package+ a WarpEngine::Sync::Package.
+    class Transport
+      class Unreachable < WarpEngine::Error
+      end
+
+      # One setting of a transport, drawn on the peer form.
+      class Option
+        attr_reader name: String | Symbol
+        attr_reader label: String
+        attr_reader type: :string | :text | :boolean
+        attr_reader required: bool
+        attr_reader secret: bool
+        attr_reader hint: String?
+
+        def initialize: (name: String | Symbol, label: String, type: :string | :text | :boolean, required: bool,
+                         secret: bool, hint: String?) -> void
+      end
+
+      # What #check found.
+      class CheckResult
+        attr_reader ok: bool
+        attr_reader status: Integer?
+        attr_reader version: String?
+        attr_reader message: String?
+
+        def initialize: (ok: bool, status: Integer?, version: String?, message: String?) -> void
+      end
+
+      # What a delivery did; +status+ is +succeeded+, +skipped+ or +failed+.
+      class Delivery
+        attr_reader status: String
+        attr_reader code: Integer | String | nil
+        attr_reader message: String?
+
+        def initialize: (status: String, code: Integer | String | nil, message: String?) -> void
+      end
+
+      def self.key: () -> String
+      def self.label: () -> String
+      def self.options: () -> Array[Option]
+      def self.publishes?: () -> bool
+      def self.images?: () -> bool
+      def self.errors_for: (untyped peer) -> Array[String]
+
+      attr_reader peer: untyped
+
+      def initialize: (untyped peer) -> void
+      def check: () -> CheckResult
+      # The asset kinds the other side has of the package's version, or +nil+.
+      def existing: (untyped package) -> Array[String]?
+      # Yields each step's name before it runs. Raises Unreachable.
+      def deliver: (untyped package) ?{ (String step) -> void } -> Delivery
+      # +images+ are WarpEngine::Sync::ImageFile values; +nil+ when images are not carried.
+      def deliver_images: (String name, Array[untyped] images) ?{ (String step) -> void } -> Delivery?
+      # +nil+ when removals are not carried.
+      def deliver_removal: (String name, String? version) -> Delivery?
+
+      private
+
+      def option: (String | Symbol name) -> untyped
+      def secret: () -> String?
+    end
+  end
+end
