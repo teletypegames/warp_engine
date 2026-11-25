@@ -19,11 +19,11 @@ module WarpEngine
     # Returns the asset state of the kept software +name+: its +platform+, the
     # +expected+ kinds, and +releases+ mapping each version (most recently
     # updated first) to its +actual+ kinds and the +missing+ ones (optional kinds
-    # excluded). Raises ActiveRecord::RecordNotFound for an unknown software and
+    # and the kinds the software disables excluded). Raises ActiveRecord::RecordNotFound for an unknown software and
     # ArgumentError for an unknown platform.
     def show(name)
       software = WarpEngine::Software.kept.find_by!(name: name)
-      platform = WarpEngine::Platform.find!(software.platform, app: software.try(:app))
+      platform = WarpEngine::Platform.find!(software.platform, app: software.try(:app)).without(software.disabled_kinds)
       expected = platform.expected_kinds
 
       releases = software.releases.includes(:release_assets).order(updated_at: :desc)

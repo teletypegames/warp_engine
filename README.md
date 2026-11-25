@@ -878,6 +878,41 @@ names with their doc comments. The builder's own `doc2go` is used when it has on
 otherwise the step installs a pinned version with `go install` (the Go of the builder
 reads the module). The kind is optional: a build without docs misses nothing.
 
+### Turning kinds off
+
+A software can turn off the asset kinds that do not work for it — say a C64 program
+that needs network hardware no emulator has. The names are the kinds its platform
+does not require, and `web` for the web play (in a runtime, or from the `html`
+build); `GET /build/platforms/<name>` lists them under the `disable` option. A
+disabled kind is not built and not uploaded by the pipeline, a release is not
+expected to have it (asset coverage, build checks), the catalog leaves it out also
+of the releases published before, and with `web` the software plays nowhere on the
+web (no `playUrl`, no `players`, `/play` answers 404). The files stay where they
+are; turning the kind on again brings them back.
+
+From the repository, in the marker (names separated by spaces or commas, or a YAML
+list); the publish stores them on the software, so they hold until the marker
+changes:
+
+```yaml
+platform: c64
+build: make
+disable: web win_x64 linux_x64 mac_arm64
+```
+
+From code, the admin (the *Disabled kinds* boxes of a software) or the Admin API
+(`disabledKinds` of `PATCH /api/admin/v1/softwares/:id`):
+
+```ruby
+WarpEngine::Software.find_by!(name: "ttg-gate-64").update!(disabled_kinds: %w[web win_x64 linux_x64 mac_arm64])
+WarpEngine::Platform.for(software)          # the platform without them
+WarpEngine::Platform.find!("c64").without("web win_x64").expected_kinds # => ["cartridge", "docs", "linux_x64", "mac_arm64"]
+```
+
+A required kind (the C64 `cartridge`) cannot be turned off. A marker without the
+`disable` key leaves what the software has, so a setting made in the admin holds
+until the marker names the kinds itself.
+
 ### Platforms of your own
 
 The built-in platforms are the gem's; a host adds its own in the initializer, with the

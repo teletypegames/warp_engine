@@ -19,13 +19,15 @@ steps:
         <%- targets.each do |kind, args| -%>
         warp_target <%= args %> go_build <%= go.fetch(kind).map { |a| "'#{a}'" }.join(" ") %>
         <%- end -%>
+<%- if kinds.include?("docs") -%>
 
   - name: docs
     artifacts: [ "*-docs.zip" ]
     image: <%= builder %>
     commands:
       - warp_godoc
-<%- if app == "gui" -%>
+<%- end -%>
+<%- if app == "gui" && kinds.include?("html") -%>
 
   - name: web
     artifacts: [ "*.zip" ]

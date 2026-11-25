@@ -159,7 +159,13 @@ module WarpEngine
       else
         []
       end
-      common + app + platform.options.map { |option| { "name" => option.name, "values" => option.values, "description" => option.description } }
+      disable = if platform.disableable_kinds.any?
+        [ { "name" => WarpEngine::CI::PipelineConfig::DISABLE_OPTION, "values" => platform.disableable_kinds,
+            "description" => "The kinds the software turns off, separated by spaces: not built, not uploaded, left out of the catalog; web: no web play" } ]
+      else
+        []
+      end
+      common + app + disable + platform.options.map { |option| { "name" => option.name, "values" => option.values, "description" => option.description } }
     end
 
     def metadata(platform)

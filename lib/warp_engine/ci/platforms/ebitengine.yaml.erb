@@ -29,6 +29,7 @@ steps:
         echo "==> Packaging HTML/WASM for $VERSION"
         zip -r "<%= name %>-$VERSION.html.zip" -j dist/game.wasm dist/wasm_exec.js dist/index.html
         rm -f dist/game.wasm dist/wasm_exec.js dist/index.html
+<%- if targets.any? -%>
 
   - name: binaries
     artifacts: [ "*.zip" ]
@@ -42,9 +43,12 @@ steps:
         <%- targets.each do |kind, args| -%>
         warp_target <%= args %> go_build <%= go.fetch(kind).map { |a| "'#{a}'" }.join(" ") %>
         <%- end -%>
+<%- end -%>
+<%- if kinds.include?("docs") -%>
 
   - name: docs
     artifacts: [ "*-docs.zip" ]
     image: <%= builder %>
     commands:
       - warp_godoc
+<%- end -%>

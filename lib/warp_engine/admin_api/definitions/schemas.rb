@@ -35,6 +35,7 @@ module WarpEngine
             id: S.id, name: S.string, title: S.string, author: text, desc: text, story: text,
             license: text, platform: S.enum(WarpEngine::Platform.names), status: text, category: text,
             highlighted: S.nullable(S.boolean), shelfName: text, ownerType: text, ownerId: S.nullable(S.integer),
+            disabledKinds: S.array(S.string, "The asset kinds it turns off; web: the web play"),
             forksAllowed: S.boolean, forkOfEngine: text, forkOfName: text, forkOfVersion: text, forkOfRepo: text, **timestamps
           }
           included = {
@@ -55,6 +56,7 @@ module WarpEngine
             category: S.nullable(S.string("A key from software_categories; a new word is registered for review")),
             highlighted: S.boolean,
             shelfName: S.nullable(S.string("File name on a shelf (A-Z, 0-9, -); null uses the name")),
+            disabledKinds: S.array(S.string, "The asset kinds it turns off: kinds the platform does not require, and web for the web play; [] turns them on"),
             forksAllowed: S.boolean("Whether the developer tools may offer a fork (needs a public source link)"),
             forkOfEngine: S.nullable(S.string("For a fork: the parent engine's base URL")),
             forkOfName: S.nullable(S.string("For a fork: the parent's name on its engine")),

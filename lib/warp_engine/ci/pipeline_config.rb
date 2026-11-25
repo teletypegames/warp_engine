@@ -62,6 +62,12 @@ module WarpEngine
           echo "==> No make check target: nothing to check"
         fi
       SH
+      # The marker key that lists the kinds a software turns off
+      # (WarpEngine::Software#disabled_kinds): a YAML list, or names separated by
+      # commas or spaces (<tt>disable: web win_x64</tt>).
+      DISABLE_OPTION = "disable".freeze
+      # The pattern each name of the +disable+ marker option must match.
+      KIND_FORMAT = /\A[a-z0-9_]{1,32}\z/
       # The accepted values of the +release+ marker option.
       RELEASE_RULES = %w[push tag].freeze
       # The shell command that prints the +version+ of the repository's metadata.json.
@@ -92,7 +98,10 @@ module WarpEngine
       # [name]          the software name the release is published under
       # [update_server] the base URL of the catalog the pipeline uploads to
       # [options]       the marker's other keys; invalid ones are dropped (#clean_options);
-      #                 +app+ picks the variant of a platform with variants
+      #                 +app+ picks the variant of a platform with variants;
+      #                 +disable+ (DISABLE_OPTION) the kinds the pipeline leaves
+      #                 out (WarpEngine::Platform#without), sent on to the
+      #                 publish so the software keeps them off
       #
       # Returns the pipeline YAML String, or +nil+ when the platform name is
       # malformed, not configured, has no template, or has no such +app+. A legacy template that
@@ -104,7 +113,7 @@ module WarpEngine
 
         spec = @platforms[platform_name]
         options = clean_options(options)
-        found = WarpEngine::Platform.find(platform_name, app: options["app"])
+        found = WarpEngine::Platform.find(platform_name, app: options["app"])&.without(options[DISABLE_OPTION])
         return nil if spec.nil? || found.nil?
 
         options = allowed_options(found, options)
@@ -134,10 +143,18 @@ module WarpEngine
 
       # Returns the marker +options+ as a Hash of Strings, without +platform+ and
       # +name+ and without any pair whose key or value does not match OPTION_FORMAT.
+      # The +disable+ key (DISABLE_OPTION) takes a list: its names that match
+      # KIND_FORMAT are kept, joined by commas.
       def clean_options(options)
         options.to_h.each_with_object({}) do |(key, value), clean|
           key = key.to_s
           next if %w[platform name].include?(key)
+
+          if key == DISABLE_OPTION
+            kinds = WarpEngine::Platform.kind_list(value).grep(KIND_FORMAT)
+            clean[key] = kinds.join(",") if kinds.any?
+            next
+          end
           next unless key.match?(OPTION_FORMAT) && value.to_s.match?(OPTION_FORMAT)
 
           clean[key] = value.to_s
@@ -229,6 +246,7 @@ module WarpEngine
           web_shell:        spec[:web_shell],
           bundle_id_prefix: spec[:bundle_id_prefix] || "org.warpengine",
           targets:          targets(platform),
+          kinds:            platform.built_kinds,
           options:          options }.merge(platform.definition.ci_variables.to_h.symbolize_keys)
       end
 
@@ -298,6 +316,7 @@ module WarpEngine
       def publish_step(platform, spec, name, update_server)
         inputs = { NAME: name, PLATFORM: platform.name }
         inputs[:APP] = platform.app if platform.app
+        inputs[:DISABLE] = platform.disabled_kinds.join(",") if platform.disabled_kinds.any?
         script = Scripts.assign(**inputs) + Scripts.read("publish")
         Step.new(name: "publish", image: spec[:tools] || "alpine", environment: { "UPDATE_SERVER" => update_server },
                  secrets: { "UPDATE_SECRET" => "application_token" }, commands: helper_commands(spec, %w[curl], script))

@@ -19,6 +19,7 @@ steps:
         cp <%= file %> <%= name %>-$VERSION.<%= disk ? "d64" : "prg" %>
         cp metadata.json <%= name %>-$VERSION.metadata.json
         ls -lh <%= name %>-$VERSION.*
+<%- if kinds.include?("docs") -%>
 
   - name: docs
     artifacts: [ "*-docs.zip" ]
@@ -73,6 +74,8 @@ steps:
         } | doxygen -
         (cd docs/html && zip -qr ../../<%= name %>-$VERSION-docs.zip .)
         ls -lh <%= name %>-$VERSION-docs.zip
+<%- end -%>
+<%- if targets.any? -%>
 
   - name: package
     artifacts: [ "*.zip" ]
@@ -83,3 +86,4 @@ steps:
         VERSION=$(cat .version)
         echo "==> Packaging the native players for $VERSION"
         commodore-pack <%= machine %> <%= name %> $VERSION
+<%- end -%>

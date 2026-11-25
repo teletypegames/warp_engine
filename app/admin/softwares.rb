@@ -2,7 +2,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
   permit_params do
     [
       :name, :title, :author, :desc, :story,
-      :license, :platform, :status, :category, :highlighted, :shelf_name, :sync_enabled,
+      :license, :platform, :status, :category, :highlighted, :shelf_name, :sync_enabled, { disabled_kinds: [] },
       :forks_allowed, :fork_of_engine, :fork_of_name, :fork_of_version, :fork_of_repo,
       { software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ] },
       { external_links_attributes: [ :id, :label, :url, :kind, :ref, :_destroy ] },
@@ -148,6 +148,9 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
                 hint: "A key from the category vocabulary; a new word is added to it for review. Empty means uncategorised."
         f.input :highlighted
         f.input :shelf_name, hint: "File name on a shelf (A-Z, 0-9, -); empty uses the name"
+        f.input :disabled_kinds, as: :check_boxes, label: "Disabled kinds",
+                collection: WarpEngine::Platform.find(resource.platform, app: resource.app)&.disableable_kinds || [],
+                hint: "Not built, not uploaded, left out of the catalog; web: no web play. The CI marker's disable: key sets them on publish."
         f.input :license
         f.input :desc,  as: :text, input_html: { rows: 4 }
         f.input :story, as: :text, input_html: { rows: 8 }

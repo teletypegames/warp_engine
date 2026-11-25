@@ -5,7 +5,8 @@ module WarpEngine
   # for a platform with variants; +nil+ otherwise), +status+ (a WarpEngine::SoftwareStatus key),
   # +category+ (a WarpEngine::SoftwareCategory key, registered on save),
   # +highlighted+ flag, optional +shelf_name+ (its name on the platform's
-  # shelf) and an optional polymorphic +owner+, the publisher.
+  # shelf), +disabled_kinds+ (the asset kinds it turns off, see
+  # #disabled_kinds) and an optional polymorphic +owner+, the publisher.
   #
   # Has its gallery (+software_images+, +images+), kept +releases+ and their
   # +downloads+, kept +external_links+, its +pipeline+ and its +sync_events+; images, links and
@@ -39,11 +40,13 @@ module WarpEngine
     normalizes :fork_of_engine, with: ->(value) { WarpEngine::Forks.normalize_url(value) }
     normalizes :fork_of_name, :fork_of_version, :fork_of_repo, with: ->(value) { value.to_s.strip.presence }
     normalizes :shelf_name, with: ->(value) { value.to_s.strip.upcase.presence }
+    normalizes :disabled_kinds, with: ->(value) { WarpEngine::Platform.kind_list(value).presence }
 
     validates :name, presence: true, uniqueness: true
     validates :title, presence: true
     validates :platform, presence: true, inclusion: { in: ->(_) { WarpEngine::Platform.names } }
     validate :app_of_platform
+    validate :disabled_kinds_of_platform
     validates :status, inclusion: { in: ->(_) { WarpEngine::SoftwareStatus.keys } }, allow_blank: true
     validates :category, length: { maximum: 64 }, allow_nil: true
     validates :fork_of_name, presence: true, if: -> { fork_of_engine.present? }
@@ -77,6 +80,24 @@ module WarpEngine
     # Whether this software is a fork of another one.
     def fork? = fork_of_engine.present? && fork_of_name.present?
 
+    # Returns the asset kinds this software turns off, a list of Strings
+    # (empty by default): kinds its platform does not require, and
+    # WarpEngine::Platform::WEB for the web play. Its pipeline neither builds
+    # nor uploads them, its releases are not expected to have them and the
+    # catalog leaves them out (WarpEngine::Platform#without). Set from code
+    # (an Array, or a String of names separated by commas or spaces), in the
+    # admin, or by the CI marker's +disable+ key on publish.
+    #
+    #   software.update!(disabled_kinds: %w[web win_x64 linux_x64 mac_arm64])
+    def disabled_kinds = super || []
+
+    # Returns +true+ when the asset kind +kind+ (or WarpEngine::Platform::WEB)
+    # is turned off (#disabled_kinds).
+    def kind_disabled?(kind) = disabled_kinds.include?(kind.to_s)
+
+    # Returns +true+ when the web play is turned off (#disabled_kinds).
+    def web_disabled? = kind_disabled?(WarpEngine::Platform::WEB)
+
     # Returns every status key (WarpEngine::SoftwareStatus.keys).
     def self.statuses
       WarpEngine::SoftwareStatus.keys
@@ -102,6 +123,17 @@ module WarpEngine
       elsif app.present? && !apps.include?(app)
         errors.add(:app, "must be one of #{apps.join(', ')}")
       end
+    end
+
+    def disabled_kinds_of_platform
+      return if disabled_kinds.empty?
+
+      platform = WarpEngine::Platform.find(self.platform, app: app)
+      return if platform.nil?
+
+      allowed = platform.disableable_kinds
+      unknown = disabled_kinds - allowed
+      errors.add(:disabled_kinds, "can only name #{allowed.join(', ')} on #{platform.label} (not #{unknown.join(', ')})") if unknown.any?
     end
 
     ActiveSupport.run_load_hooks(:warp_engine_software, self)

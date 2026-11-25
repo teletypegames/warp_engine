@@ -91,6 +91,25 @@ RSpec.describe "POST /build/publish", type: :request do
     expect(release.reload.commit_sha).to eq("0123456789abcdef0123456789abcdef01234567")
   end
 
+  it "stores the kinds the marker disables on the software, those the platform lets it turn off" do
+    software = create(:software, name: "game", platform: "tic80")
+    allow(stub_updater).to receive(:publish).and_return(create(:release, software: software, version: "1.0"))
+
+    publish(params: { disable: "web,win_x64,cartridge,nothing" })
+
+    expect(response).to have_http_status(:ok)
+    expect(software.reload.disabled_kinds).to eq(%w[web win_x64])
+  end
+
+  it "leaves the disabled kinds alone without a disable parameter" do
+    software = create(:software, name: "game", platform: "tic80", disabled_kinds: %w[web])
+    allow(stub_updater).to receive(:publish).and_return(create(:release, software: software, version: "1.0"))
+
+    publish
+
+    expect(software.reload.disabled_kinds).to eq(%w[web])
+  end
+
   it "refuses a commit that is no hex id" do
     stub_updater
 

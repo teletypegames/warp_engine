@@ -8,7 +8,9 @@ module WarpEngine
   # runtime it was published with, <tt>/play/<name>/<version></tt>, else its
   # +html+ folder, else empty) and +players+ (every web binding of the
   # platform it can play in now: +binding+, +runtime+, +label+, +url+,
-  # +default+). Asset paths are rewritten from the file container to
+  # +default+). The kinds the software turns off
+  # (WarpEngine::Software#disabled_kinds) are left out, and with the web
+  # turned off it plays nowhere. Asset paths are rewritten from the file container to
   # <tt>/file/...</tt> URLs. The +download_counts+ render option, a Hash of
   # release id to count, saves a count query per release.
   class ReleaseSerializer < Blueprinter::Base
@@ -24,9 +26,12 @@ module WarpEngine
     end
 
     # Returns the kept release assets of +release+, using the loaded
-    # association when it is loaded.
+    # association when it is loaded, without the kinds its software turns
+    # off (WarpEngine::Software#kind_disabled?).
     def self.assets_of(release)
-      release.association(:release_assets).loaded? ? release.release_assets : release.release_assets.to_a
+      assets = release.association(:release_assets).loaded? ? release.release_assets : release.release_assets.to_a
+      software = release.software
+      software ? assets.reject { |asset| software.kind_disabled?(asset.kind) } : assets
     end
 
     # Returns the <tt>/file/...</tt> path of the +kind+ asset of +release+, or
@@ -42,9 +47,10 @@ module WarpEngine
     # Returns the URL the release plays at: its runtime page when it was
     # published bound to an installed runtime, else its +html+ folder, else
     # an empty String. A release whose metadata says <tt>web.enabled:
-    # false</tt> does not play on the web at all.
+    # false</tt>, or whose software turns the web off, does not play on the
+    # web at all.
     def self.play_url(release)
-      return "" if release.web_options.to_h["enabled"] == false
+      return "" if release.web_options.to_h["enabled"] == false || release.software&.web_disabled?
       return play_path(release) if bound?(release)
 
       asset_path(release, "html")

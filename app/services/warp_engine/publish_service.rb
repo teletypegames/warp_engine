@@ -15,7 +15,9 @@ module WarpEngine
 
     # Publishes the upload described by +input+ (a WarpEngine::PublishInputDto
     # with +platform+, +name+, +version+ and optionally +app+) through WarpEngine::Platform#publish,
-    # then instruments NOTIFICATION.
+    # then instruments NOTIFICATION. When +input+ has a +disable+ (the CI
+    # marker's), the kinds of it the platform lets a software turn off become
+    # the software's WarpEngine::Software#disabled_kinds.
     #
     # [source] where the upload came from: +:ci+ (default) or +:sync+, another
     #          engine (WarpEngine::Sync), whose releases are not pushed on;
@@ -30,6 +32,7 @@ module WarpEngine
       refuse_stale!(input)
       release = platform_of(input).publish(input.name, input.version)
       release.update!(commit_sha: input.commit) if input.try(:commit).present? && release.respond_to?(:commit_sha)
+      record_disabled_kinds(release, input)
       if release.respond_to?(:origin) && release.persisted?
         release.update_columns(origin: source.to_s == "sync" ? "sync" : "ci", sync_peer_id: source.to_s == "sync" ? peer&.id : nil)
       end
@@ -66,6 +69,13 @@ module WarpEngine
     def platform_of(input)
       app = input.try(:app).presence
       app ? WarpEngine::Platform.find!(input.platform, app: app) : WarpEngine::Platform.find!(input.platform)
+    end
+
+    def record_disabled_kinds(release, input)
+      return if input.try(:disable).nil? || !release.respond_to?(:software) || release.software.nil?
+
+      platform = WarpEngine::Platform.find!(input.platform, app: input.try(:app).presence)
+      release.software.update!(disabled_kinds: WarpEngine::Platform.kind_list(input.disable) & platform.disableable_kinds)
     end
 
     def refuse_stale!(input)

@@ -32,6 +32,14 @@ RSpec.describe "GET /play/:name/:version", type: :request do
     expect(response.headers["Cross-Origin-Embedder-Policy"]).to be_nil
   end
 
+  it "does not play when the software turns the web off" do
+    software.update!(disabled_kinds: %w[web])
+
+    get "/play/rabbit/1.0.0"
+
+    expect(response).to have_http_status(:not_found)
+  end
+
   it "plays in another binding of the platform, isolated when it says so" do
     config = WarpEngine::Configuration.new
     config.platform_web :c64, :emulatorjs, as: :fast, core: "vice_x64", isolated: true

@@ -58,6 +58,29 @@ RSpec.describe "Commodore pipelines" do
         expect(uploaded_files(calls)).to contain_exactly("we-c64-1.0.prg", "we-c64-1.0-docs.zip", "we-c64-1.0.metadata.json")
       end
 
+      it "leaves out the players and keeps the docs when the marker disables them, and tells the publish" do
+        yaml = render(config_class, { "build" => "make", "disable" => "web win_x64 linux_x64 mac_arm64" })
+
+        expect(yaml).not_to include("commodore-pack")
+        expect(yaml).to include("doxygen -")
+        expect(step_script(yaml, "publish")).to include("DISABLE='web,win_x64,linux_x64,mac_arm64'")
+        calls, = run_with_fake_curl(step_script(yaml, "upload"),
+                                    files: { "we-c64-1.0.prg" => "p", "we-c64-1.0-docs.zip" => "z", "we-c64-1.0-win-x64.zip" => "z", "metadata.json" => "{}" })
+        expect(uploaded_files(calls)).to contain_exactly("we-c64-1.0.prg", "we-c64-1.0-docs.zip", "we-c64-1.0.metadata.json")
+      end
+
+      it "takes the disabled kinds as a YAML list too, and builds no docs when they are disabled" do
+        yaml = render(config_class, { "build" => "make", "disable" => %w[docs mac_arm64] })
+
+        expect(yaml).not_to include("doxygen -")
+        expect(yaml).to include("commodore-pack")
+        expect(step_script(yaml, "publish")).to include("DISABLE='docs,mac_arm64'")
+      end
+
+      it "sends no disabled kinds without the marker key" do
+        expect(step_script(render(config_class), "publish")).not_to include("DISABLE=")
+      end
+
       it "uploads a disk image in place of the program when the build made one" do
         script = step_script(render(config_class, { "media" => "d64" }), "upload")
 

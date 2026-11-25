@@ -68,11 +68,22 @@ module WarpEngine
       end
 
       # Returns the Platform of +software+ (a WarpEngine::Software, or anything
-      # with +platform+ and +app+) for its variant, or +nil+.
+      # with +platform+ and +app+) for its variant, without the kinds it
+      # disables (+disabled_kinds+, see #without), or +nil+.
       def for(software)
         return nil if software.nil?
 
-        find(software.platform, app: software.try(:app))
+        find(software.platform, app: software.try(:app))&.without(software.try(:disabled_kinds))
+      end
+
+      # Returns the kind names in +value+ (an Array, or a String of names
+      # separated by commas or spaces) as a list of Strings, blanks and
+      # repeats left out.
+      #
+      #   WarpEngine::Platform.kind_list("web, win_x64 linux_x64") # => ["web", "win_x64", "linux_x64"]
+      def kind_list(value)
+        list = value.is_a?(Array) ? value : value.to_s.split(/[\s,]+/)
+        list.map { |kind| kind.to_s.strip }.reject(&:empty?).uniq
       end
 
       # Returns what the host registered as +name+ (a Definition or a legacy
@@ -92,15 +103,49 @@ module WarpEngine
       end
     end
 
+    # The name that, among the disabled kinds, turns off the web play: the
+    # platform's WebBinding list (see #without).
+    WEB = "web".freeze
+
     # The platform name as a String.
     attr_reader :name
 
+    # The kinds this platform leaves out (#without), a frozen list of Strings.
+    attr_reader :disabled_kinds
+
     # Creates the platform +name+ for the variant +app+ (blank: the default
-    # one) without checking that they exist.
-    def initialize(name, app: nil)
+    # one) without checking that they exist; +disabled+ are the kinds it
+    # leaves out, taken as they are (#without checks them).
+    def initialize(name, app: nil, disabled: [])
       @name = name.to_s
       @app = app.to_s.presence
+      @disabled_kinds = disabled.map(&:to_s).freeze
     end
+
+    # Returns the names a software may disable on the platform: the kinds it
+    # expects but does not require, and WEB when it plays on the web (in a
+    # runtime, or from its +html+ build).
+    def disableable_kinds
+      web = enabled_web_bindings.any? || definition.expected_kinds.include?("html")
+      (definition.expected_kinds - definition.required_kinds) + (web ? [ WEB ] : [])
+    end
+
+    # Returns this platform without +kinds+ (see Platform.kind_list; the
+    # names of #disableable_kinds count, any other is ignored): its pipeline
+    # neither builds nor uploads them, a release is not expected to have them,
+    # the catalog leaves them out, and with WEB it plays nowhere on the web.
+    # Returns +self+ when nothing is left out.
+    #
+    #   WarpEngine::Platform.find!("c64").without("web win_x64").expected_kinds # => ["cartridge", "docs", "linux_x64", "mac_arm64"]
+    def without(kinds)
+      disabled = self.class.kind_list(kinds) & disableable_kinds
+      return self if disabled.empty?
+
+      self.class.new(name, app: @app, disabled: (disabled_kinds + disabled).uniq)
+    end
+
+    # Returns +true+ when +kind+ is left out (#without).
+    def disabled?(kind) = disabled_kinds.include?(kind.to_s)
 
     # Returns the Definition: the registered one, the one built from a legacy
     # Registration's service class, or the builtin one. Raises ArgumentError
@@ -128,23 +173,24 @@ module WarpEngine
     # Returns the Definition::LibretroCore the platform's releases run on, or +nil+.
     def libretro = definition.libretro
 
-    # Returns the KindSpec list.
-    def kind_specs = definition.kind_specs
+    # Returns the KindSpec list, without the disabled kinds.
+    def kind_specs = definition.kind_specs.reject { |spec| disabled?(spec.name) }
 
-    # Returns the release asset kinds the platform publishes.
-    def expected_kinds = definition.expected_kinds
+    # Returns the release asset kinds the platform publishes, without the
+    # disabled kinds.
+    def expected_kinds = definition.expected_kinds - disabled_kinds
 
     # Returns the expected kinds a release must have.
     def required_kinds = definition.required_kinds
 
-    # Returns the expected kinds a release may lack.
-    def optional_kinds = definition.optional_kinds
+    # Returns the expected kinds a release may lack, without the disabled kinds.
+    def optional_kinds = definition.optional_kinds - disabled_kinds
 
     # Returns the kinds the platform's pipeline builds; a legacy registration's
-    # +built_kinds+ when it names them.
+    # +built_kinds+ when it names them. The disabled kinds are left out.
     def built_kinds
       legacy = legacy_registration&.built_kinds.presence
-      legacy || definition.built_kinds
+      (legacy || definition.built_kinds) - disabled_kinds
     end
 
     # Returns the Platform::MarkerOption list: the CI marker keys the
@@ -191,8 +237,8 @@ module WarpEngine
     end
 
     # Returns the enabled WebBinding list; the default one is among them
-    # unless the list is empty.
-    def web_bindings = all_web_bindings.select(&:enabled)
+    # unless the list is empty. Empty when WEB is disabled.
+    def web_bindings = disabled?(WEB) ? [] : enabled_web_bindings
 
     # Returns the enabled WebBinding with the key +key+, or the default one
     # when +key+ is blank; +nil+ when there is none.
@@ -231,6 +277,8 @@ module WarpEngine
     def hash = name.hash
 
     private
+
+    def enabled_web_bindings = all_web_bindings.select(&:enabled)
 
     def base_definition
       registered = self.class.registration(name)

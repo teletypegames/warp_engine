@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -245,6 +245,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_200000) do
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
     t.text "desc"
+    t.json "disabled_kinds"
     t.string "fork_of_engine"
     t.string "fork_of_name", limit: 128
     t.string "fork_of_repo", limit: 512

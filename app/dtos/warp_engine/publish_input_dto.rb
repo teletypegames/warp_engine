@@ -4,7 +4,8 @@ module WarpEngine
   # WarpEngine::Platform.names; the optional +commit+ is the hex id of the
   # commit the CI built; the optional +app+ is the platform variant
   # (WarpEngine::Platform#apps; blank: the default one) and only a platform
-  # with variants takes one.
+  # with variants takes one; the optional +disable+ lists the kinds the
+  # software turns off (WarpEngine::Software#disabled_kinds).
   class PublishInputDto
     include ActiveModel::Model
 
@@ -16,6 +17,10 @@ module WarpEngine
 
     # The platform variant (+cli+, +gui+), or +nil+ for the default one.
     attr_accessor :app
+
+    # The kinds the CI marker turns off (commas or spaces between them), or
+    # +nil+ when the marker says nothing of them.
+    attr_accessor :disable
 
     validates :name, presence: true
     validates :version, presence: true
