@@ -37,6 +37,12 @@ RSpec.describe "Source docs of every platform that builds them from its sources"
         expect(yaml).to include(expected[:image])
       end
 
+      if config_class == WarpEngine::CI::Woodpecker::PipelineConfig
+        it "writes every command as a block, which Woodpecker's YAML parser reads like Ruby's" do
+          expect(render).not_to match(/^\s*- "/)
+        end
+      end
+
       it "writes no docs and does not fail without sources" do
         Dir.mktmpdir do |dir|
           File.write(File.join(dir, ".version"), "1.0")
