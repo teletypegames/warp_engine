@@ -488,6 +488,36 @@ The same numbers are available as objects: `WarpEngine::AssetCoverageService.new
 answers `#rows`, `#missing_rows` and `#totals`, and
 `WarpEngine::AssetCoverageChecklist` is what renders them.
 
+## Platform integrity (rake)
+
+Every platform is named in many places — its definition, its CI template, the web
+runtimes it plays in, the store engines, the shelves, the host's CI and tooling
+settings and the catalog's records — and a new platform or a change to one easily
+leaves one of them behind. This task checks that they agree:
+
+```bash
+bin/rails warp_engine:platforms:check                     # every platform
+bin/rails warp_engine:platforms:check PLATFORMS=c64,tic80 # some of them
+bin/rails warp_engine:platforms:check DATA=0 FORMAT=json  # without the database, as JSON
+```
+
+It exits 1 when it finds an error, so a CI can run it. What it checks, per platform
+and per variant:
+
+| Area | Errors | Warnings |
+| --- | --- | --- |
+| Definition | a name the CI cannot serve, no required kind, a kind without an extension (`ext_missing`), a required kind the pipeline does not build, a marker option the engine reads itself (`platform`, `name`, `release`, `app`, `disable`) or one with no usable value | no label, an extension without a dot, a kind both required and optional, a version file without a version source, two platforms with one label |
+| CI template | a missing template; one that does not render or does not give YAML with either adapter, for every variant, every marker option value and with every disableable kind off | |
+| Web | a binding with an unknown runtime, payload or parameter, a payload kind the platform does not publish | the runtime has no installed version, or it lacks the binding's component (with the database) |
+| Store engines | a store that carries an unknown platform, installs a kind the platform does not publish, or runs it in a libretro core the platform does not declare | a store extension the platform does not publish |
+| Outlets | an invalid outlet configuration, a shelf of a kind the platform does not publish | |
+| Host settings | the CI settings, `platform_tooling` or `platform_web` naming an unknown platform, a CI entry without a builder, a template that needs an `exporter` the settings do not give | a platform the CI does not build here |
+| Catalog (with the database) | softwares on an unknown platform, an `app` or `disabled_kinds` the platform no longer takes | release assets of kinds the platform does not publish |
+
+`WarpEngine::PlatformIntegrityService#check` returns the same report to code; the
+engine's own spec runs it on the builtin platforms, so a platform that breaks one of
+these does not get released.
+
 ## CI
 
 Every CI feature — serving pipeline configs, syncing repositories, triggering
