@@ -29,6 +29,12 @@ RSpec.describe WarpEngine::ReleaseSerializer do
     expect(view[:playUrl]).to eq("/play/gate/1.0.0")
   end
 
+  it "tells the disabled kinds on the software, for the store engines" do
+    software.update!(disabled_kinds: %w[web stores])
+
+    expect(WarpEngine::SoftwareSerializer.render_as_hash(software.reload)[:disabledKinds]).to eq(%w[web stores])
+  end
+
   it "plays nowhere on the web when the software disables web" do
     software.update!(disabled_kinds: %w[web])
 

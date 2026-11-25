@@ -92,6 +92,7 @@ RSpec.describe "POST /build/publish", type: :request do
   end
 
   it "stores the kinds the marker disables on the software, those the platform lets it turn off" do
+    allow(WarpEngine::DisabledKindsService).to receive(:new).and_call_original
     software = create(:software, name: "game", platform: "tic80")
     allow(stub_updater).to receive(:publish).and_return(create(:release, software: software, version: "1.0"))
 
@@ -99,6 +100,7 @@ RSpec.describe "POST /build/publish", type: :request do
 
     expect(response).to have_http_status(:ok)
     expect(software.reload.disabled_kinds).to eq(%w[web win_x64])
+    expect(WarpEngine::DisabledKindsService).to have_received(:new)
   end
 
   it "leaves the disabled kinds alone without a disable parameter" do

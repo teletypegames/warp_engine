@@ -9,5 +9,14 @@ namespace :warp_engine do
       puts "Development builds removed#{' (dry run)' if dry}: #{result.count}"
       result.lines.each { |line| puts "  #{line}" }
     end
+
+    desc "Remove the assets of the kinds a software turned off from its releases (NAME= one software; DRY_RUN=1 only lists)"
+    task purge_disabled: :environment do
+      dry = ENV["DRY_RUN"] == "1"
+      softwares = ENV["NAME"].present? ? [ WarpEngine::Software.kept.find_by!(name: ENV["NAME"]) ] : nil
+      result = WarpEngine::DisabledKindsService.new.purge(softwares: softwares, dry_run: dry)
+      puts "Assets of disabled kinds removed#{' (dry run)' if dry}: #{result.count}"
+      result.lines.each { |line| puts "  #{line}" }
+    end
   end
 end

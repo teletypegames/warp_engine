@@ -882,13 +882,21 @@ reads the module). The kind is optional: a build without docs misses nothing.
 
 A software can turn off the asset kinds that do not work for it — say a C64 program
 that needs network hardware no emulator has. The names are the kinds its platform
-does not require, and `web` for the web play (in a runtime, or from the `html`
-build); `GET /build/platforms/<name>` lists them under the `disable` option. A
+does not require, `web` for the web play (in a runtime, or from the `html`
+build), and `stores` for the store engines (RetroArch, Batocera, see *Store
+engines*) where they carry the platform; `GET /build/platforms/<name>` lists them
+under the `disable` option. A
 disabled kind is not built and not uploaded by the pipeline, a release is not
 expected to have it (asset coverage, build checks), the catalog leaves it out also
 of the releases published before, and with `web` the software plays nowhere on the
-web (no `playUrl`, no `players`, `/play` answers 404). The files stay where they
-are; turning the kind on again brings them back.
+web (no `playUrl`, no `players`, `/play` answers 404). The catalog tells the list
+on the software as `disabledKinds` (WECP `api: 5`), and a store engine (we-core
+1.7.0 and later) skips a software whose list has `stores`.
+
+The assets of a disabled kind go from the releases published before as well: the
+publish that stores the list soft-deletes them and removes their files, and
+`rake warp_engine:releases:purge_disabled` (`NAME=` for one software, `DRY_RUN=1`
+to list only) does the same after a change made in the admin or from code.
 
 From the repository, in the marker (names separated by spaces or commas, or a YAML
 list); the publish stores them on the software, so they hold until the marker

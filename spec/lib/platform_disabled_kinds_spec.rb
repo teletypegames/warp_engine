@@ -4,10 +4,10 @@ RSpec.describe "disabled kinds" do
   let(:c64) { WarpEngine::Platform.find!("c64") }
 
   describe WarpEngine::Platform do
-    it "lists what a software may turn off: the kinds it does not require, and web when it plays on the web" do
-      expect(c64.disableable_kinds).to eq(%w[docs win_x64 linux_x64 mac_arm64 web])
+    it "lists what a software may turn off: the kinds it does not require, web when it plays on the web, stores when a store engine carries it" do
+      expect(c64.disableable_kinds).to eq(%w[docs win_x64 linux_x64 mac_arm64 web stores])
       expect(WarpEngine::Platform.find!("phaser").disableable_kinds).to eq(%w[web])
-      expect(WarpEngine::Platform.find!("golang").disableable_kinds).not_to include("web", "cli_linux_x64")
+      expect(WarpEngine::Platform.find!("golang").disableable_kinds).not_to include("web", "stores", "cli_linux_x64")
     end
 
     it "leaves the disabled kinds out of every list, and plays nowhere on the web without web" do
@@ -44,6 +44,44 @@ RSpec.describe "disabled kinds" do
       expect(WarpEngine::Platform.kind_list(" web, win_x64  web ")).to eq(%w[web win_x64])
       expect(WarpEngine::Platform.kind_list([ :docs, "", "web" ])).to eq(%w[docs web])
       expect(WarpEngine::Platform.kind_list(nil)).to eq([])
+    end
+  end
+
+  describe WarpEngine::DisabledKindsService do
+    let(:tmpdir) { Dir.mktmpdir }
+    let(:software) { create(:software, name: "gate", platform: "c64") }
+    let(:release) { create(:release, software: software, version: "1.0.0") }
+
+    before do
+      allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
+      %w[cartridge win_x64 linux_x64].each do |kind|
+        path = File.join(tmpdir, "gate", "1.0.0", "gate-1.0.0-#{kind}")
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, kind)
+        release.release_assets.create!(kind: kind, path: path)
+      end
+    end
+
+    after { FileUtils.rm_rf(tmpdir) }
+
+    it "lists the assets of the disabled kinds in a dry run and leaves them" do
+      software.update!(disabled_kinds: %w[web win_x64 linux_x64])
+
+      report = described_class.new.purge(dry_run: true)
+
+      expect(report.count).to eq(2)
+      expect(report.lines.first).to start_with("gate 1.0.0: remove ")
+      expect(release.release_assets.kept.count).to eq(3)
+    end
+
+    it "soft-deletes the assets of the disabled kinds and removes their files, the rest stays" do
+      software.update!(disabled_kinds: %w[stores win_x64])
+
+      described_class.new.purge(softwares: [ software ])
+
+      expect(release.release_assets.kept.map(&:kind)).to contain_exactly("cartridge", "linux_x64")
+      expect(File.exist?(File.join(tmpdir, "gate", "1.0.0", "gate-1.0.0-win_x64"))).to be(false)
+      expect(File.exist?(File.join(tmpdir, "gate", "1.0.0", "gate-1.0.0-cartridge"))).to be(true)
     end
   end
 

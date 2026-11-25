@@ -1,10 +1,10 @@
 module WarpEngine
   # The gem version of the engine.
-  VERSION = "5.14.0"
+  VERSION = "5.15.0"
 
   # The name of the HTTP header that carries the engine VERSION.
   VERSION_HEADER = "WarpEngine-Version".freeze
 
   # The version of the catalog API envelope served to clients.
-  API_VERSION = 4
+  API_VERSION = 5
 end

@@ -107,6 +107,11 @@ module WarpEngine
     # platform's WebBinding list (see #without).
     WEB = "web".freeze
 
+    # The name that, among the disabled kinds, takes the software out of the
+    # store engines (WarpEngine::StoreClients: RetroArch, Batocera), which
+    # skip it.
+    STORES = "stores".freeze
+
     # The platform name as a String.
     attr_reader :name
 
@@ -123,12 +128,17 @@ module WarpEngine
     end
 
     # Returns the names a software may disable on the platform: the kinds it
-    # expects but does not require, and WEB when it plays on the web (in a
-    # runtime, or from its +html+ build).
+    # expects but does not require, WEB when it plays on the web (in a
+    # runtime, or from its +html+ build), and STORES when a store engine
+    # carries the platform.
     def disableable_kinds
       web = enabled_web_bindings.any? || definition.expected_kinds.include?("html")
-      (definition.expected_kinds - definition.required_kinds) + (web ? [ WEB ] : [])
+      (definition.expected_kinds - definition.required_kinds) + (web ? [ WEB ] : []) + (in_stores? ? [ STORES ] : [])
     end
+
+    # Returns +true+ when a store engine (WarpEngine::StoreClients) carries
+    # the platform.
+    def in_stores? = WarpEngine::StoreClients.platforms.include?(name)
 
     # Returns this platform without +kinds+ (see Platform.kind_list; the
     # names of #disableable_kinds count, any other is ignored): its pipeline

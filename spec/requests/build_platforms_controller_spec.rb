@@ -33,7 +33,7 @@ RSpec.describe "Build platforms endpoint", type: :request do
   it "lists the marker options each platform takes" do
     get "/build/platforms/c64"
     options = JSON.parse(response.body)["options"].to_h { |option| [ option["name"], option["values"] ] }
-    expect(options).to eq("release" => %w[push tag], "disable" => %w[docs win_x64 linux_x64 mac_arm64 web], "build" => %w[make], "media" => %w[prg d64])
+    expect(options).to eq("release" => %w[push tag], "disable" => %w[docs win_x64 linux_x64 mac_arm64 web stores], "build" => %w[make], "media" => %w[prg d64])
 
     get "/build/platforms/golang"
     expect(JSON.parse(response.body)["options"].map { |option| option["name"] }).to eq(%w[release app disable])

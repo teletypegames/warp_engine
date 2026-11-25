@@ -19,6 +19,7 @@ module WarpEngine
           property :platform, String, desc: "Platform (one of WarpEngine::Platform.names)"
           property :status, String, desc: "Status (development, demo, released, archived)"
           property :highlighted, :boolean, desc: "Highlighted flag"
+          property :disabledKinds, Array, of: String, desc: "The asset kinds the software turns off; web: no web play, stores: the store engines skip it"
           property :imageUrl, String, desc: "Default image URL"
         end
         property :releases, Array, desc: "All releases" do

@@ -17,7 +17,8 @@ module WarpEngine
     # with +platform+, +name+, +version+ and optionally +app+) through WarpEngine::Platform#publish,
     # then instruments NOTIFICATION. When +input+ has a +disable+ (the CI
     # marker's), the kinds of it the platform lets a software turn off become
-    # the software's WarpEngine::Software#disabled_kinds.
+    # the software's WarpEngine::Software#disabled_kinds, and the assets of
+    # those kinds go from its releases (WarpEngine::DisabledKindsService).
     #
     # [source] where the upload came from: +:ci+ (default) or +:sync+, another
     #          engine (WarpEngine::Sync), whose releases are not pushed on;
@@ -76,6 +77,7 @@ module WarpEngine
 
       platform = WarpEngine::Platform.find!(input.platform, app: input.try(:app).presence)
       release.software.update!(disabled_kinds: WarpEngine::Platform.kind_list(input.disable) & platform.disableable_kinds)
+      WarpEngine::DisabledKindsService.new.purge(softwares: [ release.software ])
     end
 
     def refuse_stale!(input)

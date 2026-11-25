@@ -1,7 +1,9 @@
 module WarpEngine
   # Catalog view of a WarpEngine::Software: id, timestamps (see
   # WarpEngine::TimestampFields), name, title, author, descriptions, license,
-  # platform, status, category, owner id, highlighted flag, external links,
+  # platform, status, category, owner id, highlighted flag, +disabledKinds+
+  # (WarpEngine::Software#disabled_kinds: <tt>stores</tt> among them keeps
+  # the store engines from offering it), external links,
   # the platform's links, the default image URL and the image gallery; and
   # for forking: +source+ (the source link with +url+, +ref+, +public+ and
   # +verifiedAt+, or +null+), +forksAllowed+ (WarpEngine::Software#forkable?),
@@ -26,6 +28,7 @@ module WarpEngine
 
     field(:ownerId) { |sw| sw.owner_id }
     field(:highlighted)  { |sw| sw.highlighted ? true : false }
+    field(:disabledKinds) { |sw| sw.disabled_kinds }
     field(:externalLinks) { |sw| ExternalLinkSerializer.render_as_hash(sw.external_links) }
     field(:source) { |sw|
       link = sw.source_link

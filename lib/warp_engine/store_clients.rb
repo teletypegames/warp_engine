@@ -28,5 +28,10 @@ module WarpEngine
 
     # Returns the Client named +key+, or +nil+.
     def find(key) = ALL[key.to_s]
+
+    # Returns the platform names any store engine's config template carries.
+    def platforms
+      @platforms ||= ALL.values.flat_map { |client| client.config_template.fetch("platforms", {}).keys }.uniq.freeze
+    end
   end
 end
