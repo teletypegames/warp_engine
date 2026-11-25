@@ -51,7 +51,7 @@ module WarpEngine
       LEGACY_RELEASE_STEPS = %w[package].freeze
       # The shell functions a template step may call, each with the script in
       # <tt>scripts/</tt> that defines it and is put before the step's commands.
-      HELPER_SCRIPTS = { "warp_target" => "pack", "warp_godoc" => "godoc" }.freeze
+      HELPER_SCRIPTS = { "warp_target" => "pack", "warp_godoc" => "godoc", "warp_cdoc" => "cdoc", "warp_tsdoc" => "tsdoc" }.freeze
       # The kinds that are native programs: built for one system and packed by +warp_target+.
       NATIVE_KIND = /\A(?:cli_)?(?:win|linux|mac)_/
       # The commands of the +check+ step.

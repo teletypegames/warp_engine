@@ -1,6 +1,5 @@
 <%- disk = options["media"] == "d64" -%>
-<%# C sources (Oscar64, cc65) under src/ get Doxygen docs: the comments are
-    plain /* */ ones, which the awk filter turns into Doxygen's /** */. -%>
+<%# C sources (Oscar64, cc65) under src/ get Doxygen docs (warp_cdoc). -%>
 <%- file = disk ? "#{name}.d64" : "#{name}.prg" -%>
 steps:
   - name: build
@@ -25,55 +24,10 @@ steps:
     artifacts: [ "*-docs.zip" ]
     image: <%= tools || "alpine" %>
     commands:
-      - |
-        if ! find src -name '*.c' -o -name '*.h' 2>/dev/null | grep -q .; then
-          echo "==> No C sources under src/: no docs"
-          exit 0
-        fi
 <%- unless tools -%>
-        apk add --no-cache doxygen zip >/dev/null
+      - W_SETUP='apk add --no-cache doxygen zip >/dev/null'
 <%- end -%>
-        VERSION=$(cat .version)
-        TITLE=$(sed -n 's/.*"title"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' metadata.json 2>/dev/null | head -n 1)
-        [ -n "$TITLE" ] || TITLE=<%= name %>
-        INPUT=src
-        [ -f README.md ] && INPUT="src README.md"
-        cat > /tmp/c-docs.awk <<'AWK'
-        FNR == 1 { state = 0 }
-        state == 0 && /^[ \t]*$/ { print; next }
-        state == 0 && /^\/\*([^*!]|$)/ { sub(/^\/\*/, "/**"); state = 1 }
-        state == 0 { state = 2 }
-        state == 1 { if (sub(/\*\//, "@file */")) state = 2; print; next }
-        match($0, /^[ \t]*\/\*/) && substr($0, RLENGTH + 1, 1) ~ /^ ?$/ { $0 = substr($0, 1, RLENGTH) "*" substr($0, RLENGTH + 1) }
-        { sub(/;[ \t]*\/\* /, "; /**< "); print }
-        AWK
-        echo "==> Generating the docs of $TITLE $VERSION with Doxygen"
-        rm -rf docs
-        {
-          [ -f Doxyfile ] && cat Doxyfile
-          echo "PROJECT_NAME = \"$TITLE\""
-          echo "PROJECT_NUMBER = \"$VERSION\""
-          echo "INPUT = $INPUT"
-          echo "USE_MDFILE_AS_MAINPAGE = README.md"
-          echo "IMAGE_PATH = ."
-          echo "FILE_PATTERNS = *.c *.h"
-          echo "RECURSIVE = YES"
-          echo "FILTER_PATTERNS = \"*.c=awk -f /tmp/c-docs.awk\" \"*.h=awk -f /tmp/c-docs.awk\""
-          echo "OPTIMIZE_OUTPUT_FOR_C = YES"
-          echo "EXTRACT_ALL = YES"
-          echo "EXTRACT_STATIC = YES"
-          echo "SOURCE_BROWSER = YES"
-          echo "FULL_PATH_NAMES = YES"
-          echo "STRIP_FROM_PATH = ."
-          echo "OUTPUT_DIRECTORY = docs"
-          echo "HTML_OUTPUT = html"
-          echo "GENERATE_LATEX = NO"
-          echo "HAVE_DOT = NO"
-          echo "QUIET = YES"
-          echo "WARNINGS = NO"
-        } | doxygen -
-        (cd docs/html && zip -qr ../../<%= name %>-$VERSION-docs.zip .)
-        ls -lh <%= name %>-$VERSION-docs.zip
+      - warp_cdoc c src '*.c' '*.h'
 <%- end -%>
 <%- if targets.any? -%>
 

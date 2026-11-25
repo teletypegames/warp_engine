@@ -614,7 +614,7 @@ there — and an empty map (default) disables the feature. `tools` is an optiona
 image for the helper steps (version, lint, minify, docs, upload, publish): without
 it they run in `alpine` and install what they need first on every run (`apk add`
 git, jq, curl, zip, lua5.4; `luarocks install` luacheck and ldoc for tic80;
-doxygen for the c64 and plus4 docs); with
+doxygen for the c64, plus4 and dos docs); with
 it they run in that image and install nothing, so it must already have those, with
 Lua 5.4 as `lua`. Set the Woodpecker side with
 `WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://your-host/build/config` (or
@@ -845,6 +845,12 @@ The version is the tag without its `v`. The folder zip becomes the `cartridge`
 (`we-dos-0.6.0-win-x86.zip`), byte for byte the files of the forge release.
 DOS releases are download only.
 
+Every release gets its docs too: the `docs` step runs Doxygen over the C++ under
+`SOURCE/` (`*.cpp`, `*.h`) the way the c64 step reads `src/`, with `README.md` as the
+main page, and uploads `<name>-<version>-docs.zip`. Plain `/* */` comments are read
+as documentation; vendored libraries with upper-case file names (mTCP's `*.H`) are
+left out by the patterns. The kind is optional.
+
 #### The `electron` platform
 
 Desktop apps written with [Electron](https://www.electronjs.org): a store client, a
@@ -870,6 +876,12 @@ build to play.
 The Windows installer needs an x86_64 CI agent: Wine does not start in an emulated amd64
 container on an Apple Silicon machine (16 KB memory pages). There the optional `win_x64`
 is left out with a warning, so the rest of the release still goes out.
+
+A `docs` step gives every release its docs: after `npm ci` it runs a pinned
+[TypeDoc](https://typedoc.org) through `npx` over the TypeScript under `src/` with the
+app's `tsconfig.json`, `README.md` as the front page and the title and version on the
+pages, and uploads `<name>-<version>-docs.zip`. A `typedoc.json` in the repo takes over
+the other settings. Without TypeScript sources there are no docs; the kind is optional.
 
 #### The `golang` platform
 

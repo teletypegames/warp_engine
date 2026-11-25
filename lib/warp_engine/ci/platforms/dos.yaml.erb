@@ -7,6 +7,17 @@ steps:
       - dos-check
       - dos-build
       - dos-test
+<%- if kinds.include?("docs") -%>
+
+  - name: docs
+    artifacts: [ "*-docs.zip" ]
+    image: <%= tools || "alpine" %>
+    commands:
+<%- unless tools -%>
+      - W_SETUP='apk add --no-cache doxygen zip >/dev/null'
+<%- end -%>
+      - warp_cdoc c++ SOURCE '*.cpp' '*.h'
+<%- end -%>
 
   - name: package
     release: true

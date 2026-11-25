@@ -70,6 +70,7 @@ module WarpEngine
       label "Electron"
       kind :linux_x64, required: true
       kind :win_x64, optional: true
+      kind :docs, optional: true
       kind :mac_x64, built: false
       kind :mac_arm64, built: false
       version_source "sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' package.json 2>/dev/null | head -n 1",
@@ -101,6 +102,7 @@ module WarpEngine
       label "DOS"
       kind :cartridge, ext: ".zip", required: true
       kind :win_x86, optional: true
+      kind :docs, optional: true
       libretro "dosbox_pure", name: "DOSBox Pure"
       web :emulatorjs, core: :libretro, launcher: "dos", isolated: true
       release_rule :tag

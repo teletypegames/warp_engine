@@ -39,7 +39,7 @@ RSpec.describe "Build platforms endpoint", type: :request do
     expect(JSON.parse(response.body)["options"].map { |option| option["name"] }).to eq(%w[release app disable])
 
     get "/build/platforms/dos"
-    expect(JSON.parse(response.body)["options"].to_h { |option| [ option["name"], option["values"] ] }).to eq("disable" => %w[win_x86 web])
+    expect(JSON.parse(response.body)["options"].to_h { |option| [ option["name"], option["values"] ] }).to eq("disable" => %w[win_x86 docs web])
   end
 
   it "tells a platform whose version comes from a command and whose metadata is Lua" do

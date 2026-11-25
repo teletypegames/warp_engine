@@ -12,7 +12,7 @@ RSpec.describe "The electron pipeline" do
   let(:steps) { YAML.safe_load(yaml)["steps"].to_h { |step| [ step["name"], step ] } }
 
   it "builds Linux, then Windows, in the builder image, then uploads, publishes and tags, with its npm check in place of make check" do
-    expect(steps.keys).to eq(%w[version binaries upload publish tag])
+    expect(steps.keys).to eq(%w[version binaries docs upload publish tag])
     expect(steps["binaries"]).to include("image" => "registry.example/electron-builder:1", "pull" => true)
   end
 

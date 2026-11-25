@@ -11,7 +11,7 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
     yaml = render(config_class, {})
     jobs = jobs_of.call(YAML.safe_load(yaml))
 
-    expect(jobs.keys).to eq(%w[version check test package upload publish tag])
+    expect(jobs.keys).to eq(%w[version check test docs package upload publish tag])
     expect(yaml).not_to include("ssh", "dist/store", "store_secret")
   end
 
@@ -69,7 +69,7 @@ RSpec.describe WarpEngine::CI::Gitlab::PipelineConfig do
     document = YAML.safe_load(described_class.new(platforms: { "dos" => { builder: "b", forge_release: true } })
                                              .render(platform: "dos", name: "x", update_server: "u"))
 
-    expect(document["stages"]).to eq(%w[version check test package upload publish tag release])
+    expect(document["stages"]).to eq(%w[version check test docs package upload publish tag release])
     expect(document.keys.first(2)).to eq(%w[stages version])
   end
 end

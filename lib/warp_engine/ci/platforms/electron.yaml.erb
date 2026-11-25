@@ -36,3 +36,12 @@ steps:
         <%- targets.each do |kind, args| -%>
         warp_target <%= args %> <%= { "linux_x64" => "electron_linux", "win_x64" => "electron_windows" }.fetch(kind) %>
         <%- end -%>
+<%- if kinds.include?("docs") -%>
+
+  - name: docs
+    artifacts: [ "*-docs.zip" ]
+    image: <%= builder %>
+    commands:
+      - npm ci --no-audit --no-fund
+      - warp_tsdoc
+<%- end -%>

@@ -36,7 +36,7 @@ RSpec.describe "Commodore pipelines" do
       it "generates versioned Doxygen docs from the C sources under src/" do
         yaml = render(config_class, { "build" => "make" })
 
-        expect(yaml).to include("doxygen -", "PROJECT_NUMBER", "we-c64-$VERSION-docs.zip")
+        expect(yaml).to include("doxygen -", "PROJECT_NUMBER", "NAME='we-c64'", "warp_cdoc c src '*.c' '*.h'")
         expect { YAML.safe_load(yaml) }.not_to raise_error
       end
 
@@ -46,7 +46,7 @@ RSpec.describe "Commodore pipelines" do
         Dir.mktmpdir do |dir|
           output, status = Open3.capture2e("sh", "-c", script, chdir: dir)
           expect(status).to be_success
-          expect(output).to include("No C sources under src/")
+          expect(output).to include("No sources under src/: no docs")
         end
       end
 

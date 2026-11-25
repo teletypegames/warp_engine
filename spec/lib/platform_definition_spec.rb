@@ -12,7 +12,7 @@ RSpec.describe WarpEngine::Platform do
       "godot"      => [ %w[html win_x86 win_x64 linux_x64 mac_universal], %w[html] ],
       "bevy"       => [ %w[html win_x64 linux_x64 linux_arm64], %w[html] ],
       "phaser"     => [ %w[html], %w[html] ],
-      "dos"        => [ %w[cartridge win_x86], %w[cartridge] ]
+      "dos"        => [ %w[cartridge win_x86 docs], %w[cartridge] ]
     }.each do |name, (expected, required)|
       it "gives #{name} the kinds it accepts and requires" do
         platform = described_class.find!(name)
@@ -24,7 +24,7 @@ RSpec.describe WarpEngine::Platform do
 
     it "keeps the kinds a pipeline does not build out of the built ones" do
       expect(described_class.find!("ebitengine").built_kinds).to eq(%w[html win_x86 win_x64 linux_x64 linux_arm64 docs])
-      expect(described_class.find!("dos").optional_kinds).to eq(%w[win_x86])
+      expect(described_class.find!("dos").optional_kinds).to eq(%w[win_x86 docs])
       expect(described_class.find!("c64").optional_kinds).to eq(%w[docs])
     end
 
