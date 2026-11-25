@@ -6,11 +6,11 @@ RSpec.describe WarpEngine::Platform do
     {
       "tic80"      => [ %w[cartridge source html docs win_x64 linux_x64 mac_x64], %w[cartridge] ],
       "ebitengine" => [ %w[html win_x86 win_x64 linux_x64 linux_arm64 docs mac_x64 mac_arm64], %w[html] ],
-      "love"       => [ %w[html win_x64 linux_x64 mac_universal], %w[html] ],
+      "love"       => [ %w[html win_x64 linux_x64 mac_universal docs], %w[html] ],
       "c64"        => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
       "plus4"      => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
       "godot"      => [ %w[html win_x86 win_x64 linux_x64 mac_universal], %w[html] ],
-      "bevy"       => [ %w[html win_x64 linux_x64 linux_arm64], %w[html] ],
+      "bevy"       => [ %w[html win_x64 linux_x64 linux_arm64 docs], %w[html] ],
       "phaser"     => [ %w[html], %w[html] ],
       "dos"        => [ %w[cartridge win_x86 docs], %w[cartridge] ]
     }.each do |name, (expected, required)|

@@ -1,12 +1,14 @@
 require "rails_helper"
 require_relative "../support/pipeline_helpers"
 
-RSpec.describe "Source docs of the dos and electron pipelines" do
+RSpec.describe "Source docs of the dos, electron, love and bevy pipelines" do
   cases = {
     "dos" => { call: "warp_cdoc c++ SOURCE '*.cpp' '*.h'", helper: "warp_cdoc() {", image: "registry.example/ci-tools:1",
                skip: "No sources under SOURCE/: no docs" },
     "electron" => { call: "warp_tsdoc", helper: "warp_tsdoc() {", image: "registry.example/builder:1",
-                    skip: "No TypeScript sources under src/: no docs" }
+                    skip: "No TypeScript sources under src/: no docs" },
+    "love" => { call: "warp_ldoc", helper: "warp_ldoc() {", image: "registry.example/ci-tools:1", skip: "No Lua sources: no docs" },
+    "bevy" => { call: "warp_rustdoc", helper: "warp_rustdoc() {", image: "registry.example/builder:1", skip: "No Cargo.toml: no docs" }
   }
 
   [ WarpEngine::CI::Woodpecker::PipelineConfig, WarpEngine::CI::Gitlab::PipelineConfig ].product(cases.keys).each do |config_class, platform|
@@ -52,6 +54,25 @@ RSpec.describe "Source docs of the dos and electron pipelines" do
 
     expect(status).to be_success
     expect(uploaded_files(calls)).to include("game-1.0-docs.zip", "game-1.0-linux-x64.zip")
+  end
+
+  %w[love bevy].each do |platform|
+    it "uploads the #{platform} docs when the build made them" do
+      yaml = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { platform => { builder: "b" } })
+                                                       .render(platform: platform, name: "game", update_server: "https://games.example")
+      files = { "game-1.0.html.zip" => "z", "game-1.0-docs.zip" => "z", "metadata.json" => "{}" }
+      calls, status = run_with_fake_curl(step_script(yaml, "upload"), files: files)
+
+      expect(status).to be_success
+      expect(uploaded_files(calls)).to include("game-1.0-docs.zip", "game-1.0.html.zip")
+    end
+  end
+
+  it "installs LDoc for the love docs where there is no tools image" do
+    yaml = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "love" => { builder: "b" } })
+                                                     .render(platform: "love", name: "game", update_server: "https://games.example")
+
+    expect(step_script(yaml, "docs")).to include("W_SETUP='apk add", "luarocks install ldoc")
   end
 
   it "uploads the dos docs beside the program folder" do

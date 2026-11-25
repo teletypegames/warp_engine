@@ -33,6 +33,7 @@ module WarpEngine
       label "LÖVE"
       kind :html, required: true
       kinds :win_x64, :linux_x64, :mac_universal
+      kind :docs, optional: true
     end
 
     { c64: [ "C64", "vice_x64sc", "VICE x64sc" ], plus4: [ "Plus/4", "vice_xplus4", "VICE xplus4" ] }.each do |machine, (name, core, core_name)|
@@ -59,6 +60,7 @@ module WarpEngine
       label "Bevy"
       kind :html, required: true
       kinds :win_x64, :linux_x64, :linux_arm64
+      kind :docs, optional: true
     end
 
     define :phaser do

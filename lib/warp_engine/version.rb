@@ -1,6 +1,6 @@
 module WarpEngine
   # The gem version of the engine.
-  VERSION = "5.17.0"
+  VERSION = "5.18.0"
 
   # The name of the HTTP header that carries the engine VERSION.
   VERSION_HEADER = "WarpEngine-Version".freeze

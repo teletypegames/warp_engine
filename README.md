@@ -613,7 +613,7 @@ pipelines package the `.prg` into the browser player and the native players
 there — and an empty map (default) disables the feature. `tools` is an optional
 image for the helper steps (version, lint, minify, docs, upload, publish): without
 it they run in `alpine` and install what they need first on every run (`apk add`
-git, jq, curl, zip, lua5.4; `luarocks install` luacheck and ldoc for tic80;
+git, jq, curl, zip, lua5.4; `luarocks install` luacheck and ldoc for tic80 and love;
 doxygen for the c64, plus4 and dos docs); with
 it they run in that image and install nothing, so it must already have those, with
 Lua 5.4 as `lua`. Set the Woodpecker side with
@@ -882,6 +882,23 @@ A `docs` step gives every release its docs: after `npm ci` it runs a pinned
 app's `tsconfig.json`, `README.md` as the front page and the title and version on the
 pages, and uploads `<name>-<version>-docs.zip`. A `typedoc.json` in the repo takes over
 the other settings. Without TypeScript sources there are no docs; the kind is optional.
+
+#### Docs of the `love` and `bevy` platforms
+
+Both give every release its source docs in a `docs` step, the kind optional on each:
+
+- **love**: [LDoc](https://github.com/lunarmodules/ldoc) over every `*.lua` of the repo
+  (`bin/`, `dist/` and dot folders left out). Plain `--` comments are read as
+  documentation: the first comment block of a file describes the module, a block right
+  above a function documents it, and `---` comments stay as they are. Every function is
+  listed, local ones and those with no comment too. A `config.ld` in the repo takes over
+  the settings. The step runs in the `tools` image, or installs LDoc in `alpine`.
+- **bevy**: `cargo doc --no-deps --document-private-items` in the builder image, since a
+  game is a binary crate with no public API; the comments are the usual `///` and `//!`
+  ones, and an `index.html` at the top leads to the crate's page.
+
+Each uploads `<name>-<version>-docs.zip`; a repo with no Lua sources or no `Cargo.toml`
+gets no docs and nothing fails.
 
 #### The `golang` platform
 

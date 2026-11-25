@@ -43,7 +43,7 @@ RSpec.describe WarpEngine::BuildsService do
       result = described_class.new.show("test-game")
 
       expect(result[:platform]).to eq("love")
-      expect(result[:expected]).to match_array(%w[html win_x64 linux_x64 mac_universal])
+      expect(result[:expected]).to match_array(%w[html win_x64 linux_x64 mac_universal docs])
       expect(result[:releases]["1.0.0"][:actual]).to match_array(%w[html win_x64])
       expect(result[:releases]["1.0.0"][:missing]).to match_array(%w[linux_x64 mac_universal])
     end

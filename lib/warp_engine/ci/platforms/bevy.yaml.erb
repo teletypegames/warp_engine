@@ -54,3 +54,11 @@ steps:
         <%- targets.each do |kind, args| -%>
         warp_target <%= args %> cargo_build <%= rust.fetch(kind).map { |a| "'#{a}'" }.join(" ") %>
         <%- end -%>
+<%- if kinds.include?("docs") -%>
+
+  - name: docs
+    artifacts: [ "*-docs.zip" ]
+    image: <%= builder %>
+    commands:
+      - warp_rustdoc
+<%- end -%>
