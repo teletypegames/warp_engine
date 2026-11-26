@@ -7,6 +7,15 @@ module WarpEngine
   # (<tt>lib/warp_engine/ci/platforms/<template>.yaml.erb</tt>), and the
   # runtimes its releases play in on the web (WarpEngine::Runtime).
   class Platform
+    # The keys the web player of a Commodore machine plays its joystick with
+    # (<tt>KeyboardEvent.code</tt> values): the arrows and Space, F9 switching
+    # between the joystick and the machine's keyboard. The joystick is on at
+    # the start for a software of the +categories+, the keyboard for the rest.
+    COMMODORE_JOYSTICK = {
+      "up" => "ArrowUp", "down" => "ArrowDown", "left" => "ArrowLeft", "right" => "ArrowRight",
+      "fire" => "Space", "toggle" => "F9", "categories" => %w[game]
+    }.freeze
+
     define :tic80 do
       label "TIC-80"
       kind :cartridge, ext: ".tic", required: true
@@ -43,7 +52,7 @@ module WarpEngine
         kind :docs, optional: true
         kinds :win_x64, :linux_x64, :mac_arm64
         libretro core, name: core_name
-        web :emulatorjs, core: :libretro, options: { "keyboardInput" => "enabled" }
+        web :emulatorjs, core: :libretro, options: { "keyboardInput" => "enabled" }, joystick: COMMODORE_JOYSTICK
         ci template: "commodore", machine: machine.to_s
         option :build, values: %w[make], description: "make: the repository's Makefile builds <name>.prg (or .d64) instead of ACME on main.asm"
         option :media, values: %w[prg d64], description: "d64: the release is a disk image the Makefile builds; prg (default): a program file"

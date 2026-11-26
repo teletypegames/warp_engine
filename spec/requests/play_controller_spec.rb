@@ -3,7 +3,7 @@ require_relative "../support/runtime_helpers"
 
 RSpec.describe "GET /play/:name/:version", type: :request do
   let(:tmpdir) { Dir.mktmpdir }
-  let(:software) { create(:software, name: "rabbit", title: "Rabbit & Co", platform: "c64") }
+  let(:software) { create(:software, name: "rabbit", title: "Rabbit & Co", platform: "c64", category: "game") }
   let(:runtime) do
     install_runtime_version(name: "emulatorjs", version: "4.2.3", files: { "loader.js" => "loader" },
                             components: { "core" => %w[vice_x64sc vice_x64] })
@@ -30,6 +30,15 @@ RSpec.describe "GET /play/:name/:version", type: :request do
                                      'const payloadUrl = await receivePayload("/file/rabbit-1.0.0.prg", true)', 'const runtimeUrl = "/file/_runtimes/emulatorjs-4.2.3/"',
                                      '"keyboardInput":"enabled"', '"speed":"2"', "EJS_threads: false")
     expect(response.headers["Cross-Origin-Embedder-Policy"]).to be_nil
+  end
+
+  it "plays the joystick from the arrows and Space, starting on it for a game" do
+    get "/play/rabbit/1.0.0"
+
+    expect(response.body).to include('"joystick":{"up":"ArrowUp","down":"ArrowDown","left":"ArrowLeft","right":"ArrowRight",' \
+                                     '"fire":"Space","toggle":"F9","categories":["game"]}',
+                                     'const category = "game"', 'addEventListener("keydown", onKey, true)',
+                                     "EJS_VirtualGamepadSettings")
   end
 
   it "does not play when the software turns the web off" do
@@ -117,6 +126,14 @@ RSpec.describe "GET /play-preview/:platform", type: :request do
                                      '"core":"vice_x64sc"', '"speed":"2"', '"warpengine.payload"',
                                      'parent.postMessage({ type: "warpengine.ready" }, "*")', "event.source !== window",
                                      'navigator.getAutoplayPolicy("audiocontext") === "allowed"')
+  end
+
+  it "passes the category a local build gives, none without it" do
+    get "/play-preview/c64", params: { payload: "message", category: "tool" }
+    expect(response.body).to include('const category = "tool"', '"toggle":"F9"')
+
+    get "/play-preview/c64", params: { payload: "message" }
+    expect(response.body).to include("const category = null")
   end
 
   it "takes the file only as a message" do

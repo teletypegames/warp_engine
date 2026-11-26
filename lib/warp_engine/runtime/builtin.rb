@@ -47,6 +47,7 @@ module WarpEngine
       param :core, required: true, component: :core
       param :options, type: :hash, default: {}
       param :controls, type: :hash, default: KEYBOARD_TO_MACHINE
+      param :joystick, type: :hash, default: {}
       param :launcher
       param :dos_root, default: "APPS"
       template "emulatorjs.html"

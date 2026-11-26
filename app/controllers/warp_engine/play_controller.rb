@@ -44,6 +44,7 @@ module WarpEngine
     param :title, String, required: false, desc: "The page title"
     param :params, String, required: false, desc: "The runtime parameters as JSON (a metadata's web.params)"
     param :start, String, required: false, desc: "The program a launcher starts"
+    param :category, String, required: false, desc: "The software's category; a joystick player starts on the keyboard outside its categories"
     returns code: 200, desc: "HTML page"
     error code: 400, desc: "The payload is not message, or params is not JSON"
     error code: 404, desc: "The platform does not play on the web (in that binding)"
@@ -81,7 +82,8 @@ module WarpEngine
         "runtime_url" => "#{file_path(path: page.runtime_version.path)}/",
         "isolated" => page.isolated?,
         "params" => page.params,
-        "start" => params[:start].presence
+        "start" => params[:start].presence,
+        "category" => params[:category].presence
       }
     end
 
@@ -94,7 +96,8 @@ module WarpEngine
         "runtime_url" => "#{file_path(path: page.runtime_version.path)}/",
         "isolated" => page.isolated?,
         "params" => page.params,
-        "start" => page.release.web_options.to_h["start"]
+        "start" => page.release.web_options.to_h["start"],
+        "category" => page.software.category
       }
     end
   end

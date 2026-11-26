@@ -1167,7 +1167,8 @@ repositories in `owner`.
 
 `GET /play-preview/:platform(/:binding)?payload=message` renders the platform's runtime page
 for a build that is not in the catalog yet, with the runtime version new releases get;
-`params` (JSON, a metadata's `web.params`), `title` and `start` are optional. The page fetches
+`params` (JSON, a metadata's `web.params`), `title`, `start` and `category` are optional
+(without `category` a joystick player starts on the joystick). The page fetches
 no build: it posts `{ type: "warpengine.ready" }` to its parent and plays the file posted back
 to it — by its parent, or by a script of the page itself posting to its own window — as
 `{ type: "warpengine.payload", name, data }` (`data` an `ArrayBuffer` or typed array).
@@ -1399,8 +1400,22 @@ A binding may say `isolated: true` when its runtime needs `SharedArrayBuffer` (a
 threaded core): the page is then served with `Cross-Origin-Opener-Policy` and
 `Cross-Origin-Embedder-Policy`. A template is plain HTML with `{{ title }}`
 (escaped) and `{{ json params.core }}` (JSON for a script) placeholders; it sees
-`title`, `name`, `version`, `payload_url`, `runtime_url`, `isolated`, `params` and
-`start`.
+`title`, `name`, `version`, `payload_url`, `runtime_url`, `isolated`, `params`,
+`start` and `category` (the software's).
+
+The C64 and the Plus/4 play their joystick (port 2) from the keyboard too: the
+EmulatorJS binding's `joystick` parameter names the keys (`KeyboardEvent.code`
+values), the arrows and Space by default, and the page hands those to the
+joystick instead of the machine. F9 (`toggle`) switches between the joystick and
+the machine's keyboard; a software of the `categories` (`game`) starts on the
+joystick, the rest (a tool, a store) on the keyboard. A gamepad stays the
+joystick, and on a phone or tablet the page shows a D-pad and a Fire button.
+
+```ruby
+platform_web :c64, :emulatorjs, as: :wasd, core: "vice_x64sc", options: { "keyboardInput" => "enabled" },
+             joystick: { "up" => "KeyW", "down" => "KeyS", "left" => "KeyA", "right" => "KeyD",
+                         "fire" => "ShiftRight", "toggle" => "F9", "categories" => %w[game] }
+```
 
 ### Publishing and playing
 

@@ -38,6 +38,7 @@ RSpec.describe WarpEngine::Runtime do
 
       expect(params).to include("core" => "vice_x64sc", "options" => { "a" => 1, "b" => 2 })
       expect(params["controls"]).to eq(described_class::KEYBOARD_TO_MACHINE)
+      expect(params["joystick"]).to eq({})
     end
 
     it "names an unknown parameter, a missing required one and a wrong type" do

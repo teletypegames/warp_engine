@@ -13,7 +13,7 @@ RSpec.describe WarpEngine::RuntimeMaintenanceService do
     allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
     stub_runtime(:emulatorjs, files: runtime_files, version: "4.2.3",
                               components: { core: [ "cores/%{key}-*wasm.data", "cores/reports/%{key}.json" ] },
-                              params: { core: { required: true, component: :core }, options: { type: :hash } })
+                              params: { core: { required: true, component: :core }, options: { type: :hash }, joystick: { type: :hash } })
   end
 
   after { FileUtils.rm_rf(tmpdir) }
