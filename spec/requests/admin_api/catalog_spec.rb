@@ -83,6 +83,18 @@ RSpec.describe "Admin API catalog", type: :request do
       expect(WarpEngine::Software.find(id)).not_to be_discarded
     end
 
+    it "reads and sets the platform variant of a software" do
+      api_post "/softwares", { name: "gogui", title: "Go GUI", platform: "golang", app: "gui" }
+      expect(response).to have_http_status(:created)
+      expect(json["data"]["app"]).to eq("gui")
+
+      api_patch "/softwares/#{json["data"]["id"]}", { app: "cli" }
+      expect(json["data"]["app"]).to eq("cli")
+
+      api_post "/softwares", { name: "tictac", title: "Tic", platform: "tic80" }
+      expect(json["data"]["app"]).to be_nil
+    end
+
     it "answers a failed validation with 422 and the fields" do
       create(:software, name: "taken")
 

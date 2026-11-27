@@ -33,7 +33,8 @@ module WarpEngine
         def software
           base = {
             id: S.id, name: S.string, title: S.string, author: text, desc: text, story: text,
-            license: text, platform: S.enum(WarpEngine::Platform.names), status: text, category: text,
+            license: text, platform: S.enum(WarpEngine::Platform.names),
+            app: S.nullable(S.string("The platform variant (cli, gui); null for the platform's default")), status: text, category: text,
             highlighted: S.nullable(S.boolean), directoryName: text, ownerType: text, ownerId: S.nullable(S.integer),
             disabledKinds: S.array(S.string, "The asset kinds it turns off; web: the web play"),
             forksAllowed: S.boolean, forkOfEngine: text, forkOfName: text, forkOfVersion: text, forkOfRepo: text, **timestamps
@@ -52,6 +53,7 @@ module WarpEngine
           S.object({
             name: S.string("Internal name, unique"), title: S.string, author: text, desc: text, story: text,
             license: text, platform: S.enum(WarpEngine::Platform.names),
+            app: S.nullable(S.string("The platform variant (cli, gui) of a platform that has them; null for the default")),
             status: S.nullable(S.string("A key from software_statuses")),
             category: S.nullable(S.string("A key from software_categories; a new word is registered for review")),
             highlighted: S.boolean,

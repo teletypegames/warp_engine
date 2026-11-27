@@ -5,7 +5,7 @@ module WarpEngine
     # directory name, the disabled kinds, owner, the fork switch and parent, and timestamps.
     class SoftwareSerializer < Blueprinter::Base
       identifier :id
-      fields :name, :title, :author, :desc, :story, :license, :platform, :status, :category, :highlighted
+      fields :name, :title, :author, :desc, :story, :license, :platform, :app, :status, :category, :highlighted
       field :directory_name, name: :directoryName
       field :disabled_kinds, name: :disabledKinds
       field :owner_type, name: :ownerType
