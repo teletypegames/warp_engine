@@ -16,6 +16,30 @@ module WarpEngine
       "fire" => "Space", "toggle" => "F9", "categories" => %w[game]
     }.freeze
 
+    # The controls help of the Commodore machines beside the joystick rows
+    # the EmulatorJS runtime generates.
+    COMMODORE_CONTROLS = [
+      { "keys" => %w[Gamepad], "action" => "Joystick" },
+      { "keys" => [], "action" => "The other keys type on the machine's keyboard, by key position" }
+    ].freeze
+
+    # The controls help of DOS in EmulatorJS.
+    DOS_CONTROLS = [
+      { "keys" => [], "action" => "The keyboard goes straight to the program" }
+    ].freeze
+
+    # The controls help of the TIC-80 player: the keyboard plays the first
+    # gamepad (by key position), gamepads play the four players.
+    TIC80_CONTROLS = [
+      { "keys" => %w[ArrowUp ArrowDown ArrowLeft ArrowRight], "action" => "D-pad" },
+      { "keys" => %w[KeyZ], "action" => "A" },
+      { "keys" => %w[KeyX], "action" => "B" },
+      { "keys" => %w[KeyA], "action" => "X" },
+      { "keys" => %w[KeyS], "action" => "Y" },
+      { "keys" => %w[Gamepad], "action" => "Players 1 to 4" },
+      { "keys" => %w[Escape], "action" => "Menu" }
+    ].freeze
+
     define :tic80 do
       label "TIC-80"
       kind :package, ext: ".tic", required: true
@@ -25,7 +49,7 @@ module WarpEngine
       kinds :win_x64, :linux_x64, :mac_x64
       metadata :lua
       libretro "tic80", name: "TIC-80"
-      web :tic80
+      web :tic80, controls: TIC80_CONTROLS
       version_source "sed -n 's/^-- version: //p' inc/meta/meta.header.lua 2>/dev/null | head -n 1 | tr -d '[:space:]'"
     end
 
@@ -52,7 +76,8 @@ module WarpEngine
         kind :docs, optional: true
         kinds :win_x64, :linux_x64, :mac_arm64
         libretro core, name: core_name
-        web :emulatorjs, core: :libretro, options: { "keyboardInput" => "enabled" }, joystick: COMMODORE_JOYSTICK
+        web :emulatorjs, core: :libretro, options: { "keyboardInput" => "enabled" }, joystick: COMMODORE_JOYSTICK,
+                        controls: COMMODORE_CONTROLS
         ci template: "commodore", machine: machine.to_s
         option :build, values: %w[make], description: "make: the repository's Makefile builds <name>.prg (or .d64) instead of ACME on main.asm"
         option :media, values: %w[prg d64], description: "d64: the release is a disk image the Makefile builds; prg (default): a program file"
@@ -117,7 +142,7 @@ module WarpEngine
       kind :win_x86, optional: true
       kind :docs, optional: true
       libretro "dosbox_pure", name: "DOSBox Pure"
-      web :emulatorjs, core: :libretro, launcher: "dos", isolated: true
+      web :emulatorjs, core: :libretro, launcher: "dos", isolated: true, controls: DOS_CONTROLS
       release_rule :tag
       directory_folder DosFolder
     end

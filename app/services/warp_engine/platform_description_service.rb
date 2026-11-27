@@ -71,7 +71,8 @@ module WarpEngine
     #                  and +name+, or +nil+
     # [web]            the enabled web bindings: +key+, +runtime+, +label+,
     #                  +payload+, +default+, +params+ (the runtime's parameter names
-    #                  and types)
+    #                  and types), +controls+ (the binding's controls help rows,
+    #                  without the ones the runtime generates)
     # [ci]             +adapter+, +marker+ (file and content), +builder+ image,
     #                  +served+ (whether the adapter builds the platform)
     # [tooling]        what the host set with WarpEngine::Configuration#platform_tooling
@@ -188,7 +189,7 @@ module WarpEngine
       runtime = binding.runtime_object
       params = runtime ? runtime.definition.params.values.map { |param| { "name" => param.name.to_s, "type" => param.type.to_s } } : []
       { "key" => binding.key, "runtime" => binding.runtime, "label" => runtime&.definition&.label,
-        "payload" => binding.payload, "default" => binding.default, "params" => params }
+        "payload" => binding.payload, "default" => binding.default, "params" => params, "controls" => binding.controls }
     end
 
     def ci(platform)

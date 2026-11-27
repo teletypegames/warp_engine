@@ -1,3 +1,4 @@
+require "warp_engine/runtime/controls"
 require "warp_engine/runtime/definition"
 require "warp_engine/runtime/template"
 

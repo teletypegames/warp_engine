@@ -39,6 +39,26 @@ module WarpEngine
       "1" => {}, "2" => {}, "3" => {}
     }.freeze
 
+    # Returns the controls help rows of the EmulatorJS +joystick+ parameter
+    # (a Hash with String keys, see the page template): the joystick's
+    # direction keys, its fire key, the key that switches between the
+    # joystick and the machine's keyboard and the mode a software starts in.
+    # Empty when no joystick key is set.
+    def self.joystick_controls(joystick)
+      joystick = joystick.to_h
+      directions = %w[up down left right].filter_map { |direction| joystick[direction].presence }
+      fire = joystick["fire"].presence
+      return [] if directions.empty? && fire.nil?
+
+      rows = []
+      rows << Controls.row(directions, "Joystick") if directions.any?
+      rows << Controls.row(fire, "Fire") if fire
+      rows << Controls.row(joystick["toggle"], "Switch between the joystick and the machine's keyboard") if joystick["toggle"].present?
+      categories = Array(joystick["categories"]).map(&:to_s)
+      rows << Controls.row([], "Starts on the joystick for #{categories.join(', ')} software, on the keyboard otherwise") if categories.any?
+      rows
+    end
+
     define :emulatorjs do
       label "EmulatorJS"
       license "GPL-3.0-only"
@@ -51,6 +71,7 @@ module WarpEngine
       param :launcher
       param :dos_root, default: "APPS"
       template "emulatorjs.html"
+      controls { |params| Runtime.joystick_controls(params["joystick"]) }
     end
 
     define :tic80 do

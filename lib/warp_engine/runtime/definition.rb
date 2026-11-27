@@ -51,8 +51,10 @@ module WarpEngine
     # [template]   the path of the page template
     # [notice]     the path of the licence notice installed beside the files
     #              as WarpEngine::Runtime::NOTICE, or +nil+
+    # [controls]   the Proc that turns the resolved parameters into
+    #              WarpEngine::Runtime::Controls rows, or +nil+
     Definition = ::Data.define(:name, :label, :license, :source, :versions, :files, :components, :params, :template,
-                               :notice) do
+                               :notice, :controls) do
       # Returns +true+ when the files are downloaded from a pinned source.
       def download? = source == :download
 
@@ -90,6 +92,11 @@ module WarpEngine
           values[param.name.to_s] = value.is_a?(Hash) ? value.deep_stringify_keys : value
         end
       end
+
+      # Returns the WarpEngine::Runtime::Controls rows the runtime generates
+      # from +params+ (resolved parameters, see #resolve_params); empty when it
+      # generates none.
+      def controls_for(params) = controls ? Controls.normalize(controls.call(params.to_h)) : []
 
       # Returns the errors of the binding parameters +params+ (a Hash), as an
       # Array of messages; empty when they fit.
@@ -143,6 +150,7 @@ module WarpEngine
         @components = {}
         @params = {}
         @template = File.join(TEMPLATES, "#{@name}.html")
+        @controls = nil
         builtin_notice = File.join(NOTICES, "#{@name}.txt")
         @notice = builtin_notice if File.file?(builtin_notice)
       end
@@ -195,6 +203,13 @@ module WarpEngine
         @notice = File.exist?(value) ? value : File.join(NOTICES, value)
       end
 
+      # Sets the block that generates the controls help from the resolved
+      # parameters (a Hash with String keys); it returns rows for
+      # WarpEngine::Runtime::Controls.normalize.
+      #
+      #   controls { |params| [ { "keys" => [params["fire"]], "action" => "Fire" } ] }
+      def controls(&block) = @controls = block
+
       # Sets the page template: a builtin template name or a path.
       def template(value)
         value = value.to_s
@@ -210,7 +225,7 @@ module WarpEngine
 
         Definition.new(name: @name, label: @label, license: @license, source: @source, versions: @versions.freeze,
                        files: @files.freeze, components: @components.freeze, params: @params.freeze,
-                       template: @template, notice: @notice)
+                       template: @template, notice: @notice, controls: @controls)
       end
 
       # Returns the checksum file +path+ (lines of <tt>digest  file</tt>) as a

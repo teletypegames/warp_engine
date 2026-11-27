@@ -86,8 +86,9 @@ RSpec.describe "GET /play/:name/:version", type: :request do
 
     json = WarpEngine::ReleaseSerializer.render_as_hash(release.reload)
     expect(json[:playUrl]).to eq("/play/rabbit/1.0.0")
-    expect(json[:players]).to eq([ { binding: "emulatorjs", runtime: "emulatorjs", label: "EmulatorJS 4.2.3",
-                                     url: "/play/rabbit/1.0.0", default: true } ])
+    expect(json[:players].map { |player| player.except(:controls) })
+      .to eq([ { binding: "emulatorjs", runtime: "emulatorjs", label: "EmulatorJS 4.2.3", url: "/play/rabbit/1.0.0", default: true } ])
+    expect(json[:players].first[:controls].first).to eq("keys" => %w[ArrowUp ArrowDown ArrowLeft ArrowRight], "action" => "Joystick")
   end
 
   it "falls back to the html folder for a release that plays from one" do

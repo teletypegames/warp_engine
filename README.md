@@ -1430,7 +1430,39 @@ binding names; otherwise the release stays unbound and plays (if at all) from it
 
 `enabled: false` keeps a release off the web, its `html` folder too. The catalog API gives every release
 `playUrl` (its runtime page, else its `html` folder) and `players` (every binding
-it can play in now, with its URL: `/play/<name>/<version>/<binding>`).
+it can play in now, with its URL: `/play/<name>/<version>/<binding>`, and its `controls`).
+
+### Controls help
+
+Every player in `players` carries `controls`: what the keys do in that runtime, for a
+catalog to show beside the Play button. It is a list of rows, each with `keys`
+(`KeyboardEvent.code` values, or `Gamepad`; any of them does the action, empty for a
+row that only says something) and an English `action`:
+
+```json
+"controls": [ { "keys": ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"], "action": "Joystick" },
+              { "keys": ["Space"], "action": "Fire" },
+              { "keys": ["F9"], "action": "Switch between the joystick and the machine's keyboard" } ]
+```
+
+A key is a position, not a letter: `KeyZ` is the key labelled Y on a German or Hungarian
+keyboard, so a client shows the label of the viewer's layout where it can.
+
+The rows come from two places. A runtime generates some from the parameters the
+release plays with (`controls { |params| ... }` in the runtime DSL): EmulatorJS
+describes its `joystick` parameter, so a release that turns the joystick off has no
+joystick rows. A binding adds its own after them (`controls:`): the C64 and the Plus/4
+say that a gamepad is the joystick and the other keys are the machine's, DOS that the
+keyboard is the program's, TIC-80 lists its gamepad keys. A host changes a binding's rows
+like any other binding attribute:
+
+```ruby
+platform_web :dos, :emulatorjs, controls: [ { "keys" => [], "action" => "Mouse: click into the screen" } ]
+```
+
+A row with an unknown key or no action makes the binding invalid
+(`rake warp_engine:platforms:check`). `GET /build/platforms/:name` lists a binding's
+own rows under `web[].controls`.
 
 ### Moving releases
 
@@ -2543,6 +2575,12 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 6.2
+
+The catalog envelope is `api: 7`: every entry of a release's `players` has `controls`
+(see *Controls help*). Nothing else changes; a reader that ignores the field reads on.
+A host's own runtime may add `controls { |params| ... }`, a binding `controls:`.
 
 ## Upgrading to 6.0
 

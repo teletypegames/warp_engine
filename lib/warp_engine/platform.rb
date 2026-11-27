@@ -17,7 +17,7 @@ module WarpEngine
 
     # The WebBinding attributes a host's +platform_web+ change may set; every
     # other option is a runtime parameter.
-    WEB_BINDING_OPTIONS = %i[payload default enabled isolated].freeze
+    WEB_BINDING_OPTIONS = %i[payload default enabled isolated controls].freeze
 
     # A platform registered the pre-1.12 way, with a service class built from
     # WarpEngine::Platforms::Updatable: its +name+, +service+ class name,
@@ -235,6 +235,7 @@ module WarpEngine
         if index
           options = change.except(:runtime, :as)
           attributes = options.slice(*WEB_BINDING_OPTIONS).transform_values { |value| value.is_a?(Symbol) ? value.to_s : value }
+          attributes[:controls] = WarpEngine::Runtime::Controls.normalize(attributes[:controls]) if attributes.key?(:controls)
           params = bindings[index].params.merge(options.except(*WEB_BINDING_OPTIONS)).freeze
           bindings[index] = bindings[index].with(**attributes, params: params)
         else

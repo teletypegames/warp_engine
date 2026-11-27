@@ -58,8 +58,10 @@ module WarpEngine
     end
 
     # Returns the web bindings +release+ can play in now, as Hashes of
-    # +binding+, +runtime+, +label+, +url+ and +default+ (the release's own
-    # binding); empty when it does not play in a runtime.
+    # +binding+, +runtime+, +label+, +url+, +default+ (the release's own
+    # binding) and +controls+ (the keys of the runtime with the release's
+    # parameters, see WarpEngine::Platform::WebBinding#controls_for); empty
+    # when it does not play in a runtime.
     def self.players(release)
       platform = WarpEngine::Platform.for(release.software)
       return [] if platform.nil? || release.web_options.to_h["enabled"] == false
@@ -73,9 +75,19 @@ module WarpEngine
 
         own = binding.key == release.web_binding
         { binding: binding.key, runtime: binding.runtime, label: version.label,
-          url: own ? play_path(release) : "#{play_path(release)}/#{binding.key}", default: own }
+          url: own ? play_path(release) : "#{play_path(release)}/#{binding.key}", default: own,
+          controls: player_controls(release, binding) }
       end
     end
+
+    # Returns the controls help of +release+ playing in +binding+, with the
+    # parameters the page resolves (the binding's, then the release's).
+    def self.player_controls(release, binding)
+      definition = binding.runtime_object&.definition
+      params = definition ? definition.resolve_params(binding.params, release.web_options.to_h["params"]) : {}
+      binding.controls_for(params)
+    end
+    private_class_method :player_controls
 
     # Returns +true+ when +release+ was published bound to a runtime version
     # that is still installed.
