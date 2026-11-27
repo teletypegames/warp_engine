@@ -155,8 +155,12 @@ module WarpEngine
               "name=#{clean.call(folder[:name].presence || folder[:folder])}",
               "description=#{clean.call(folder[:description])}",
               "version=#{entry.version}",
-              ("platform=#{clean.call(folder[:platform])}" if folder[:platform].present?) ].compact.map { |line| "#{line}\r\n" }.join
+              ("platform=#{clean.call(folder[:platform])}" if folder[:platform].present?),
+              ("genre=#{clean.call(genre(entry.category))}" if entry.category.present?),
+              ("year=#{entry.year}" if entry.year) ].compact.map { |line| "#{line}\r\n" }.join
           end
+
+          def genre(category) = WarpEngine::SoftwareCategory.find_by(key: category)&.label.presence || category
 
           def manifest_text(staging)
             Dir.glob("**/*", base: staging).select { |relative| File.file?(File.join(staging, relative)) }

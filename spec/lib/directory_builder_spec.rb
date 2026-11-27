@@ -382,9 +382,20 @@ RSpec.describe WarpEngine::Feeds::Directory::Builder, "on a folders directory" d
       .to eq(%w[DATA DATA/LEVEL1.DAT FILES.LST INFO.INI README.md WEDOS.EXE])
     expect(read("WEDOS", "WEDOS.EXE")).to eq("MZ0.6.1")
     expect(read("WEDOS", "INFO.INI"))
-      .to eq("[program]\r\nname=WEDOS Store\r\ndescription=Installs DOS programs.\r\nversion=0.6.1\r\nplatform=DOS\r\n")
+      .to eq("[program]\r\nname=WEDOS Store\r\ndescription=Installs DOS programs.\r\nversion=0.6.1\r\nplatform=DOS\r\n" \
+             "year=#{Time.current.year}\r\n")
     expect(read("WEDOSW", "INFO.INI")).to include("name=WEDOS for Windows\r\n", "platform=WIN32\r\n")
     expect(read("WEDOSW", "INFO.INI")).not_to include("WEDOS Store")
+  end
+
+  it "gives INFO.INI the label of the category as the genre and the year of the release" do
+    WarpEngine::SoftwareCategory.create!(key: "tool", label: "Tool")
+    publish("0.6.1").update!(category: "tool")
+    WarpEngine::Release.find_by(version: "0.6.1").update!(created_at: Time.zone.local(2025, 10, 25))
+
+    sync
+
+    expect(read("WEDOS", "INFO.INI")).to end_with("platform=DOS\r\ngenre=Tool\r\nyear=2025\r\n")
   end
 
   it "lists every file but itself in FILES.LST, as WEDOS checks them" do

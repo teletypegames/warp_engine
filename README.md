@@ -1688,7 +1688,9 @@ directories/APPS/
 ```
 
 - `INFO.INI`: `[program]` with `name`, `description`, `version` and `platform` (`DOS` or
-  `WIN32`), CRLF line ends;
+  `WIN32`), then `genre` (the label of the software's category) and `year` (the year the
+  release was made) when they are known, CRLF line ends; WEDOS turns `name`, `genre`,
+  `year` and `description` into a `METADATA.INI` for GMENU;
 - `FILES.LST`: `crc32 size path` for every file but itself, sorted, CRLF line ends, which
   the client checks its downloads against.
 

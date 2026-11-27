@@ -19,12 +19,13 @@ module WarpEngine
 
         # One title and kind on the directory: the directory +file+ (or folder) name, the
         # asset +kind+, +version+, +size+ and +crc32+ of the source, the +title+,
-        # +author+, +description+ and +category+ of the software, the +source+
-        # path, the +software+, on a +folders+ directory the +folder+ spec, and the
+        # +author+, +description+ and +category+ of the software, the +year+ the
+        # release was made, the +source+ path, the +software+, on a +folders+
+        # directory the +folder+ spec, and the
         # +preview+ file name with the +preview_source+ image it is made from
         # (both +nil+ without a preview).
         Entry = Struct.new(:file, :kind, :version, :size, :crc32, :title, :author, :description, :source, :software,
-                           :folder, :category, :preview, :preview_source, keyword_init: true) do
+                           :folder, :category, :year, :preview, :preview_source, keyword_init: true) do
           # The index line of the entry:
           # <tt>file|version|size|crc32|title|author|description|category|preview</tt>,
           # cleaned with WarpEngine::Names.clean; the description is
@@ -149,7 +150,7 @@ module WarpEngine
           software = item.software
           entry = Entry.new(file: file, kind: item.kind, version: item.release.version, size: item.size, title: software.title,
                             author: software.author, description: software.desc, category: software.category,
-                            source: item.source, software: software, folder: folder)
+                            year: item.release.created_at&.year, source: item.source, software: software, folder: folder)
           add_preview(entry)
           [ nil, entry ]
         end
