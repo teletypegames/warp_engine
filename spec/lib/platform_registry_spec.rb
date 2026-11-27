@@ -3,13 +3,13 @@ require "rails_helper"
 module RegistrySpec
   class AmigaService
     include WarpEngine::Platforms::Updatable
-    include WarpEngine::Platforms::Builds::BuildCartridge
+    include WarpEngine::Platforms::Builds::BuildPackage
 
     platform "amiga"
     label "Amiga"
-    required_kinds "cartridge"
+    required_kinds "package"
 
-    def cartridge_ext = ".adf"
+    def package_ext = ".adf"
   end
 end
 
@@ -19,7 +19,7 @@ RSpec.describe "Platforms a host registers" do
 
   before do
     File.write(File.join(templates, "amiga.yaml.erb"), "steps:\n  - name: build\n    image: <%= builder %>\n    commands: [ \"echo <%= name %>\" ]\n")
-    config.register_platform "amiga", service: "RegistrySpec::AmigaService", built_kinds: %w[cartridge],
+    config.register_platform "amiga", service: "RegistrySpec::AmigaService", built_kinds: %w[package],
                                       templates: { woodpecker: File.join(templates, "amiga.yaml.erb") }
     allow(WarpEngine).to receive(:config).and_return(config)
   end
@@ -31,8 +31,8 @@ RSpec.describe "Platforms a host registers" do
 
     expect(WarpEngine::Platform.names).to include("amiga", "c64", "dos")
     expect(platform.label).to eq("Amiga")
-    expect(platform.expected_kinds).to eq([ "cartridge" ])
-    expect(platform.required_kinds).to eq([ "cartridge" ])
+    expect(platform.expected_kinds).to eq([ "package" ])
+    expect(platform.required_kinds).to eq([ "package" ])
   end
 
   it "is a platform a software may be on" do
@@ -44,7 +44,7 @@ RSpec.describe "Platforms a host registers" do
     ci = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "amiga" => { builder: "registry.example/vbcc:1" } })
 
     expect(ci.render(platform: "amiga", name: "lemmings", update_server: "u")).to include("registry.example/vbcc:1", "echo lemmings")
-    expect(ci.built_kinds("amiga")).to eq([ "cartridge" ])
+    expect(ci.built_kinds("amiga")).to eq([ "package" ])
     expect(WarpEngine::CI::Gitlab::PipelineConfig.new(platforms: { "amiga" => { builder: "b" } })
              .render(platform: "amiga", name: "lemmings", update_server: "u")).to be_nil
   end

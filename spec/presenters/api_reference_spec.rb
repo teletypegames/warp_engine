@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe WarpEngine::ApiReference do
-  let(:reference) { described_class.new(WarpEngine::AdminApi::OpenApi.document(server_url: "https://games.example/api/admin/v1")) }
+  let(:reference) { described_class.new(WarpEngine::AdminApi::OpenApi.document(server_url: "https://games.example/api/admin/v2")) }
 
   before do
     allow(WarpEngine.config).to receive(:application_token_owner_class).and_return("TestOwner")
@@ -16,7 +16,7 @@ RSpec.describe WarpEngine::ApiReference do
 
   it "reads the title, base URL and every operation into groups" do
     expect(reference.title).to eq("WarpEngine Admin API")
-    expect(reference.server_url).to eq("https://games.example/api/admin/v1")
+    expect(reference.server_url).to eq("https://games.example/api/admin/v2")
     expect(reference.groups.map(&:name)).to include("Softwares", "Sync peers")
     expect(reference.operation_count).to eq(WarpEngine::AdminApi::OpenApi.document(server_url: "x")[:paths].values.sum(&:size))
   end
@@ -40,7 +40,7 @@ RSpec.describe WarpEngine::ApiReference do
     expect(push.scope).to eq("admin:write")
     expect(push.curl).to start_with(%(curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'))
     expect(operation("post", "/sync_peers").curl).to include(%(-d '{"label":"..."}'))
-    expect(push.curl).to end_with(%("https://games.example/api/admin/v1/sync_peers/{id}/push"))
+    expect(push.curl).to end_with(%("https://games.example/api/admin/v2/sync_peers/{id}/push"))
   end
 
   it "flattens inline objects and marks nullable fields in the schemas" do

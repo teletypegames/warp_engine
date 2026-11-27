@@ -13,17 +13,17 @@ RSpec.describe "disabled kinds" do
     it "leaves the disabled kinds out of every list, and plays nowhere on the web without web" do
       platform = c64.without("web win_x64,linux_x64 mac_arm64")
 
-      expect(platform.expected_kinds).to eq(%w[cartridge docs])
-      expect(platform.built_kinds).to eq(%w[cartridge docs])
+      expect(platform.expected_kinds).to eq(%w[package docs])
+      expect(platform.built_kinds).to eq(%w[package docs])
       expect(platform.optional_kinds).to eq(%w[docs])
-      expect(platform.kind_specs.map(&:name)).to eq(%w[cartridge docs])
+      expect(platform.kind_specs.map(&:name)).to eq(%w[package docs])
       expect(platform.web_bindings).to be_empty
       expect(platform.web_binding).to be_nil
       expect(platform.disabled_kinds).to eq(%w[web win_x64 linux_x64 mac_arm64])
     end
 
     it "ignores a required kind and a name the platform does not know" do
-      expect(c64.without(%w[cartridge html nothing])).to equal(c64)
+      expect(c64.without(%w[package html nothing])).to equal(c64)
       expect(c64.without([]).expected_kinds).to eq(c64.expected_kinds)
     end
 
@@ -36,7 +36,7 @@ RSpec.describe "disabled kinds" do
 
       platform = WarpEngine::Platform.for(software)
 
-      expect(platform.expected_kinds).to eq(%w[cartridge docs win_x64 linux_x64])
+      expect(platform.expected_kinds).to eq(%w[package docs win_x64 linux_x64])
       expect(platform.web_bindings).to be_empty
     end
 
@@ -54,7 +54,7 @@ RSpec.describe "disabled kinds" do
 
     before do
       allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
-      %w[cartridge win_x64 linux_x64].each do |kind|
+      %w[package win_x64 linux_x64].each do |kind|
         path = File.join(tmpdir, "gate", "1.0.0", "gate-1.0.0-#{kind}")
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, kind)
@@ -79,9 +79,9 @@ RSpec.describe "disabled kinds" do
 
       described_class.new.purge(softwares: [ software ])
 
-      expect(release.release_assets.kept.map(&:kind)).to contain_exactly("cartridge", "linux_x64")
+      expect(release.release_assets.kept.map(&:kind)).to contain_exactly("package", "linux_x64")
       expect(File.exist?(File.join(tmpdir, "gate", "1.0.0", "gate-1.0.0-win_x64"))).to be(false)
-      expect(File.exist?(File.join(tmpdir, "gate", "1.0.0", "gate-1.0.0-cartridge"))).to be(true)
+      expect(File.exist?(File.join(tmpdir, "gate", "1.0.0", "gate-1.0.0-package"))).to be(true)
     end
   end
 
@@ -103,10 +103,10 @@ RSpec.describe "disabled kinds" do
     end
 
     it "refuses a required kind and a kind of another platform" do
-      software = build(:software, platform: "c64", disabled_kinds: %w[cartridge html])
+      software = build(:software, platform: "c64", disabled_kinds: %w[package html])
 
       expect(software).not_to be_valid
-      expect(software.errors[:disabled_kinds].first).to include("can only name", "cartridge, html")
+      expect(software.errors[:disabled_kinds].first).to include("can only name", "package, html")
     end
   end
 end

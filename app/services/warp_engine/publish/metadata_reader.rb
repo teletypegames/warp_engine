@@ -13,8 +13,12 @@ module WarpEngine
       # The metadata keys a publish takes over: onto the WarpEngine::Software,
       # except +web+, which goes to the release (Publish::WebBinder); every
       # other key is dropped.
-      KEYS = %i[name title author desc site repo license category shelf_name web
+      KEYS = %i[name title author desc site repo license category directory_name web
                 forks_allowed fork_of_engine fork_of_name fork_of_version fork_of_repo].freeze
+
+      # The old names of metadata keys, read as their new name when the new
+      # one is not set: <tt>shelf_name</tt> is +directory_name+.
+      ALIASES = { shelf_name: :directory_name }.freeze
 
       # The keys of the nested <tt>fork_of</tt> object a JSON metadata may use
       # instead of the flat +fork_of_*+ keys.
@@ -32,7 +36,22 @@ module WarpEngine
         when :lua, "lua" then lua_with_json(upload)
         else reader.call(upload)
         end
-        flatten_fork_of(raw.to_h.symbolize_keys).slice(*KEYS)
+        canonical(flatten_fork_of(raw.to_h.symbolize_keys)).slice(*KEYS)
+      end
+
+      # Returns +metadata+ (Symbol or String keys) with every ALIASES key
+      # under its new name: <tt>directory_name || shelf_name</tt>. The new key
+      # wins when both are set; the old key is removed.
+      def canonical(metadata)
+        strings = metadata.keys.first.is_a?(String)
+        ALIASES.reduce(metadata) do |result, pair|
+          old_key, new_key = strings ? pair.map(&:to_s) : pair
+          next result unless result.key?(old_key)
+
+          value = result[old_key]
+          result = result.except(old_key)
+          result[new_key].nil? ? result.merge(new_key => value) : result
+        end
       end
 
       # Returns +metadata+ with a nested <tt>fork_of</tt> Hash spread into the

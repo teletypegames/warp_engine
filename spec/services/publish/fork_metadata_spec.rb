@@ -34,20 +34,20 @@ RSpec.describe "publishing the source and the parent of a fork" do
     File.delete(upload.path("both-1.0.0.metadata.json"))
   end
 
-  it "makes the repo the source link and records the parent" do
+  it "makes the repo the source and records the parent" do
     release = recorder.record({ name: "mine", title: "Mine", repo: "https://git.example/mine.git", forks_allowed: "false",
-                                fork_of_engine: "https://games.example/", fork_of_name: "parent" }, "1.0.0", { "cartridge" => "mine-1.0.0.prg" })
+                                fork_of_engine: "https://games.example/", fork_of_name: "parent" }, "1.0.0", { "package" => "mine-1.0.0.prg" })
     software = release.software.reload
 
-    expect(software.source_link).to have_attributes(url: "https://git.example/mine.git", kind: "source", label: "Repository")
+    expect(software.source).to have_attributes(url: "https://git.example/mine.git")
     expect(software).to have_attributes(forks_allowed: false, fork_of_engine: "https://games.example", fork_of_name: "parent")
   end
 
   it "moves the source to a new repo instead of adding a second one" do
-    recorder.record({ name: "mine", title: "Mine", repo: "https://git.example/old.git" }, "1.0.0", { "cartridge" => "mine-1.0.0.prg" })
-    release = recorder.record({ name: "mine", title: "Mine", repo: "https://git.example/new.git" }, "1.1.0", { "cartridge" => "mine-1.1.0.prg" })
+    recorder.record({ name: "mine", title: "Mine", repo: "https://git.example/old.git" }, "1.0.0", { "package" => "mine-1.0.0.prg" })
+    release = recorder.record({ name: "mine", title: "Mine", repo: "https://git.example/new.git" }, "1.1.0", { "package" => "mine-1.1.0.prg" })
 
-    sources = WarpEngine::ExternalLink.kept.sources.where(software_id: release.software_id)
+    sources = WarpEngine::SoftwareSource.kept.where(software_id: release.software_id)
     expect(sources.pluck(:url)).to eq([ "https://git.example/new.git" ])
   end
 end

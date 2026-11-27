@@ -15,7 +15,7 @@ module WarpEngine
           render json: { error: "CI not configured" }, status: :service_unavailable
         end
 
-        def pipeline_service = @pipeline_service ||= WarpEngine::PipelineService.new
+        def ci_repository_service = @ci_repository_service ||= WarpEngine::CiRepositoryService.new
       end
     end
   end

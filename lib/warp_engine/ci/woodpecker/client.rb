@@ -37,15 +37,15 @@ module WarpEngine
           get("/api/repos/#{repo_id}")
         end
 
-        # <tt>POST /api/repos</tt>: enables CI for the forge repository +repo_id+.
+        # <tt>POST /api/repos</tt>: enables CI for the SCM repository +repo_id+.
         def activate_repo(repo_id)
           post("/api/repos", body: { id: repo_id })
         end
 
-        # <tt>POST /api/repos?forge_remote_id=</tt>: enables CI for the forge
+        # <tt>POST /api/repos?forge_remote_id=</tt>: enables CI for the SCM
         # repository +forge_remote_id+ Woodpecker has not seen yet; returns the
         # new repository Hash.
-        def activate_forge_repo(forge_remote_id)
+        def activate_scm_repo(forge_remote_id)
           uri = build_uri("/api/repos", { forge_remote_id: forge_remote_id })
           execute(uri, Net::HTTP::Post.new(uri))
         end

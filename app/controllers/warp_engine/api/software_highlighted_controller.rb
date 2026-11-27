@@ -25,7 +25,8 @@ module WarpEngine
         property :releases, Array, desc: "All releases" do
           property :ID, Integer, desc: "Release ID"
           property :version, String, desc: "Version string"
-          property :cartridgePath, String, desc: "Cartridge path"
+          property :packagePath, String, desc: "Package path"
+          property :cartridgePath, String, desc: "The package path under its API 5 name"
           property :sourcePath, String, desc: "Source path"
           property :htmlFolderPath, String, desc: "HTML folder path"
           property :docsFolderPath, String, desc: "Docs folder path"

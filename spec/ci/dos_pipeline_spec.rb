@@ -15,8 +15,8 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
     expect(yaml).not_to include("ssh", "dist/store", "store_secret")
   end
 
-  it "adds the forge release when the host asks for it" do
-    jobs = jobs_of.call(YAML.safe_load(render(config_class, { forge_release: true })))
+  it "adds the scm release when the host asks for it" do
+    jobs = jobs_of.call(YAML.safe_load(render(config_class, { scm_release: true })))
 
     expect(jobs.keys.last).to eq("release")
   end
@@ -28,7 +28,7 @@ shared_examples "dos pipeline" do |config_class, jobs_of|
     expect(yaml).not_to include("scripts/ci-", "dos-release")
   end
 
-  it "uploads the program folder and the Win32 folder under WarpEngine names, with the dos block kept for the shelf" do
+  it "uploads the program folder and the Win32 folder under WarpEngine names, with the dos block kept for the directory" do
     yaml = render(config_class, {})
     expect(yaml).to include("PLATFORM='dos'")
     expect(yaml).not_to include("'. + {version: $version}'")
@@ -51,7 +51,7 @@ RSpec.describe WarpEngine::CI::Woodpecker::PipelineConfig do
                    ->(pipeline) { pipeline["steps"].to_h { |step| [ step["name"], step ] } }
 
   it "runs everything but the version and the tests on tags only" do
-    steps = YAML.safe_load(described_class.new(platforms: { "dos" => { builder: "b", forge_release: true } })
+    steps = YAML.safe_load(described_class.new(platforms: { "dos" => { builder: "b", scm_release: true } })
                                           .render(platform: "dos", name: "x", update_server: "u"))["steps"]
     by_name = steps.to_h { |step| [ step["name"], step["when"] ] }
 
@@ -66,7 +66,7 @@ RSpec.describe WarpEngine::CI::Gitlab::PipelineConfig do
                    ->(pipeline) { pipeline.select { |_, job| job.is_a?(Hash) && job["image"] } }
 
   it "lists the version stage first and the release stage last" do
-    document = YAML.safe_load(described_class.new(platforms: { "dos" => { builder: "b", forge_release: true } })
+    document = YAML.safe_load(described_class.new(platforms: { "dos" => { builder: "b", scm_release: true } })
                                              .render(platform: "dos", name: "x", update_server: "u"))
 
     expect(document["stages"]).to eq(%w[version check test docs package upload publish tag release])

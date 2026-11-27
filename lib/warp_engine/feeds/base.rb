@@ -1,0 +1,147 @@
+module WarpEngine
+  module Feeds
+    # A format the catalog leaves the engine in. Every feed type subclasses
+    # Base and names itself with +type_name+; what it can do comes from the
+    # capability modules it includes: WarpEngine::Feeds::Static (it
+    # writes files when the catalog changes) and WarpEngine::Feeds::Dynamic
+    # (it answers requests on routes it draws). What it offers comes from a
+    # WarpEngine::Catalog::Selection, except for the catalog API, which decides
+    # per caller.
+    #
+    # Each type keeps the same shape: the feed class reads and checks its
+    # options, describes itself and draws its routes or syncs; the work is
+    # done by objects in its own folder that take the feed
+    # (WarpEngine::Feeds::Directory::Builder, WarpEngine::Feeds::Assembly64::Catalog).
+    #
+    #   class AcmeFeed < WarpEngine::Feeds::Base
+    #     include WarpEngine::Feeds::Dynamic
+    #     def self.type_name = "acme"
+    #     def self.draw_routes(mapper) = mapper.get("acme", to: "acme#index")
+    #   end
+    class Base
+      class << self
+        # Returns the type name of the feed class (+directory+, +assembly64+);
+        # every subclass defines it.
+        def type_name
+          raise NotImplementedError, "#{name} must define type_name"
+        end
+
+        # Returns +true+ when the feed writes files (see Static).
+        def static? = false
+
+        # Returns +true+ when the feed answers requests (see Dynamic).
+        def dynamic? = false
+
+        # Checks what the feeds of this type must agree on together (two
+        # directories in one folder, say), +feeds+ being every configured
+        # feed of the type. Raises ConfigurationError when they do not;
+        # returns +feeds+ otherwise. The default checks nothing.
+        def validate_all!(feeds) = feeds
+      end
+
+      # The key the feed is configured under, a String unique among the
+      # feeds, and its options as a Hash with Symbol keys.
+      attr_reader :key, :options
+
+      # [key]     the feed key
+      # [options] the definition, without +key+ and +type+
+      def initialize(key, options = {})
+        @key = key.to_s
+        @options = options.to_h.symbolize_keys
+      end
+
+      # Returns the type name of the feed (Base.type_name).
+      def type = self.class.type_name
+
+      # Returns the platform names whose titles the feed carries; empty for
+      # all of them.
+      def platforms = []
+
+      # Returns the WarpEngine::Catalog::Selection the feed serves, or +nil+ for
+      # a feed that decides per caller (the catalog API, WarpEngine::Feeds::Wecp).
+      def selection = nil
+
+      # Checks the definition. Raises ConfigurationError when it is invalid;
+      # returns +self+ otherwise.
+      def validate! = self
+
+      # Returns the descriptor <tt>GET /api/service</tt> lists for the feed
+      # under +feeds+: +key+, +type+ and +platforms+, plus what the type adds.
+      def descriptor = { key: key, type: type, platforms: platforms }
+
+      # Returns a one-line description, e.g. <tt>assembly64 (assembly64: c64)</tt>.
+      def describe = "#{key} (#{type}#{": #{platforms.join(', ')}" if platforms.any?})"
+
+      # Returns the lines <tt>rake warp_engine:feeds:check</tt> prints for the
+      # feed: every item of its selection and every software it leaves out.
+      def report
+        return [] if selection.nil?
+
+        items, skips = selection.plan
+        items.map { |item| "  ok      #{item.software.name} #{item.release.version} (#{item.kind})" } +
+          skips.map { |skip| "  skipped #{skip}" }
+      end
+
+      private
+
+      def option_list(name) = Array(options[name]).map(&:to_s) # steep:ignore
+
+      def check_keys!(allowed)
+        unknown = options.keys - allowed
+        raise ConfigurationError, "#{key}: unknown option #{unknown.first}" if unknown.any?
+      end
+
+      def check_platforms!(names)
+        unknown = names.reject { |name| WarpEngine::Platform.exists?(name) }
+        raise ConfigurationError, "#{key}: unknown platform #{unknown.first.inspect}" if unknown.any?
+      end
+
+      def check_kinds!(names)
+        raise ConfigurationError, "#{key}: needs a kind" if names.empty?
+
+        unknown = names - WarpEngine::ReleaseAsset::KINDS
+        raise ConfigurationError, "#{key}: unknown kind #{unknown.first.inspect}" if unknown.any?
+      end
+    end
+
+    # The capability of a feed that writes files: it is brought in line
+    # with the catalog by WarpEngine::Feeds.refresh after every change that
+    # decides its content, and by <tt>rake warp_engine:feeds:sync</tt>.
+    module Static
+      # Marks the including class as static.
+      def self.included(base)
+        base.define_singleton_method(:static?) { true }
+      end
+
+      # Brings the feed's files in line with the catalog; with +dry_run+ only
+      # computes what would change. Returns a result answering +changed?+ and
+      # +lines+ (what was written and removed, for the rake task).
+      def sync!(dry_run: false)
+        raise NotImplementedError, "#{self.class.name} must define sync!"
+      end
+    end
+
+    # The capability of a feed that answers requests. The class draws its
+    # routes once, into the engine's route set (<tt>self.draw_routes(mapper)</tt>,
+    # called by WarpEngine::Feeds.draw_routes); a type that can be configured
+    # more than once guards them with a constraint that finds the configured
+    # feed for the request (WarpEngine::Feeds.serving). A feed with
+    # +hosts+ answers only requests for those host names.
+    module Dynamic
+      # Marks the including class as dynamic. The class defines
+      # <tt>self.draw_routes(mapper)</tt>; WarpEngine::Feeds.validate!
+      # refuses a dynamic type without one.
+      def self.included(base)
+        base.define_singleton_method(:dynamic?) { true }
+      end
+
+      # Returns the host names the feed answers (its +hosts+ option, lower
+      # case); empty for any host.
+      def hosts = Array(options[:hosts] || options[:host]).map { |host| host.to_s.downcase } # steep:ignore
+
+      # Returns +true+ when the feed answers +request+: it has no #hosts or
+      # the request's host is one of them.
+      def serves?(request) = hosts.empty? || hosts.include?(request.host.to_s.downcase)
+    end
+  end
+end

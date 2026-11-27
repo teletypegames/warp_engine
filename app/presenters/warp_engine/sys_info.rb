@@ -97,7 +97,7 @@ module WarpEngine
     # Returns the groups of the tree, in page order: each a Node with an
     # +icon+, an +intro+ and its settings as children.
     def tree
-      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, runtimes, outlets, sync, forks, admin_api, extras ]
+      @tree ||= [ engine, publishing, adapters, identity, ci, platforms, runtimes, feeds, sync, forks, admin_api, extras ]
     end
 
     # Returns how many leaves of the tree have each status, as a Hash of
@@ -107,9 +107,9 @@ module WarpEngine
     end
 
     # Returns the catalog numbers, as Stat objects: softwares by status,
-    # releases, downloads, outlets and installed runtimes.
+    # releases, downloads, feeds and installed runtimes.
     def stats
-      @stats ||= [ softwares_stat, releases_stat, downloads_stat, outlets_stat, runtimes_stat ]
+      @stats ||= [ softwares_stat, releases_stat, downloads_stat, feeds_stat, runtimes_stat ]
     end
 
     private
@@ -162,7 +162,7 @@ module WarpEngine
       path = config.file_container_path.to_s
       if !File.directory?(path)
         node("engine.container", "File container", path, status: "error", mono: true, chips: [ "missing" ],
-                                                         hint: "Uploads and shelves need the folder; create it or fix file_container_path.")
+                                                         hint: "Uploads and directories need the folder; create it or fix file_container_path.")
       elsif !File.writable?(path)
         node("engine.container", "File container", path, status: "error", mono: true, chips: [ "exists", "NOT writable" ],
                                                          hint: "Uploads fail until the process may write into it.")
@@ -270,7 +270,7 @@ module WarpEngine
       children << live_check(adapter)
       children << node("ci.upload", "Pipelines upload to", adapter.update_server || "the URL the request came in on", mono: adapter.update_server.present?)
       built = adapter.platforms.map do |name, spec|
-        chips = [ spec[:exporter].presence && "exporter", spec[:web_shell].presence && "web shell", spec[:forge_release] && "forge release" ].compact
+        chips = [ spec[:exporter].presence && "exporter", spec[:web_shell].presence && "web shell", spec[:scm_release] && "scm release" ].compact
         node("ci.platform.#{name}", name, spec[:builder].presence || "no builder", status: spec[:builder].present? ? "ok" : "warn", mono: true, chips: chips)
       end
       children << node("ci.platforms", "Platforms it builds", "#{built.size} platforms", children: built) if built.any?
@@ -404,84 +404,84 @@ module WarpEngine
                                                                                         chips: broken.flat_map { |version, files| files.map { |file| "#{version}/#{file}" } })
     end
 
-    def outlets
-      intro = "Where the catalog leaves the engine; refreshed by OutletRefreshJob"
-      all = WarpEngine::Outlets.validate!
-      group("outlets", "Outlets", icon: :send, intro: intro, children: all.map { |outlet| outlet_node(outlet) })
+    def feeds
+      intro = "Where the catalog leaves the engine; refreshed by FeedRefreshJob"
+      all = WarpEngine::Feeds.validate!
+      group("feeds", "Feeds", icon: :send, intro: intro, children: all.map { |feed| feed_node(feed) })
     rescue WarpEngine::ConfigurationError => e
-      group("outlets", "Outlets", icon: :send, intro: intro, children: [
-        node("outlets.invalid", "Configuration", "invalid", status: "error", hint: e.message)
+      group("feeds", "Feeds", icon: :send, intro: intro, children: [
+        node("feeds.invalid", "Configuration", "invalid", status: "error", hint: e.message)
       ])
     end
 
-    def outlet_node(outlet)
-      case outlet
-      when WarpEngine::Outlets::Wecp
-        node("outlets.wecp", "wecp", "served", status: "ok", chips: [ "/api", "/file", "API v#{WarpEngine::API_VERSION}" ])
-      when WarpEngine::Outlets::Shelf then shelf_node(outlet)
-      when WarpEngine::Outlets::Assembly64 then assembly64_node(outlet)
-      else node("outlets.#{outlet.key}", outlet.key, outlet.type, status: "ok", chips: list(outlet.platforms))
+    def feed_node(feed)
+      case feed
+      when WarpEngine::Feeds::Wecp
+        node("feeds.wecp", "wecp", "dynamic", status: "ok", chips: [ "/api", "/file", "API v#{WarpEngine::API_VERSION}" ])
+      when WarpEngine::Feeds::Directory then directory_node(feed)
+      when WarpEngine::Feeds::Assembly64 then assembly64_node(feed)
+      else node("feeds.#{feed.key}", feed.key, feed.type, status: "ok", chips: list(feed.platforms))
       end
     end
 
-    def shelf_node(shelf)
-      key = "outlets.#{shelf.key}"
-      entries, skipped = shelf.plan
-      names = shelf.folders? ? "folders of up to #{shelf.name_length}" : "#{shelf.name_length} characters"
+    def directory_node(directory)
+      key = "feeds.#{directory.key}"
+      entries, skipped = directory.plan
+      names = directory.folders? ? "folders of up to #{directory.name_length}" : "#{directory.name_length} characters"
       children = [
-        shelf_folder(shelf, key),
-        node("#{key}.layout", "Layout", shelf.layout, chips: [ shelf.extension.presence, names, shelf.preview && "preview #{shelf.preview}" ].compact),
-        node("#{key}.statuses", "Lists", "", chips: shelf.offer.listed_statuses),
-        if shelf.urls.any?
-          node("#{key}.urls", "Served at", "", status: "ok", chips: shelf.urls)
+        directory_folder(directory, key),
+        node("#{key}.layout", "Layout", directory.layout, chips: [ directory.extension.presence, names, directory.preview && "preview #{directory.preview}" ].compact),
+        node("#{key}.statuses", "Lists", "", chips: directory.selection.listed_statuses),
+        if directory.urls.any?
+          node("#{key}.urls", "Served at", "", status: "ok", chips: directory.urls)
         else
           node("#{key}.urls", "Served at", "not published", status: "off")
         end
       ]
-      left_out, elsewhere = shelf.split_skipped(skipped)
+      left_out, elsewhere = directory.split_skipped(skipped)
       if elsewhere.any?
-        children << node("#{key}.elsewhere", "On another shelf", titles(elsewhere.size), status: "info",
+        children << node("#{key}.elsewhere", "On another directory", titles(elsewhere.size), status: "info",
                                                                  chips: elsewhere.map { |skip, holder| "#{skip.software.name} → #{holder}" })
       end
       if left_out.any?
         children << node("#{key}.skipped", "Left out", titles(left_out.size), status: "warn",
                                                        hint: left_out.map(&:to_s).first(5).join(" · ").truncate(400))
       end
-      count = "#{entries.size} #{shelf.folders? ? 'folders' : 'titles'}"
-      node(key, shelf.key, "shelf · #{count}", chips: [ shelf.path ], children: children)
+      count = "#{entries.size} #{directory.folders? ? 'folders' : 'titles'}"
+      node(key, directory.key, "directory · #{count}", chips: [ directory.path ], children: children)
     end
 
-    def shelf_folder(shelf, key)
-      directory = shelf.directory
+    def directory_folder(directory, key)
+      directory = directory.directory
       unless File.directory?(directory)
         return node("#{key}.folder", "Folder", directory, status: "warn", mono: true, chips: [ "not built yet" ],
-                                                          hint: "The next publish builds it; rake warp_engine:outlets:sync builds it now.")
+                                                          hint: "The next publish builds it; rake warp_engine:feeds:sync builds it now.")
       end
       unless File.writable?(directory)
         return node("#{key}.folder", "Folder", directory, status: "error", mono: true, chips: [ "NOT writable" ],
                                                           hint: "The sync cannot write; readers keep the previous files.")
       end
 
-      index = File.join(directory, WarpEngine::Outlets::Shelf::IndexFile::NAME)
+      index = File.join(directory, WarpEngine::Feeds::Directory::IndexFile::NAME)
       return node("#{key}.folder", "Folder", directory, status: "warn", mono: true, chips: [ "no INDEX.TXT" ]) unless File.file?(index)
 
       node("#{key}.folder", "Folder", directory, status: "ok", mono: true, chips: [ "INDEX.TXT", ago(File.mtime(index)) ])
     end
 
-    def assembly64_node(outlet)
-      key = "outlets.#{outlet.key}"
-      offer = begin
-        titles = outlet.offer.items.map(&:software).uniq.size
-        node("#{key}.offer", "On offer", "#{titles} #{titles == 1 ? 'title' : 'titles'}", status: titles.positive? ? "ok" : "warn",
-                                                                                          chips: outlet.platforms + outlet.kinds)
+    def assembly64_node(feed)
+      key = "feeds.#{feed.key}"
+      selection = begin
+        titles = feed.selection.items.map(&:software).uniq.size
+        node("#{key}.selection", "Selection", "#{titles} #{titles == 1 ? 'title' : 'titles'}", status: titles.positive? ? "ok" : "warn",
+                                                                                          chips: feed.platforms + feed.kinds)
       rescue StandardError => e
-        node("#{key}.offer", "On offer", "the catalog cannot be read", status: "error", hint: "#{e.class}: #{e.message}".truncate(200))
+        node("#{key}.selection", "Selection", "the catalog cannot be read", status: "error", hint: "#{e.class}: #{e.message}".truncate(200))
       end
-      node(key, outlet.key, "served", chips: outlet.hosts.presence || [ "any host" ], children: [
-        node("#{key}.path", "Path", "/#{WarpEngine::Outlets::Assembly64::PATH}", mono: true),
-        node("#{key}.repo", "Repository", outlet.repo_name, chips: [ outlet.repo ]),
-        node("#{key}.clients", "Clients", outlet.client_ids.any? ? "" : "any Client-Id", chips: outlet.client_ids),
-        offer
+      node(key, feed.key, "dynamic", chips: feed.hosts.presence || [ "any host" ], children: [
+        node("#{key}.path", "Path", "/#{WarpEngine::Feeds::Assembly64::PATH}", mono: true),
+        node("#{key}.repo", "Repository", feed.repo_name, chips: [ feed.repo ]),
+        node("#{key}.clients", "Clients", feed.client_ids.any? ? "" : "any Client-Id", chips: feed.client_ids),
+        selection
       ])
     end
 
@@ -510,8 +510,8 @@ module WarpEngine
     def forks
       settings = WarpEngine::Forks.config
       own = WarpEngine::Forks.engine_url
-      pending = WarpEngine::ForkLink.pending.count
-      sources = WarpEngine::ExternalLink.kept.sources
+      pending = WarpEngine::SoftwareFork.pending.count
+      sources = WarpEngine::SoftwareSource.kept
       children = [
         node("forks.engine_url", "Engine URL", own || "none", mono: true, status: own ? "ok" : "warn",
                                                              hint: own ? nil : "Set forks { engine_url ... } (or site_url): forks name this address as their parent."),
@@ -641,11 +641,11 @@ module WarpEngine
                detail: "#{versions.distinct.count(:name)} runtimes · #{size(versions.sum(:size_bytes))} · #{bound} releases play in one")
     end
 
-    def outlets_stat
-      types = WarpEngine::Outlets.validate!.map(&:type).tally
-      Stat.new(label: "Outlets", value: types.values.sum, detail: types.map { |type, count| "#{count} #{type}" }.join(" · "))
+    def feeds_stat
+      types = WarpEngine::Feeds.validate!.map(&:type).tally
+      Stat.new(label: "Feeds", value: types.values.sum, detail: types.map { |type, count| "#{count} #{type}" }.join(" · "))
     rescue WarpEngine::ConfigurationError
-      Stat.new(label: "Outlets", value: "?", detail: "configuration invalid")
+      Stat.new(label: "Feeds", value: "?", detail: "configuration invalid")
     end
   end
 end

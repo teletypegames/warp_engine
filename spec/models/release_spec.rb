@@ -29,7 +29,7 @@ RSpec.describe WarpEngine::Release, type: :model do
     end
 
     it "rejects an html asset on a platform whose updater does not accept one" do
-      allow_any_instance_of(WarpEngine::Platform).to receive(:expected_kinds).and_return(%w[cartridge])
+      allow_any_instance_of(WarpEngine::Platform).to receive(:expected_kinds).and_return(%w[package])
 
       release = release_with_html("c64")
       expect(release).not_to be_valid

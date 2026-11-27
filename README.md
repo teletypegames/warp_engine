@@ -9,8 +9,8 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 
 ## Features
 
-- **Catalog domain**: `Software`, `Release`, `ReleaseAsset`, `ExternalLink`,
-  `PlatformLink`, `SoftwareImage`, `Download` models with soft-delete
+- **Catalog domain**: `Software`, `Release`, `ReleaseAsset`, `SoftwareLink`,
+  `SoftwareSource`, `SoftwareFork`, `PlatformLink`, `SoftwareImage`, `Download` models with soft-delete
   semantics and download statistics.
 - **Platform registry**: `WarpEngine::Platform` is the one place a platform is
   named, and each platform is declared once (`lib/warp_engine/platform/builtin.rb`):
@@ -47,11 +47,11 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 - **Pluggable storage**: artifacts are served through a storage adapter
   (`:local` by default); a host can serve them from an object store without
   patching the engine.
-- **Outlets (1.11, one shape since 2.0)**: the formats the catalog leaves the engine
-  in, side by side — the JSON API, shelves and an Assembly64 server — each built the
-  same way, the last two over one shared decision of what is on offer
-  (`WarpEngine::Catalog::Offer`), with room for types of the host's own. See *Outlets*.
-- **Shelves (optional, 1.2)**: a platform's latest public builds as a flat,
+- **Feeds (1.11, one shape since 2.0)**: the formats the catalog leaves the engine
+  in, side by side — the JSON API, directories and an Assembly64 server — each built the
+  same way, the last two over one shared decision of what is in the selection
+  (`WarpEngine::Catalog::Selection`), with room for types of the host's own. See *Feeds*.
+- **Directories (optional, 1.2)**: a platform's latest public builds as a flat,
   versionless folder with a plain-text `INDEX.TXT`, kept up to date by the engine
   itself — for clients too small to speak JSON over HTTPS (a C64 reading it over
   FTP). Off unless configured.
@@ -73,7 +73,7 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
   file manager with a picker mode, and download statistics. Without ActiveAdmin the engine runs headless
   (API + updater only).
 - **Admin API (optional, 1.0)**: everything the admin does, as a JSON API under
-  `/api/admin/v1`, turned on in the initializer, described by a live OpenAPI 3.1
+  `/api/admin/v2`, turned on in the initializer, described by a live OpenAPI 3.1
   document and served to LLM agents as an MCP server. Off unless configured.
 - **Pluggable CI**: pipeline configs, repo sync, build triggers and secret
   provisioning all go through one adapter. Woodpecker ships with the engine
@@ -88,7 +88,7 @@ Repository: `https://git.teletypegames.org/engines/warp_engine`
 
 ## Example stack (docker compose)
 
-A whole studio on one machine — the catalog app, a Gitea forge and Woodpecker CI,
+A whole studio on one machine — the catalog app, a Gitea SCM and Woodpecker CI,
 wired together by one `bin/setup` — lives in its own repository:
 [engines/warp-engine-example](https://git.teletypegames.org/engines/warp-engine-example)
 (until 5.1.0 it was `examples/compose` here). It takes this gem from the registry,
@@ -109,14 +109,14 @@ curl -fsSL http://192.168.1.20:8080/api/stores/batocera/install.sh | sh
 The box has to reach the catalog at the address it sees (your machine's LAN
 address for the example). The store's name, id, statuses and logo are the
 defaults worked out from the catalog until you set them on the *Store Engines*
-admin page or through the Admin API (`store_clients`).
+admin page or through the Admin API (`client_configs`).
 
 The C64, Plus/4 and DOS clients read files, not the API: the example writes the
-`c64`, `plus4` and `dos` shelves (see *Shelves*) and serves them with two small
-containers, `shelf-http` (plain HTTP, the way a C64 with a network cartridge can
-fetch them) and `shelf-ftp` (anonymous, read-only, passive FTP for WEDOS). For a
-real machine on your network set `SHELF_HTTP_URL`, `SHELF_FTP_URL` and
-`SHELF_FTP_ADDRESS` in `.env` to your machine's address; the clients themselves are
+`c64`, `plus4` and `dos` directories (see *Directories*) and serves them with two small
+containers, `directory-http` (plain HTTP, the way a C64 with a network cartridge can
+fetch them) and `directory-ftp` (anonymous, read-only, passive FTP for WEDOS). For a
+real machine on your network set `DIRECTORY_HTTP_URL`, `DIRECTORY_FTP_URL` and
+`DIRECTORY_FTP_ADDRESS` in `.env` to your machine's address; the clients themselves are
 pointed there with their own config file (`WE64.CFG`, `WEDOS.CFG`).
 
 ### Publish a release by hand
@@ -241,7 +241,7 @@ Rails.application.config.to_prepare do
     #   url       ENV["WOODPECKER_URL"]
     #   api_token ENV["WOODPECKER_API_TOKEN"]
     #   platform :godot, builder: "registry.example/godot-builder:4.6"
-    #   platform :dos,   builder: "registry.example/dos-builder:latest", forge_release: true
+    #   platform :dos,   builder: "registry.example/dos-builder:latest", scm_release: true
     # end
     # ci :none   # this host builds nothing
 
@@ -267,18 +267,18 @@ Rails.application.config.to_prepare do
     # store_name "My Studio"
     # store_registry [ :own, { name: "Friends' Games", catalog_url: "https://friends.example" } ]
 
-    # Flat, versionless copies of a platform's latest builds (see "Shelves"),
-    # and the other outlets (see "Outlets"). None by default.
-    # shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16
-    # outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
+    # Flat, versionless copies of a platform's latest builds (see "Directories"),
+    # and the other feeds (see "Feeds"). None by default.
+    # directory :c64, kind: "package", path: "directories/C64", extension: ".PRG", name_length: 16
+    # feed :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
   end
 end
 ```
 
 An unknown setting stops the boot with a `NoMethodError`, an unknown CI or platform
-key with an `ArgumentError`, an outlet (a shelf among them) that does not check out with
+key with an `ArgumentError`, a feed (a directory among them) that does not check out with
 a `WarpEngine::ConfigurationError`. `to_prepare` runs the block again on every code
-reload; an outlet (by key), an additional resource (by subject and association) and a
+reload; a feed (by key), an additional resource (by subject and association) and a
 platform (by name) replace their earlier selves instead of adding up.
 
 The block may also take the configuration as a parameter and set its attributes
@@ -297,13 +297,13 @@ with the gem. The rest of the engine is not typed: its reference is the RDoc.
 | Access policy | `WarpEngine::AccessPolicy::_Policy` | `access_policy` |
 | Images | `WarpEngine::Images::_Adapter` (+ the optional `_FilePaths`) | `image_adapter` |
 | CI | `WarpEngine::CI::_Adapter` | `ci` |
-| Forge | `WarpEngine::Forge::_Adapter` | `forge` |
+| Scm | `WarpEngine::Scm::_Adapter` | `scm` |
 | Store registry | `WarpEngine::StoreRegistry::_Registry` | `store_registry` |
 | Sync transport | subclass of `WarpEngine::Sync::Transport` | `register_sync_transport` |
-| Outlet type | subclass of `WarpEngine::Outlets::Base` (`Materialized`, `Served`) | `register_outlet_type` |
+| Feed type | subclass of `WarpEngine::Feeds::Base` (`Static`, `Dynamic`) | `register_feed_type` |
 
 The value objects the seams pass around are typed with them (`Storage::Location`,
-`Access`, `Access::Grant`, `CI::Repo`, `CI::Run`, `CI::Ping`, `Forge::Repo`,
+`Access`, `Access::Grant`, `CI::Repo`, `CI::Run`, `CI::Ping`, `Scm::Repo`,
 `StoreRegistry::Entry`, the transport's `Option`, `CheckResult` and `Delivery`).
 
 A host that type-checks its own adapter declares it against the interface and lets
@@ -356,7 +356,7 @@ and renders `form` in a fieldset of its own. It never loads the host's class, so
 none (the default) leaves the admin page exactly as it was.
 
 Give it an `api_schema` and it also appears in the Admin API, at
-`/api/admin/v1/softwares/{id}/extras/{association}`:
+`/api/admin/v2/softwares/{id}/extras/{association}`:
 
 ```ruby
 api_schema do
@@ -409,8 +409,8 @@ a TIC-80 cartridge's source) is what fills the `Software` record: `name`, `title
 `author`, `desc`, `license`, and optionally `site` and `repo`, which become external
 links, and `category` — a key a client may group titles by (`puzzle`, `action`,
 `demo`). Every key is optional but `name`; an absent `category` is `null` in the API
-and a client draws no category axis until a catalog publishes one. `shelf_name` names the
-title's file on a shelf (see *Shelves*); a publish without it keeps the one set in the admin.
+and a client draws no category axis until a catalog publishes one. `directory_name` names the
+title's file on a directory (see *Directories*); a publish without it keeps the one set in the admin.
 
 **Statuses and categories are a vocabulary in the database**, not a list in the code:
 `WarpEngine::SoftwareStatus` (key, label, position, `default_visible`, `badge`) and
@@ -425,7 +425,7 @@ anything asks, so nothing depends on the migration having run.
 
 **Each kind is required, expected or optional on its platform.** A *required* kind
 must be uploaded, or the publish answers `422` with the missing kinds and records
-nothing: the `cartridge` on tic80, c64, plus4 and dos, the `html` build elsewhere.
+nothing: the `package` on tic80, c64, plus4 and dos, the `html` build elsewhere.
 Every other kind the platform registers is *expected*: a publish without it goes
 through, and the checklist below reports it missing. An *optional* kind may be absent
 for good (DOS's `win_x86`, the Win32 build only some programs have) and is not
@@ -437,7 +437,7 @@ again, a newer one, or any `dev-` version goes through; a version `Gem::Version`
 cannot read is not compared.
 
 WarpEngine extracts the archives, parses the metadata (JSON, or the Lua
-comment header for TIC-80), and upserts the `Software`, `ExternalLink`,
+comment header for TIC-80), and upserts the `Software`, `SoftwareLink`, `SoftwareSource`,
 `Release` and `ReleaseAsset` records in a single transaction. Previously
 deleted records are resurrected on re-ingest.
 
@@ -527,7 +527,7 @@ answers `#rows`, `#missing_rows` and `#totals`, and
 ## Platform integrity (rake)
 
 Every platform is named in many places — its definition, its CI template, the web
-runtimes it plays in, the store engines, the shelves, the host's CI and tooling
+runtimes it plays in, the store engines, the directories, the host's CI and tooling
 settings and the catalog's records — and a new platform or a change to one easily
 leaves one of them behind. This task checks that they agree:
 
@@ -546,7 +546,7 @@ and per variant:
 | CI template | a missing template; one that does not render or does not give YAML with either adapter, for every variant, every marker option value and with every disableable kind off | |
 | Web | a binding with an unknown runtime, payload or parameter, a payload kind the platform does not publish | the runtime has no installed version, or it lacks the binding's component (with the database) |
 | Store engines | a store that carries an unknown platform, installs a kind the platform does not publish, or runs it in a libretro core the platform does not declare | a store extension the platform does not publish |
-| Outlets | an invalid outlet configuration, a shelf of a kind the platform does not publish | |
+| Feeds | an invalid feed configuration, a directory of a kind the platform does not publish | |
 | Host settings | the CI settings, `platform_tooling` or `platform_web` naming an unknown platform, a CI entry without a builder, a template that needs an `exporter` the settings do not give | a platform the CI does not build here |
 | Catalog (with the database) | softwares on an unknown platform, an `app` or `disabled_kinds` the platform no longer takes | release assets of kinds the platform does not publish |
 
@@ -576,7 +576,7 @@ ci :woodpecker do
   platform :godot,  builder: "registry.example/godot-builder:4.6"
   platform :phaser, builder: "registry.example/phaser-builder:latest",
                     web_shell: "https://example.org/phaser/index.html"
-  platform :dos,    builder: "registry.example/dos-builder:latest", forge_release: true
+  platform :dos,    builder: "registry.example/dos-builder:latest", scm_release: true
 end
 
 # this host builds nothing: /api/ci/* answers 503, /build/config refuses,
@@ -588,12 +588,12 @@ A Woodpecker adapter takes `url`, `api_token`, `repo_owner`, `public_key` or
 `public_key_url`, and `update_server`; `ci :gitlab` takes `url`, `api_token`,
 `webhook_secret` and `update_server`. Settings left out come from ENV, as before.
 A `platform` needs a `builder` and may name an `exporter`, `tools`, `web_shell`,
-`bundle_id_prefix` and `forge_release`. Any object with the adapter's methods
+`bundle_id_prefix` and `scm_release`. Any object with the adapter's methods
 works as well: `ci MyCI::Adapter.new`. The block builds
 `WarpEngine::CI::Woodpecker::Adapter.new(url:, ..., platforms: { "godot" => { builder: ... } })`
 into `config.ci_adapter`.
 
-`GET /api/ci/pipelines` and `GET /api/ci/pipelines/:id/status` answer in camelCase
+`GET /api/ci/repositories` and `GET /api/ci/repositories/:id/status` answer in camelCase
 like every other endpoint (`repoOwner`, `repoName`, `repoId`, `lastPipelineStatus`,
 `lastPipelineAt`, `softwareName`, `latestRun`), and each repository id appears under
 one name only.
@@ -619,8 +619,8 @@ raises. A host with a different CI server implements this contract instead:
 | `pipeline_config(platform:, name:, update_server:)` | the pipeline definition, or nil for an unknown platform |
 | `config_response(platform:, config:)` | the body the CI server expects |
 
-`Pipeline` records keep the provider-neutral `remote_repo_id` reader over the
-historical `woodpecker_repo_id` column, so the table did not have to move.
+`CiRepository` records keep the provider-neutral `remote_repo_id` reader over the
+historical `woodpecker_repo_id` column.
 
 ### Pipeline configs (the Woodpecker adapter)
 
@@ -717,7 +717,7 @@ workflow of its own — a server deploy, say — next to the generated one.
 The engine adds these steps to every template it renders, so no template carries them.
 Their shell scripts are plain `sh` files, linted by shellcheck: `lib/warp_engine/ci/scripts/`
 (`version`, `upload`, `publish`, `tag`, `release_files`) and each adapter's `scripts/`
-(`forge.sh` — the forge's tag API — and `release.sh`).
+(`scm.sh` — the SCM's tag API — and `release.sh`).
 
 - **`version`**, first. The version comes from the source — `metadata.json`'s
   `version`, or the `-- version:` line of the Lua header on tic80 (a registered
@@ -737,8 +737,8 @@ Their shell scripts are plain `sh` files, linted by shellcheck: `lib/warp_engine
   `metadata.json` — failing when one is missing — and every other kind the platform
   accepts when the build made it; `publish` then calls `/build/publish`.
 - **`tag`**, after a push (see below), unless the marker says `release: push`.
-- **`release`**, last, only with `forge_release: true` in the platform's entry, and
-  only on a version tag (a `dev-` tag makes none): the forge release of the tag, named `<title> <tag>`, with
+- **`release`**, last, only with `scm_release: true` in the platform's entry, and
+  only on a version tag (a `dev-` tag makes none): the SCM release of the tag, named `<title> <tag>`, with
   `RELEASE_NOTES.md` as its text. It attaches the files a build listed in
   `.release-assets`, or else the ones the upload step uploaded (`<name>-<version>.*`
   and `<name>-<version>-*`, without the metadata). On Woodpecker it is a Gitea or
@@ -764,10 +764,10 @@ every push build, makes them from the version.
   it is only builds.
 - **A dev build** (`dev-<version>-<branch>` off the default branch, `dev-<commit>`
   with no version) moves the branch's `dev-<branch>` tag onto the pushed commit, so
-  every push releases the branch's newest dev build. A dev tag makes no forge release.
+  every push releases the branch's newest dev build. A dev tag makes no SCM release.
 
 Generated Woodpecker pipelines start on every event but `release` (a workflow
-`when`, left out where a template has its own): moving a dev tag makes the forge
+`when`, left out where a template has its own): moving a dev tag makes the SCM
 send a release event as well, which would build the same commit twice.
 
 A tag made by hand works as before, and the step leaves it alone. The step needs a
@@ -829,9 +829,9 @@ so the platforms take no `html` build.
 
 A program too big for one PRG ships on a disk: with `media: d64` the build step runs
 `make <name>.d64` (the Makefile writes the image, with `c1541` or `oscar64 -d64=`),
-and the `.d64` is the release's `cartridge` in place of the PRG. Everything else is
+and the `.d64` is the release's `package` in place of the PRG. Everything else is
 the same: `commodore-pack` puts the disk next to the players, and EmulatorJS
-autostarts it. A flat shelf of `.PRG` files leaves such a title out.
+autostarts it. A flat directory of `.PRG` files leaves such a title out.
 
 ```yaml
 platform: c64
@@ -873,12 +873,12 @@ in `$WATCOM`), its tests where the commands look for them (`SOURCE/test/unit/run
 
 `settings` go into the release zip but not into a store update, so an update never
 overwrites an installed program's configuration. The uploaded metadata keeps the `dos`
-block: a `folders` shelf (see *Shelves*) reads the folder, the settings and the store
+block: a `folders` directory (see *Directories*) reads the folder, the settings and the store
 text from it.
 
-The version is the tag without its `v`. The folder zip becomes the `cartridge`
+The version is the tag without its `v`. The folder zip becomes the `package`
 (`we-dos-0.6.0.zip`) and the Win32 one the `win_x86` asset
-(`we-dos-0.6.0-win-x86.zip`), byte for byte the files of the forge release.
+(`we-dos-0.6.0-win-x86.zip`), byte for byte the files of the SCM release.
 DOS releases are download only.
 
 Every release gets its docs too: the `docs` step runs Doxygen over the C++ under
@@ -889,7 +889,7 @@ left out by the patterns. The kind is optional.
 
 #### The `electron` platform
 
-Desktop apps written with [Electron](https://www.electronjs.org): a store client, a
+Desktop apps written with [Electron](https://www.electronjs.org): a client config, a
 launcher, a tool, or an HTML game that wants a window of its own. The repo is an ordinary
 Electron project with `electron-builder` in its `devDependencies`, plus the
 `platform: electron` marker and a `metadata.json`. The version comes from `package.json`.
@@ -1012,15 +1012,15 @@ disable: web win_x64 linux_x64 mac_arm64
 ```
 
 From code, the admin (the *Disabled kinds* boxes of a software) or the Admin API
-(`disabledKinds` of `PATCH /api/admin/v1/softwares/:id`):
+(`disabledKinds` of `PATCH /api/admin/v2/softwares/:id`):
 
 ```ruby
 WarpEngine::Software.find_by!(name: "ttg-gate-64").update!(disabled_kinds: %w[web win_x64 linux_x64 mac_arm64])
 WarpEngine::Platform.for(software)          # the platform without them
-WarpEngine::Platform.find!("c64").without("web win_x64").expected_kinds # => ["cartridge", "docs", "linux_x64", "mac_arm64"]
+WarpEngine::Platform.find!("c64").without("web win_x64").expected_kinds # => ["package", "docs", "linux_x64", "mac_arm64"]
 ```
 
-A required kind (the C64 `cartridge`) cannot be turned off. A marker without the
+A required kind (the C64 `package`) cannot be turned off. A marker without the
 `disable` key leaves what the software has, so a setting made in the admin holds
 until the marker names the kinds itself.
 
@@ -1032,7 +1032,7 @@ same DSL the built-in ones are declared with (`WarpEngine::Platform::Builder`):
 ```ruby
 register_platform "amiga" do
   label "Amiga"
-  kind :cartridge, ext: ".adf", required: true   # a publish fails without it
+  kind :package, ext: ".adf", required: true   # a publish fails without it
   kind :html                                      # built when the pipeline can
   kind :mac_arm64, built: false                   # accepted, uploaded by hand
   metadata :json                                  # or :lua, or a callable taking the upload
@@ -1042,8 +1042,8 @@ register_platform "amiga" do
 end
 ```
 
-The kinds are the `WarpEngine::AssetKinds` (`cartridge`, `source`, `html`, `docs`,
-`win_x64`, …): each knows its upload name (`<name>-<version>-win-x64.zip`) and whether
+The kinds are the `WarpEngine::AssetKinds` (`package`, `source`, `html`, `docs`,
+`win_x64`, …; the old name `cartridge` is still read as `package`): each knows its upload name (`<name>-<version>-win-x64.zip`) and whether
 the engine unpacks it (`html`, `docs`), so a platform only says which ones it has.
 A platform whose software comes in kinds of program declares a `variant` for each,
 with the kinds of its own next to the shared ones; the software's `app` (the
@@ -1053,23 +1053,23 @@ one marked `default: true`, is the default:
 ```ruby
 register_platform "amiga" do
   kind :docs                                     # every variant
-  variant(:game, default: true) { kind :cartridge, ext: ".adf", required: true }
+  variant(:game, default: true) { kind :package, ext: ".adf", required: true }
   variant(:tool) { kind :cli_linux_x64, required: true }
 end
 ```
 
 `WarpEngine::Platform.for(software)` is the platform of a software for its variant.
 A kind without a suffix of its own may take a list of extensions, the preferred first
-(`kind :cartridge, ext: %w[.prg .d64]`): a release then carries one of them, the first
+(`kind :package, ext: %w[.prg .d64]`): a release then carries one of them, the first
 the upload has.
 `ci template:` is a CI-neutral template (see *Pipeline configs*; the keyword arguments
-after it are extra template variables), and `shelf_folder` takes a callable
-`(metadata, kind)` for a `folders` shelf (see *Shelves*).
+after it are extra template variables), and `directory_folder` takes a callable
+`(metadata, kind)` for a `folders` directory (see *Directories*).
 
 From then on `amiga` is a platform like the others: a software may be on it, a publish
 runs the engine's publish steps (`WarpEngine::Publish`: collect the assets, read the
 metadata, record the catalog), the admin lists it, every CI adapter renders its
-template with the shared steps around it, and a shelf may serve it. The CI adapter
+template with the shared steps around it, and a directory may serve it. The CI adapter
 still needs an entry for it under `platforms:`, as every platform does. A host may
 also register a built-in name to replace that platform.
 
@@ -1101,7 +1101,7 @@ it), the marker `options` (`name`, `values`, `description`) and the host's `tool
 
 The schema has every key `MetadataReader` reads (a `license` is an SPDX id or
 expression: `MIT`, not `MIT License`), `version` where the pipeline reads it
-from `metadata.json`, the known categories as examples, the shelf-name rules and the `web`
+from `metadata.json`, the known categories as examples, the directory-name rules and the `web`
 section with the platform's binding keys and parameters.
 
 `tooling` is free-form, what the host wants its developers' tools to know — where the
@@ -1120,10 +1120,10 @@ end
 `kinds`) answers what the CI's publish would refuse, writing nothing:
 
 ```json
-{ "ok": false, "problems": [ { "field": "shelf_name", "message": "RABBIT is taken on the C64 shelf", "level": "error" } ] }
+{ "ok": false, "problems": [ { "field": "directory_name", "message": "RABBIT is taken on the C64 directory", "level": "error" } ] }
 ```
 
-It checks the required keys, keys a publish does not read, the shelf name, a stale
+It checks the required keys, keys a publish does not read, the directory name, a stale
 version, software ownership (with a bearer token), the `web` section and the kinds
 the build would upload. An `error` would fail the publish, a `warning` would pass.
 
@@ -1136,27 +1136,27 @@ working copy to its run and its release.
 
 ### Starting a software in one step (scaffold)
 
-`POST /api/admin/v1/softwares/scaffold` (scope `admin:write`; body `name`, `title`,
+`POST /api/admin/v2/softwares/scaffold` (scope `admin:write`; body `name`, `title`,
 `platform`, optional `app` (the variant of a platform that has them), `category`,
 `description`, `license` and `forkOf`) does what starting a game takes:
 
-1. an empty repository on the forge, in the configured organisation;
-2. CI for it (`activate_forge_repo`) and its `Pipeline`, linked to the software;
-3. a draft `Software` (status `development`) owned by the caller, with a *Repository* link;
-4. an application token with `update` + `upload`, written into the pipeline's
+1. an empty repository on the SCM, in the configured organisation;
+2. CI for it (`activate_scm_repo`) and its `CiRepository`, linked to the software;
+3. a draft `Software` (status `development`) owned by the caller, with the repository as its source;
+4. an application token with `update` + `upload`, written into the CI repository's
    `application_token` secret;
-5. the `warp_engine.scaffold` notification (`software`, `repo`, `pipeline`), where a host
+5. the `warp_engine.scaffold` notification (`software`, `repo`, `ci_repository`), where a host
    hangs its own integrations (an issue tracker project, a wiki page, an asset collection).
 
-It answers the software, the repository URLs, the pipeline id and `warnings` for the steps
+It answers the software, the repository URLs, the CI repository id (`ciRepositoryId`) and `warnings` for the steps
 that did not go through (no CI, a refused secret). The project files are the tool's
 business: it pushes them into the new repository, and the first push builds.
 
-The forge is a seam like the others; without one, scaffolding answers 409:
+The SCM is a seam like the others; without one, scaffolding answers 409:
 
 ```ruby
 WarpEngine.configure do
-  forge :gitea, url: "https://git.example", token: ENV["GITEA_API_TOKEN"], owner: "games"
+  scm :gitea, url: "https://git.example", token: ENV["GITEA_API_TOKEN"], owner: "games"
 end
 ```
 
@@ -1179,11 +1179,11 @@ A public page could not fetch the build from the developer's machine (browsers b
 
 ### Release channels
 
-A release is on a channel its version names (`WarpEngine::Channels`), never set by hand:
+A release is on a channel its version names (`WarpEngine::ReleaseChannel`), never set by hand:
 
 | Channel | Version | Who gets it |
 |---|---|---|
-| `stable` | `1.2.0` | everyone: the catalog's latest release, the outlets (shelves, Assembly64) |
+| `stable` | `1.2.0` | everyone: the catalog's latest release, the feeds (directories, Assembly64) |
 | `beta` | `1.3.0-beta.1`, `1.0-alpha`, `2.0.0-rc.2` | listed; the latest only for a caller asking `GET /api/software?channel=beta` |
 | `dev` | `dev-1.3.0-feature-x`, `dev-3fb3ed8` (the CI's builds off the default branch) | never listed nor the latest; its own `/play/` and `/file/` links and the Admin API (`channel` filter) |
 
@@ -1216,10 +1216,10 @@ production:
 `rake warp_engine:releases:prune_dev` does the same by hand (`TTL_DAYS` overrides the setting,
 `DRY_RUN=1` only lists).
 
-**Pull request previews.** With a forge configured, the publish of a development build adds a
-comment to the open pull request of its branch (the software's pipeline names the repository):
+**Pull request previews.** With an SCM configured, the publish of a development build adds a
+comment to the open pull request of its branch (the software's CI repository names the git repository):
 the version, the commit, the play link and every download. The next build of the branch changes
-the same comment. The forge token needs the `write:issue` scope for it; without it the job logs
+the same comment. The SCM token needs the `write:issue` scope for it; without it the job logs
 the refusal and the publish goes on.
 
 ### CI management (the Woodpecker adapter)
@@ -1231,14 +1231,14 @@ themselves.
 
 What it unlocks (all surfaced in the admin):
 
-- **Repo sync** (*Pipelines → Sync from …*): mirrors the provider's
-  repo list into `Pipeline` records, auto-matching each repo to a catalog
+- **Repo sync** (*CI Repositories → Sync from …*): mirrors the provider's
+  repo list into `CiRepository` records, auto-matching each repo to a catalog
   `Software` by name; repos that disappear from Woodpecker are deactivated.
   Platform and software links are editable by hand afterwards.
-- **Pipeline history**: each entry on the *Pipelines* page lists its recent
+- **Pipeline history**: each entry on the *CI Repositories* page lists its recent
   runs with a manual *Trigger* action; the newest run refreshes the cached
-  last-pipeline status shown on the Pipelines index. The software's admin
-  page links to its pipelines from the Quick Links sidebar.
+  last-pipeline status shown on the CI Repositories index. The software's admin
+  page links to its CI repository from the Quick Links sidebar.
 - **Secret provisioning**: database application tokens are pushed to the
   repos as the `application_token` CI secret — creating a token
   provisions it to its owner's repos (unrestricted tokens to all active
@@ -1263,14 +1263,14 @@ mygame/1.2.0/mygame-1.2.0-win-x64.zip
 mygame/1.2.0/html/index.html          # the html zip, unpacked
 mygame/1.2.0/docs/                    # the docs zip, unpacked
 _runtimes/emulatorjs-4.2.3/           # the installed runtimes
-shelves/C64/                          # the outlets' folders
+directories/C64/                          # the feeds' folders
 ```
 
 The uploads keep their names, so a download is still called
 `mygame-1.2.0-win-x64.zip`; a kind the engine unpacks becomes a folder named after
 the kind. `POST /build/upload` writes into the folder and refuses a software name
 that is one of the root folders the engine keeps for itself (`_runtimes` and the
-first folder of every outlet path, `WarpEngine::ReleaseLayout.reserved`).
+first folder of every feed path, `WarpEngine::ReleaseLayout.reserved`).
 
 Before 3.4 the container was flat (`mygame-1.2.0.prg`, `mygame-1.2.0/` for the
 html build, `mygame-1.2.0-docs/`). `bin/rails warp_engine:files:restructure`
@@ -1324,7 +1324,7 @@ A runtime is what a release plays in on the web: EmulatorJS, the TIC-80 player, 
 host's own. The engine keeps each version of it **once**, under
 `_runtimes/<name>-<version>/` of the file container, and renders the player page
 of a release from the runtime's template and the release's own asset (usually the
-cartridge) at `GET /play/<name>/<version>`. The release needs no `html` build of
+package) at `GET /play/<name>/<version>`. The release needs no `html` build of
 its own; a fix in the runtime reaches every release, and a browser caches the
 runtime's files once for all of them (they are served `immutable` for a year).
 
@@ -1369,7 +1369,7 @@ WarpEngine.configure do
   platform_web :plus4, :emulatorjs, enabled: false               # switch one off
 
   register_platform "amiga" do
-    kind :cartridge, ext: ".adf", required: true
+    kind :package, ext: ".adf", required: true
     libretro "puae", name: "PUAE"                                # the platform's libretro core
     web :emulatorjs, core: :libretro                             # bind a platform of your own
   end
@@ -1390,7 +1390,7 @@ boots the platform's playlist with `<core>_libretro`, and `GET
 /build/platforms/:name` lists it under `libretro`: the browser and RetroArch run a
 release on the same core.
 
-A DOS program plays from its cartridge zip as it is: the page appends a
+A DOS program plays from its package zip as it is: the page appends a
 `start.conf` to the zip in the browser (DOSBox Pure takes a `.conf`), copies the
 program folder to `C:\APPS\` (where WEDOS installs it; the binding's
 `dos_root`) and starts `web.start` from `metadata.json`, or else the folder's
@@ -1450,86 +1450,86 @@ missing, platforms, size, and the file check among the live checks), a *Plays on
 the web in* line per platform, and a *Runtimes* number on the catalog strip; the
 admin has a *Runtimes* page and the Admin API a `runtimes` resource.
 
-## Outlets
+## Feeds
 
-An outlet is a format the catalog leaves the engine in. Three layers make up the way
+A feed is a format the catalog leaves the engine in. Three layers make up the way
 out:
 
 ```
-outlets      wecp (/api, always on, served)   shelf (folders, materialized)   assembly64 (/leet/search, served)
-offer          — (per caller: SoftwareService)  WarpEngine::Catalog::Offer — which titles, which release, which file
+feeds      wecp (/api, always on, dynamic)   directory (folders, static)   assembly64 (/leet/search, dynamic)
+selection    — (per caller: SoftwareService)  WarpEngine::Catalog::Selection — which titles, which release, which file
 models/seams Software, Release, ReleaseAsset · Storage, AccessPolicy, Images, DownloadService
 ```
 
-Every type has the same shape. `lib/warp_engine/outlets/TYPE.rb` holds the outlet
+Every type has the same shape. `lib/warp_engine/feeds/TYPE.rb` holds the feed
 class: it reads and checks its options, describes itself for `GET /api/service`, and
-draws its routes (served) or syncs (materialized). The objects that do the work live in
-the folder beside it and take the outlet: `Shelf::Builder` (with `Shelf::IndexFile`,
-`Shelf::Layouts`, `Shelf::Preview`) and `Assembly64::Catalog` (with `Assembly64::Query`).
-A served type's controller lives in `app/controllers/warp_engine` — the catalog API's
-under `api/`, the others' under `outlets/`. Names and texts written for small machines
-(`WarpEngine::Names`) are shared, so a title reads the same on a shelf and on Assembly64.
+draws its routes (dynamic) or syncs (static). The objects that do the work live in
+the folder beside it and take the feed: `Directory::Builder` (with `Directory::IndexFile`,
+`Directory::Layouts`, `Directory::Preview`) and `Assembly64::Catalog` (with `Assembly64::Query`).
+A dynamic type's controller lives in `app/controllers/warp_engine` — the catalog API's
+under `api/`, the others' under `feeds/`. Names and texts written for small machines
+(`WarpEngine::Names`) are shared, so a title reads the same on a directory and on Assembly64.
 
 - **`wecp`**, the WarpEngine Catalog Protocol: the JSON API under `/api` and the files
-  under `/file`, drawn by `WarpEngine::Outlets::Wecp.draw_routes`. Always on, never
-  configured, and the only outlet that knows a caller — sign-in, entitlements and gated
-  titles live here —, so it alone has no `Catalog::Offer`. (The build and CI endpoints
-  under `/build` and `/api/builds`, `/api/ci` are the way in, not an outlet.)
-- **`shelf`**: a folder with an `INDEX.TXT` (below). *Materialized*: rewritten whenever
+  under `/file`, drawn by `WarpEngine::Feeds::Wecp.draw_routes`. Always on, never
+  configured, and the only feed that knows a caller — sign-in, entitlements and gated
+  titles live here —, so it alone has no `Catalog::Selection`. (The build and CI endpoints
+  under `/build` and `/api/builds`, `/api/ci` are the way in, not a feed.)
+- **`directory`**: a folder with an `INDEX.TXT` (below). *Static*: rewritten whenever
   the catalog changes.
-- **`assembly64`**: the Assembly64 search API (below). *Served*: answers requests.
+- **`assembly64`**: the Assembly64 search API (below). *Dynamic*: answers requests.
 
-Every outlet but `wecp` offers what an anonymous caller may have without a gate: the
+Every feed but `wecp` offers what an anonymous caller may have without a gate: the
 kept titles of its platforms with a listed status, each with the latest release that
-has the asset (`WarpEngine::Catalog::Offer`). So a shelf and an Assembly64 server list
+has the asset (`WarpEngine::Catalog::Selection`). So a directory and an Assembly64 server list
 the same titles, and a change to that rule changes both.
 
 ```ruby
-shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG"   # = outlet :c64, type: :shelf, platform: "c64", ...
-outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org],
+directory :c64, kind: "package", path: "directories/C64", extension: ".PRG"   # = feed :c64, type: :directory, platform: "c64", ...
+feed :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org],
                     repo: "acme", repo_name: "Acme Games"
 ```
 
-Every outlet, shelves included, is kept in `config.outlets` under its key. `GET
-/api/service` lists them under `outlets` (`key`, `type`, `platforms` and what the type
+Every feed, directories included, is kept in `config.feeds` under its key. `GET
+/api/service` lists them under `feeds` (`key`, `type`, `platforms` and what the type
 adds). The configuration is checked at boot: an unknown type, option, platform or kind,
-two outlets with one key, or what the outlets of a type must agree on (two shelves in one
+two feeds with one key, or what the feeds of a type must agree on (two directories in one
 folder) stops the application.
 
 ```sh
-bin/rails warp_engine:outlets:check   # every outlet and what it offers (STRICT=1 fails on anything left out)
-bin/rails warp_engine:outlets:sync    # rewrite every materialized outlet (DRY_RUN=1 only says what would change)
+bin/rails warp_engine:feeds:check   # every feed and what it selects (STRICT=1 fails on anything left out)
+bin/rails warp_engine:feeds:sync    # rewrite every static feed (DRY_RUN=1 only says what would change)
 ```
 
-The Admin API (and its MCP tools) has the same view: `GET /outlets` lists the outlets
-(the descriptor, `description`, `materialized`, `served`), `GET /outlets/:key/check`
+The Admin API (and its MCP tools) has the same view: `GET /feeds` lists the feeds
+(the descriptor, `description`, `static`, `dynamic`), `GET /feeds/:key/check`
 what one offers (`items`) and leaves out (`skipped`, with the reason); both answer 409
 while the configuration is invalid.
 
-**A type of your own** subclasses `WarpEngine::Outlets::Base`, names itself with
-`type_name`, includes `WarpEngine::Outlets::Materialized` (and defines `sync!`) or
-`WarpEngine::Outlets::Served` (and defines `self.draw_routes(mapper)`), and is
+**A type of your own** subclasses `WarpEngine::Feeds::Base`, names itself with
+`type_name`, includes `WarpEngine::Feeds::Static` (and defines `sync!`) or
+`WarpEngine::Feeds::Dynamic` (and defines `self.draw_routes(mapper)`), and is
 registered by name:
 
 ```ruby
-register_outlet_type :feed, "Acme::FeedOutlet"
-outlet :feed, type: :feed, platforms: %w[tic80]
+register_feed_type :acme, "Acme::CustomFeed"
+feed :acme_tic80, type: :acme, platforms: %w[tic80]
 ```
 
-A materialized outlet is synced after every change that can alter its offer (publish,
-software, release, asset or status saved or soft-deleted), for the outlets carrying the
-platform, by a `WarpEngine::OutletRefreshJob` in the host's ActiveJob queue; one that
+A static feed is synced after every change that can alter its selection (publish,
+software, release, asset or status saved or soft-deleted), for the feeds carrying the
+platform, by a `WarpEngine::FeedRefreshJob` in the host's ActiveJob queue; one that
 fails is logged and does not fail the save.
 
 ## Assembly64
 
-An `assembly64` outlet answers the Assembly64 search API under `/leet/search`, as
+An `assembly64` feed answers the Assembly64 search API under `/leet/search`, as
 `hackerswithstyle.se` does, so the Assembly64 browser of an Ultimate (C64 Ultimate,
 Ultimate 64, 1541 Ultimate) lists the catalog's titles and runs them from the menu.
 
 ```ruby
-outlet :assembly64, type: :assembly64,
-       platforms: %w[c64], kinds: %w[cartridge],
+feed :assembly64, type: :assembly64,
+       platforms: %w[c64], kinds: %w[package],
        hosts: %w[a64.example.org],
        repo: "acme", repo_name: "Acme Games",
        categories: { utility: "tools" }
@@ -1537,11 +1537,11 @@ outlet :assembly64, type: :assembly64,
 
 | Option | |
 |---|---|
-| `platforms` | the platforms on offer (default `["c64"]`) |
-| `kinds` | the asset kinds on offer (default `["cartridge"]`); the file's extension is its `type` |
+| `platforms` | the platforms in the selection (default `["c64"]`) |
+| `kinds` | the asset kinds in the selection (default `["package"]`); the file's extension is its `type` |
 | `statuses` | optional; without it, the statuses whose `default_visible` is set |
 | `hosts` | the host names it answers (`host` for one); empty for any |
-| `repo`, `repo_name` | the entry of the `repo` preset (default the outlet key, `WarpEngine`) |
+| `repo`, `repo_name` | the entry of the `repo` preset (default the feed key, `WarpEngine`) |
 | `categories` | catalog category → Assembly64 category; unnamed ones are tried as is, then with an `s`, then `default_category` |
 | `default_category` | default `games` |
 | `client_ids` | the `Client-Id` values accepted; empty (default) for any |
@@ -1550,16 +1550,16 @@ outlet :assembly64, type: :assembly64,
 
 | Endpoint | Answers |
 |---|---|
-| `GET /leet/search/aql/presets` | the search form: `repo`, `category`, `type`, `date` (from what is on offer), `latest`, `sort`, `order` |
+| `GET /leet/search/aql/presets` | the search form: `repo`, `category`, `type`, `date` (from what is in the selection), `latest`, `sort`, `order` |
 | `GET /leet/search/aql?query=` | a search, at most `max_results` results and under 16 000 bytes of JSON (the stock firmware drops a larger one) |
 | `GET /leet/search/aql/START/COUNT?query=` | a page of a search |
 | `GET /leet/search/entries/ID/CATEGORY` | `contentEntry`: the title's files (`path`, `id`, `size`, `date`) |
 | `GET /leet/search/bin/ID/CATEGORY/FILE` | the file, `application/octet-stream`, through the download service (access check, download log) |
 
-A download through the outlet is logged with the outlet's key (`outlet`) and the
+A download through the feed is logged with the feed's key (`feed`) and the
 caller's `Client-Id` (`client_id`), so the statistics tell the Ultimate's downloads
 from the catalog API's: the admin's *Download Stats* shows and filters both, the Admin
-API's `GET /downloads` takes `outlet` (exact; `none` for the catalog API) and
+API's `GET /downloads` takes `feed` (exact; `none` for the catalog API) and
 `clientId`.
 
 A result is `id` (the software id, a string), `name` (title), `group` (author), `year`,
@@ -1567,8 +1567,8 @@ A result is `id` (the software id, a string), `name` (title), `group` (author), 
 Assembly64's AQL, `(name:"ra") & (category:games) & (date:2026)`: `name`, `group`,
 `repo`, `category`/`subcat`, `type`, `date`/`year` and `latest` narrow it, `sort`
 (`name`, `group`, `year`) and `order` order it, and a condition on anything else
-(`handle`, `event`, `rating`) matches nothing. A file is named as on a shelf: the
-`shelf_name` or `name`, in capitals, plus the extension (`ARIADNE.PRG`).
+(`handle`, `event`, `rating`) matches nothing. A file is named as on a directory: the
+`directory_name` or `name`, in capitals, plus the extension (`ARIADNE.PRG`).
 
 **Reaching it.** The stock firmware asks `hackerswithstyle.se` (or Commodore's
 CommoServe) and nothing else, over plain HTTP on port 80. A machine with a configurable
@@ -1578,58 +1578,58 @@ server list — the Spiffy patch's `/flash/config/server.json` — needs one ent
 { "assembly64": [ { "name": "Assembly64" }, { "name": "Acme Games", "host": "a64.example.org" } ] }
 ```
 
-so serve the outlet's host over plain HTTP on port 80, without a redirect to HTTPS, and
+so serve the feed's host over plain HTTP on port 80, without a redirect to HTTPS, and
 mount the engine at `/` (the paths are fixed by the clients).
 
-## Shelves
+## Directories
 
-A shelf is a folder the engine keeps in step with the catalog: for one platform, the
+A directory is a folder the engine keeps in step with the catalog: for one platform, the
 latest build of every public title, under a fixed name with no version in it, and an
 `INDEX.TXT` that lists them. It is for clients that cannot read the JSON API — a C64
 store that fetches the index and the files over plain HTTP, a DOS installer that reads
 folders over FTP — and it is off unless the host asks for one:
 
 ```ruby
-shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16, preview: "c64",
+directory :c64, kind: "package", path: "directories/C64", extension: ".PRG", name_length: 16, preview: "c64",
             urls: [ "ftp://ftp.example.org/C64", "http://archive.example.org/C64" ]
-shelf :dos, key: :apps, kind: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS",
+directory :dos, key: :apps, kind: %w[package win_x86], layout: "folders", path: "directories/APPS",
             urls: [ "ftp://ftp.example.org/APPS" ]
 ```
 
-A shelf is an outlet of the type `shelf` (`WarpEngine::Outlets::Shelf`), keyed by its
+A directory is a feed of the type `directory` (`WarpEngine::Feeds::Directory`), keyed by its
 platform unless `key:` names another.
 
 | Key | |
 |---|---|
-| `platform` | whose titles go on the shelf |
+| `platform` | whose titles go on the directory |
 | `kind` | which asset of the release (`ReleaseAsset` kind), or a list of them |
 | `layout` | `flat` (default): one file a title; `folders`: one folder a title (below) |
 | `path` | the folder, relative to `file_container_path` |
-| `extension` | `flat` only: the extension on the shelf, in capitals; a title whose file has another one (a `.d64` on a `.PRG` shelf) is left out, or held by another shelf of the platform with that extension (`shelf :c64, key: :c64_disks, path: "shelves/C64DISK", extension: ".D64"`) |
+| `extension` | `flat` only: the extension on the directory, in capitals; a title whose file has another one (a `.d64` on a `.PRG` directory) is left out, or held by another directory of the platform with that extension (`directory :c64, key: :c64_disks, path: "directories/C64DISK", extension: ".D64"`) |
 | `name_length` | the longest file name, extension included (default 16); for `folders`, the longest folder name (default 8, as DOS has it) |
 | `statuses` | optional; without it, the statuses whose `default_visible` is set |
 | `urls` | optional: where the host serves the folder (`ftp`, `http`, `https`) |
 | `preview` | optional, `flat` only: a picture of each title beside its file (`c64`, below) |
 
 The configuration is checked at boot: an unknown platform, kind or layout, a path outside
-the container, two shelves in one folder, a URL without one of those schemes, or a storage
-adapter other than `:local` stops the application rather than leaving a shelf empty.
+the container, two directories in one folder, a URL without one of those schemes, or a storage
+adapter other than `:local` stops the application rather than leaving a directory empty.
 
 **Serving it is the host's.** The engine writes the folder; it runs no FTP or HTTP server
 of its own. A host points its servers at the folder and names their addresses in `urls`,
-which `GET /api/service` lists with the shelf's outlet under `outlets` — so a page or a
-client can say where a shelf is. A machine that cannot speak HTTPS cannot ask the API, so a client for one keeps
+which `GET /api/service` lists with the directory's feed under `feeds` — so a page or a
+client can say where a directory is. A machine that cannot speak HTTPS cannot ask the API, so a client for one keeps
 its own default address and lets its user change it.
 
-**What goes on a shelf.** Every kept software of the platform whose status is listed and
+**What goes on a directory.** Every kept software of the platform whose status is listed and
 which the access policy shows an anonymous caller without a gate; of each, the latest
 release (`Release.latest_non_dev`) that has the asset. The file is named after the
-software's `shelf_name`, or, without one, its `name` — in capitals, with anything but
+software's `directory_name`, or, without one, its `name` — in capitals, with anything but
 `A–Z`, `0–9` and `-` turned into a dash, cut to fit `name_length`. Two titles that would
 share a name: the older one keeps it, the other is left off and reported.
 
 ```
-shelves/C64/
+directories/C64/
   INDEX.TXT
   ARIADNE.PRG
   BLESSINGOFRA.PRG
@@ -1645,15 +1645,15 @@ WE64.PRG|1.0.0|31816|5e1d0c3b|WE64|Teletype Games|The store on the C64.|tool|WE6
 ```
 
 `crc32` is zlib's, in hexadecimal. `category` is the software's category key (empty for
-none), `preview` the name of its picture on the shelf (empty for none). Text is
+none), `preview` the name of its picture on the directory (empty for none). Text is
 transliterated to ASCII, `|` and line breaks become spaces, and a line is at most 255
 bytes — the description is what gets cut. Version 1 of the format (1.2–1.9) ended after
 the description; the two fields came after it so that a version 1 reader still reads a
 version 2 line right.
 
-**Previews.** A flat shelf with `preview: "c64"` also holds `NAME.PVW` beside `NAME.PRG`
+**Previews.** A flat directory with `preview: "c64"` also holds `NAME.PVW` beside `NAME.PRG`
 for every title with an image in its gallery (the default one, else the first): a C64
-bitmap a client can put on the screen as it comes (`WarpEngine::Outlets::Shelf::Preview::C64`),
+bitmap a client can put on the screen as it comes (`WarpEngine::Feeds::Directory::Preview::C64`),
 9003 bytes in hires, 10003 in multicolor:
 
 | Bytes | |
@@ -1673,15 +1673,15 @@ closer to the image is kept. A preview is rendered again when it is missing, its
 gets a new release, or its image file is newer; an image that cannot be read leaves the
 title without one (and is logged).
 
-**A `folders` shelf** holds a folder for each title and kind, the layout WEDOS reads:
+**A `folders` directory** holds a folder for each title and kind, the layout WEDOS reads:
 the asset is a zip with the folder at its top, and the platform's service names the folder
-from the release's uploaded metadata (`shelf_folder(metadata, kind)`; on `dos` the `dos`
-block: `folder` for the `cartridge`, `win32_folder` for `win_x86`). The engine unpacks the
+from the release's uploaded metadata (`directory_folder(metadata, kind)`; on `dos` the `dos`
+block: `folder` for the `package`, `win32_folder` for `win_x86`). The engine unpacks the
 folder without its `settings` files, so an update never overwrites an installed program's
 configuration, and writes two files into it:
 
 ```
-shelves/APPS/
+directories/APPS/
   INDEX.TXT
   WEDOS/  WEDOS.EXE  README.md  LICENSE  INFO.INI  FILES.LST
   WEDOSW/ WEDOSW.EXE README.md  LICENSE  INFO.INI  FILES.LST
@@ -1693,28 +1693,28 @@ shelves/APPS/
   the client checks its downloads against.
 
 A title without the metadata, or with a folder name that does not fit, is left off and
-reported. `INDEX.TXT` lists the folders as a flat shelf lists files (its name has a dot,
+reported. `INDEX.TXT` lists the folders as a flat directory lists files (its name has a dot,
 so WEDOS does not take it for a program). A folder is built next to the old one and
 swapped in. Only folders the index listed are ever removed, so a folder put there by hand
 stays.
 
-**When it changes.** A shelf is rebuilt whole, from the database, whenever something
+**When it changes.** A directory is rebuilt whole, from the database, whenever something
 that decides its content changes: a publish (`warp_engine.publish`), and any committed
 change or soft delete of a software, a release, a release asset or a status. A rebuild
 that changes nothing writes nothing; a file is copied again only when its version, size
 or source is newer. The new files land under a temporary name and are renamed into
-place, `INDEX.TXT` is replaced last, and only then are the files that left the shelf
+place, `INDEX.TXT` is replaced last, and only then are the files that left the directory
 removed — so a reader never finds a line whose file is missing. A rebuild that fails is
-logged and does not fail the save that caused it. A flat shelf's folder belongs to the engine;
+logged and does not fail the save that caused it. A flat directory's folder belongs to the engine;
 nothing else should write into it.
 
 A change the engine cannot see — an access policy that starts gating a title for
 reasons of its own — needs a rebuild by hand:
 
 ```sh
-bin/rails warp_engine:outlets:check            # what each shelf holds, what another shelf of the platform holds (other) and what it leaves out (STRICT=1 fails on the last)
-bin/rails warp_engine:outlets:sync             # rebuild every shelf (every materialized outlet)
-DRY_RUN=1 bin/rails warp_engine:outlets:sync   # only say what would change
+bin/rails warp_engine:feeds:check            # what each directory holds, what another directory of the platform holds (other) and what it leaves out (STRICT=1 fails on the last)
+bin/rails warp_engine:feeds:sync             # rebuild every directory (every static feed)
+DRY_RUN=1 bin/rails warp_engine:feeds:sync   # only say what would change
 ```
 
 ## Images
@@ -1763,7 +1763,7 @@ host code), and `software_images.image_id` still points at the same rows.
 `batocera` and `retroarch` are platforms whose releases are store engines: the
 program that puts this catalog's games on a Batocera box or into RetroArch's
 library (`we-batocera`, `we-retroarch`). A release is one `.tar.gz` (the
-`cartridge` kind) holding the engine, the shared core and the engine's own
+`package` kind) holding the engine, the shared core and the engine's own
 `install.sh`; the `store_engine` pipeline runs the repository's
 `scripts/ci-test.sh` and `scripts/pack.sh` (which writes `dist/release.tar.gz`)
 and releases on tags. Its `docs` step (the kind is optional) runs a pinned
@@ -1784,8 +1784,8 @@ the new engine and core over the installed ones and carries on in the new
 engine. The release is the newest stable one with its archive, unless the host
 pins a version — a rollback for every machine at once.
 
-What the host sets per store engine is a `WarpEngine::StoreClient` (the *Store
-Engines* admin page, or the Admin API's `store_clients`, which the MCP server
+What the host sets per store engine is a `WarpEngine::ClientConfig` (the *Store
+Engines* admin page, or the Admin API's `client_configs`, which the MCP server
 offers too): the catalog software it is released as (default
 `we-batocera` / `we-retroarch`), the store's name (default `store_name`, else the
 host), its id and subfolder (default from the host name), the statuses (default:
@@ -1989,7 +1989,7 @@ WarpEngine.configure do
       denied_platforms   %w[electron]
       allowed_statuses   %w[released]
       denied_statuses    %w[development]
-      allowed_kinds      %w[cartridge html docs]
+      allowed_kinds      %w[package html docs]
       denied_kinds       %w[win_x64 mac_universal]
       allowed_channels   %w[stable]     # the default
       timeout            120            # seconds per request
@@ -2195,8 +2195,8 @@ software's source repository, give it a new name and a new `origin`, and
 connect it to an engine of the forker's choice. The engines link the fork and
 its parent.
 
-**The source.** An external link has a `kind`: `link` (a page) or `source`
-(the git repository; at most one per software, with an optional `ref`). The
+**The source.** A software has plain links (`SoftwareLink`) and at most one
+source (`SoftwareSource`): the git repository, with an optional `ref`. The
 metadata's `repo` becomes the source, and so does the repository a scaffold
 creates. `WarpEngine::SourceVerifyJob` runs `git ls-remote` with every
 credential turned off and stores whether the source is `public`; the engine
@@ -2215,10 +2215,10 @@ forking off.
 engine (`POST <parent>/api/forks` with its own URL and the fork's name) — only
 when it announces, is not a local engine and has a public address. The parent
 reads the fork back through the child's `GET /api/software` and records it as a
-`WarpEngine::ForkLink` only when the fork really names one of its softwares; it
-waits as `pending` for an administrator (*Fork Links* in the admin, or
-`fork_links` in the Admin API) unless the moderation is `:auto`, and
-`warp_engine.fork_announced` (with `fork_link` and `software`) is instrumented
+`WarpEngine::SoftwareFork` only when the fork really names one of its softwares; it
+waits as `pending` for an administrator (*Forks* in the admin, or
+`forks` in the Admin API) unless the moderation is `:auto`, and
+`warp_engine.fork_announced` (with `software_fork` and `software`) is instrumented
 so the host can tell someone. `WarpEngine::ForkRecheckJob` verifies the links
 again and marks the vanished ones `gone`.
 
@@ -2251,7 +2251,7 @@ warp_engine_fork_recheck:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/service` | What this deployment is: version, whether the catalog gates, how to sign in (or that you cannot), and its outlets (shelves with their addresses among them) |
+| `GET /api/service` | What this deployment is: version, whether the catalog gates, how to sign in (or that you cannot), and its feeds (directories with their addresses among them) |
 | `GET /api/software` | The catalog with releases, assets, links, download counts, an optional `category` and an `access` block — whole, or one page at a time; see *Paging and filters* |
 | `GET /api/software/facets` | How many softwares each status, platform and category would show under the other filters |
 | `GET /api/software/vocabulary` | The statuses and categories this catalog uses, with labels and display order |
@@ -2341,12 +2341,12 @@ mode switches the engine's pages too. What to copy into a new host:
 
 **SysInfo (1.13, a tree since 2.1).** The *WarpEngine → ℹ️ SysInfo* page shows the
 engine as it runs, as one tree: engine, publishing, adapters, client sign-in, CI, platforms,
-outlets, Admin API and additional resources, every line with a status — *error* (needs
+feeds, Admin API and additional resources, every line with a status — *error* (needs
 fixing), *warn* (works, with a catch), *ok*, *info* and *off* (switched off on purpose) —
 and a branch takes the worst below it. Branches with a problem open by themselves; the
 page counts each status (a click shows only the problems), searches labels and values,
 expands or collapses everything and remembers what was open. Above the tree the catalog
-in numbers: softwares by status, releases, downloads today and in 30 days, outlets.
+in numbers: softwares by status, releases, downloads today and in 30 days, feeds.
 It is computed on every request (`WarpEngine::SysInfo`, the tree as `#tree` of
 `SysInfo::Node`), secrets show only as *set* or *not set*, and the page brings its own
 styles, so it looks the same in any host.
@@ -2366,7 +2366,7 @@ end
 
 What the ActiveAdmin resources do — the catalog with its releases, assets, links
 and images, the status and category vocabulary, platform links, download
-statistics, pipelines, the artifact store and the application tokens — is also a
+statistics, CI repositories, the artifact store and the application tokens — is also a
 JSON API. It is **off by default**; a host turns it on in the initializer:
 
 ```ruby
@@ -2381,8 +2381,8 @@ WarpEngine.configure do
     max_page_size    200
     # rate_limit     300, per: 1.minute    # per token, Rails.cache (default: none)
     # public_openapi                       # the document needs no token (default: it does)
-    # docs_ui                              # a Redoc page at /api/admin/v1/docs (default: off)
-    # mcp                                  # MCP at /api/admin/v1/mcp (default: off)
+    # docs_ui                              # a Redoc page at /api/admin/v2/docs (default: off)
+    # mcp                                  # MCP at /api/admin/v2/mcp (default: off)
     exclude_from_mcp :application_tokens, :device_grants
     authenticator    :application_token    # or ->(request) { WarpEngine::AdminApi::Principal.new(...) }
   end
@@ -2400,14 +2400,14 @@ end
   what the admin does (the record is destroyed; a token is revoked). The last
   write wins, as in the admin; there are no batch operations.
 - **Discovery**: `/api/service` carries an `admin` key (null while off) with the
-  addresses; `GET /api/admin/v1/me` tells a token what it may use.
-- **OpenAPI**: `GET /api/admin/v1/openapi.json` (or `.yaml`) is generated from
+  addresses; `GET /api/admin/v2/me` tells a token what it may use.
+- **OpenAPI**: `GET /api/admin/v2/openapi.json` (or `.yaml`) is generated from
   the same registry that routes the requests, so it describes exactly what this
   host serves: disabled resources, write operations under `read_only` and parts
   without CI or client sign-in are left out. Each operation carries
   `x-required-scope`.
 - **MCP**: with `mcp` in the `admin_api` block and `gem "mcp"` in the host's Gemfile
-  (the engine refuses to boot without it), `POST /api/admin/v1/mcp` is a stateless
+  (the engine refuses to boot without it), `POST /api/admin/v2/mcp` is a stateless
   Streamable HTTP MCP server. Every operation is a tool of the same name as its
   `operationId`, with the same JSON Schema for input and the same answer as
   structured content; `tools/list` shows only what the token may call. Uploads and
@@ -2417,7 +2417,7 @@ end
   with the principal, the operation and `via: :http` or `:mcp`.
 
 ```sh
-claude mcp add --transport http warp-admin https://example.org/api/admin/v1/mcp \
+claude mcp add --transport http warp-admin https://example.org/api/admin/v2/mcp \
   --header "Authorization: Bearer $TOKEN"
 ```
 
@@ -2452,7 +2452,7 @@ address before it signs in:
 
 ```json
 { "engine": "warp-engine", "version": "5.2.0", "api": 2, "name": "Local",
-  "profile": "local", "signIn": ["token-file"], "adminApi": "/api/admin/v1",
+  "profile": "local", "signIn": ["token-file"], "adminApi": "/api/admin/v2",
   "admin": false, "sync": { "inbound": false, "target": "https://games.example.org" } }
 ```
 
@@ -2475,51 +2475,51 @@ end
 [engines/warp-engine-local](https://git.teletypegames.org/engines/warp-engine-local) is such a
 host: one container, SQLite, a token file, the admin web UI optional.
 
-### Local components: a git server and CI beside the engine (5.4)
+### Local providers: a git server and CI beside the engine (5.4)
 
 A local engine can start a git server and a CI next to itself and wire them in, without a person
 signing in anywhere:
 
 ```ruby
 WarpEngine.configure do
-  local_components do
+  local_providers do
     enable
-    engine_url "http://warp-engine-local:7470"   # where the components reach this engine
-    forge_port 7471                               # the git server on 127.0.0.1
+    engine_url "http://warp-engine-local:7470"   # where the providers reach this engine
+    scm_port 7471                                # the git server on 127.0.0.1
   end
 end
 ```
 
 The engine talks to the Docker Engine on its socket (`/var/run/docker.sock`, mounted into its
 container; `WarpEngine::Local::Runtime::Docker`, no gem needed) and runs each
-`WarpEngine::Local::Component` in labelled containers on one network (`warp-local`):
+`WarpEngine::Local::Provider` in labelled containers on one network (`warp-local`):
 
-| Component | Role | Containers | Set-up |
+| Provider | Role | Containers | Set-up |
 | --- | --- | --- | --- |
-| `gitea` | `forge` | `warp-local-gitea` (Gitea 1.27.3, 127.0.0.1:`forge_port`) | an administrator, the `games` organisation, the engine's API token and a push user, all with generated passwords |
-| `woodpecker` | `ci` (needs `forge`) | `warp-local-woodpecker`, `warp-local-woodpecker-agent` (v3.20.1) | an OAuth app on the forge, the engine's sign-in (no browser), the `gitea_token` global secret; pipelines from `/build/config` |
+| `gitea` | `scm` | `warp-local-gitea` (Gitea 1.27.3, 127.0.0.1:`scm_port`) | an administrator, the `games` organisation, the engine's API token and a push user, all with generated passwords |
+| `woodpecker` | `ci` (needs `scm`) | `warp-local-woodpecker`, `warp-local-woodpecker-agent` (v3.20.1) | an OAuth app on the git server, the engine's sign-in (no browser), the `gitea_token` global secret; pipelines from `/build/config` |
 
-While a component is `ready`, the forge and CI seams answer with its adapter
-(`WarpEngine.forge` → `Forge::Gitea` on the internal address, `WarpEngine.ci` → the configured
+While a provider is `ready`, the SCM and CI seams answer with its adapter
+(`WarpEngine.scm` → `Scm::Gitea` on the internal address, `WarpEngine.ci` → the configured
 `ci :woodpecker` adapter pointed at the local server), so `POST /softwares/scaffold` and the
 served pipelines use them without a restart. The pipelines clone the git server's public address
 through a git `insteadOf` rule and upload to `engine_url`. Starting takes a while (image pulls),
-so it runs in a `WarpEngine::LocalOperation` (`WarpEngine::LocalOperationJob`) with a step log.
+so it runs in a `WarpEngine::LocalTask` (`WarpEngine::LocalTaskJob`) with a step log.
 
-The Admin API (only while the components are available):
+The Admin API (only while the providers are available):
 
 | | |
 | --- | --- |
-| `GET /local_components` | the components, their role, state and message |
-| `POST /local_components/:key/enable` · `/disable` | `202` with an operation; enabling starts what it needs first, disabling stops what needs it |
-| `DELETE /local_components/:key?purge=true` | removes the containers (with `purge` the volumes and secrets too) |
-| `GET /local_components/:key/credentials` | the generated administrator sign-in (`admin:tokens`) |
-| `GET /local_operations/:id` | the state, the steps and the result |
-| `POST /softwares/:id/local_ci` | `202`; turns the components on, gives the software its repository, CI and CI token (`ScaffoldService#connect`), and the result names `pushUrl` (the push user's token in it) and `remoteName: "wplocal"` |
+| `GET /local_providers` | the providers, their role, state and message |
+| `POST /local_providers/:key/enable` · `/disable` | `202` with a task; enabling starts what it needs first, disabling stops what needs it |
+| `DELETE /local_providers/:key?purge=true` | removes the containers (with `purge` the volumes and secrets too) |
+| `GET /local_providers/:key/credentials` | the generated administrator sign-in (`admin:tokens`) |
+| `GET /local_tasks/:id` | the state, the steps and the result |
+| `POST /softwares/:id/local_ci` | `202`; turns the providers on, gives the software its repository, CI and CI token (`ScaffoldService#connect`), and the result names `pushUrl` (the push user's token in it) and `remoteName: "wplocal"` |
 | `DELETE /softwares/:id/local_ci` | stops the CI for the software; the repository stays |
 
 `name_prefix` (5.5, default `warp-local`) starts the container and volume names, and
-`network` names the docker network the components join, so a second engine on the same machine
+`network` names the docker network the providers join, so a second engine on the same machine
 (the example stack: `name_prefix "warp-example"`, `network "warp-example"`) keeps its own. Without
 a tool, the same work from the command line, waiting and printing the steps:
 
@@ -2533,7 +2533,7 @@ PURGE=1 bin/rails "warp_engine:local:remove[gitea]"   # containers, volumes and 
 
 The runtime stops and removes only containers with the `org.teletypegames.warp-engine.local`
 label; a container made from another spec (a newer image, changed settings) is replaced on the
-next enable. A host registers its own component with `WarpEngine::Local::Components.register`.
+next enable. A host registers its own component with `WarpEngine::Local::Providers.register`.
 
 ### Other databases
 
@@ -2541,6 +2541,81 @@ The migrations are written for MySQL. On SQLite (and PostgreSQL) the MySQL-only 
 `unsigned` and `auto_increment` are accepted and left out (`WarpEngine::PortableMigrations`), so
 the same migrations run there; the `charset`/`collation` table options are ignored by those
 adapters anyway.
+
+## Upgrading to 6.0
+
+6.0 renames the engine to plain, common words (Redmine #666). Run `bin/rails db:migrate`: three
+migrations rename the tables and columns, split `external_links` into `software_links` and
+`software_sources` (the `kind = 'source'` rows become sources), and rewrite the stored values
+(asset kind `cartridge` → `package` in `release_assets.kind` and `softwares.disabled_kinds`,
+local role `forge` → `scm`). They run on MySQL and SQLite.
+
+The renamed constants, with no aliases left behind:
+
+| Old | New |
+| --- | --- |
+| `Outlets`, `Outlets::Base`, `::Wecp`, `::Assembly64` | `Feeds`, `Feeds::Base`, `::Wecp`, `::Assembly64` |
+| `Outlets::Shelf` (+ `Builder`, `IndexFile`, `Layouts`, `Preview`) | `Feeds::Directory` (+ the same) |
+| `Outlets::Materialized`, `Outlets::Served` (`materialized?`, `served?`) | `Feeds::Static`, `Feeds::Dynamic` (`static?`, `dynamic?`) |
+| `Platform::DosShelfFolder` | `Platform::DosFolder` |
+| `OutletRefreshJob`, `OutletRefreshing` | `FeedRefreshJob`, `FeedRefreshing` |
+| `Catalog::Offer` (a feed's `offer`) | `Catalog::Selection` (a feed's `selection`) |
+| `ExternalLink` (`Software#external_links`, `#source_link`) | `SoftwareLink` (`Software#links`) and `SoftwareSource` (`Software#source`) |
+| `ForkLink` (`child_engine`, `child_name`, `child_title`; `Software#fork_links`) | `SoftwareFork` (`engine_url`, `name`, `title`; `Software#forks`) |
+| `StoreClient`, `StoreClientService`, `StoreClientUrls`, `StoreClients` | `ClientConfig`, `ClientConfigService`, `ClientConfigUrls`, `Clients` |
+| `Pipeline`, `PipelineService`, `PipelineSyncService`, `PipelineSyncJob` (`Software#pipeline`) | `CiRepository`, `CiRepositoryService`, `CiRepositorySyncService`, `CiRepositorySyncJob` (`Software#ci_repository`) |
+| `LocalComponent`, `Local::Component(s)`, `LocalComponentService` | `LocalProvider`, `Local::Provider(s)`, `LocalProviderService` |
+| `LocalOperation`, `LocalOperationJob` | `LocalTask`, `LocalTaskJob` |
+| `Channels` (`Channels.for`) | `ReleaseChannel` (`ReleaseChannel.of`) |
+| `Forge`, `Forge::Gitea`, `Forge::Null`, `Forge::Repo` | `Scm`, `Scm::Gitea`, `Scm::Null`, `Scm::Repo` |
+
+`PipelineConfig` and the pipeline runs keep their names: they are about the runs.
+A CI adapter of the host's own renames `activate_forge_repo(forge_repo_id)` to
+`activate_scm_repo(scm_repo_id)` (see `sig/warp_engine/ci.rbs`).
+
+The initializer changes with them:
+
+| Old | New |
+| --- | --- |
+| `shelf :c64, kind: "cartridge", path: "shelves/C64"` | `directory :c64, kind: "package", path: "directories/C64"` |
+| `outlet :x, type: :shelf` / `type: :assembly64` | `feed :x, type: :directory` / `type: :assembly64` |
+| `register_outlet_type` | `register_feed_type` |
+| `forge :gitea, ...` | `scm :gitea, ...` |
+| `local_components do ... forge_port ... end` | `local_providers do ... scm_port ... end` |
+| CI platform option `forge_release: true` | `scm_release: true` |
+| platform DSL `shelf_folder`, `kind :cartridge` | `directory_folder`, `kind :package` |
+| `config.outlets`, `config.outlet_types`, `config.forge_settings` | `config.feeds`, `config.feed_types`, `config.scm_settings` |
+| rake `warp_engine:outlets:check`/`:sync` | `warp_engine:feeds:check`/`:sync` |
+
+Move the folders of the directory feeds with the `path`: `shelves/<X>` → `directories/<X>`.
+The CI scripts are `scripts/scm.sh` with the functions `scm_tag_lookup`, `scm_tag_delete` and
+`scm_tag_create`; the generated pipelines pick them up by themselves. The notification
+`warp_engine.fork_announced` carries `software_fork`, `warp_engine.scaffold` carries
+`ci_repository`. The columns `softwares.shelf_name` and `downloads.outlet` are
+`directory_name` and `feed`.
+
+On the wire (`API_VERSION` 6):
+
+- the asset kind `cartridge` is `package` everywhere the engine answers (the release assets,
+  `disabledKinds`, `/api/stores/<client>/config.json`, `/api/builds`, the facets and the
+  vocabulary); a release also has `packagePath` beside the old `cartridgePath`. The old name
+  is still read wherever a kind comes in (the CI upload and publish, a sync peer, the Admin API
+  bodies, the config and platform DSL), through `WarpEngine::AssetKinds.canonical`;
+- a software's `externalLinks` is `links` (label and URL only); its `source` keeps its shape;
+- the metadata key `shelf_name` is `directory_name`; the old key is still read (the publish
+  check warns about it, the metadata schema marks it deprecated);
+- `/api/service` lists the feeds under `feeds`;
+- `/api/ci/pipelines` is `/api/ci/repositories` (`/:id/status`, `POST /:id/trigger`); the fields
+  stay;
+- the Admin API is version 2 under `/api/admin/v2`: `/ci_repositories`, `/feeds`,
+  `/softwares/:softwareId/links` and `/links/:id`, `GET/PUT/DELETE /softwares/:softwareId/source`,
+  `/forks`, `/client_configs`, `/local_providers`, `/local_tasks/:id`; the include
+  `externalLinks` is `links`, a fork has `engineUrl`/`name`/`title`, a download `feed`, a feed
+  `static`/`dynamic` and its check `selection`, the scaffold and local CI results
+  `ciRepositoryId`. The MCP tools follow the resource names (`ci_repository_list`,
+  `feed_check`, `source_set` …).
+
+The `INDEX.TXT` header keeps its `#SHELF` token: the clients read it.
 
 ## Upgrading to 5.10
 

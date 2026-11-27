@@ -18,8 +18,8 @@ module WarpEngine
       # [moderation]           one of MODERATIONS (default +:pending+)
       # [denied_engines]       host names whose announcements are dropped (default empty)
       # [announcements_per_hour] how many announcements one address may send in an hour (default 30)
-      # [recheck_days]         WarpEngine::ForkRecheckJob verifies a fork link again after this many days (default 7)
-      # [timeout]              seconds one request to another engine or forge may take (default 15)
+      # [recheck_days]         WarpEngine::ForkRecheckJob verifies an announced fork again after this many days (default 7)
+      # [timeout]              seconds one request to another engine or SCM may take (default 15)
       # [allow_private_engines] treat private and loopback addresses as public, for two engines
       #                        tried side by side on one machine (default +false+)
       attr_accessor :engine_url, :announce, :accept_announcements, :moderation, :denied_engines,

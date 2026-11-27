@@ -10,7 +10,8 @@ RSpec.describe WarpEngine::Software, type: :model do
   it { should validate_uniqueness_of(:name).case_insensitive }
 
   it { should have_many(:releases) }
-  it { should have_many(:external_links) }
+  it { should have_many(:links) }
+  it { should have_one(:source) }
   it { should have_many(:software_images).dependent(:destroy) }
 
   describe "category" do
@@ -45,10 +46,10 @@ RSpec.describe WarpEngine::Software, type: :model do
     it "soft-deletes the release and the link instead of destroying them" do
       software = create(:software)
       release = create(:release, software: software, version: "1.0.0")
-      link = software.external_links.create!(label: "Site", url: "https://example.org")
+      link = software.links.create!(label: "Site", url: "https://example.org")
 
       software.update!(releases_attributes: [ { id: release.id, _destroy: "1" } ],
-                       external_links_attributes: [ { id: link.id, _destroy: "1" } ])
+                       links_attributes: [ { id: link.id, _destroy: "1" } ])
 
       expect(release.reload).to be_discarded
       expect(link.reload).to be_discarded

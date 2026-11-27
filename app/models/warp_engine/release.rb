@@ -1,12 +1,12 @@
 module WarpEngine
   # One version of a software (table +releases+), unique per software, on the
-  # +channel+ its version says (WarpEngine::Channels: +stable+, +beta+, +dev+;
+  # +channel+ its version says (WarpEngine::ReleaseChannel: +stable+, +beta+, +dev+;
   # set on every save, never by hand). Has
   # many kept +downloads+ and +release_assets+ (editable as nested
   # attributes). A release of a download-only platform may not have an +html+
   # asset. Its +origin+ says where it was published from: +ci+ (this engine's
   # CI, or by hand) or +sync+ (a WarpEngine::SyncPeer pushed it, +sync_peer+).
-  # Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
+  # Soft-deletable; saving or deleting one refreshes the feeds (directories) of the
   # software's platform.
   class Release < ApplicationRecord
     self.table_name = "releases"
@@ -15,7 +15,7 @@ module WarpEngine
     ORIGINS = %w[ci sync].freeze
 
     include SoftDeletable
-    include OutletRefreshing
+    include FeedRefreshing
     include RemovalNotifying
 
     belongs_to :software
@@ -30,37 +30,37 @@ module WarpEngine
     validates :version, presence: true
     validates :version, uniqueness: { scope: :software_id }
 
-    validates :channel, inclusion: { in: WarpEngine::Channels::ALL }
+    validates :channel, inclusion: { in: WarpEngine::ReleaseChannel::ALL }
     validates :origin, inclusion: { in: ORIGINS }
 
     validate :download_only_platform_cannot_be_web_playable
 
-    before_validation { self.channel = WarpEngine::Channels.for(version) }
+    before_validation { self.channel = WarpEngine::ReleaseChannel.of(version) }
 
     # Returns +true+ when a sync peer pushed this release.
     def synced? = origin == "sync"
 
-    scope :listed, -> { where.not(channel: WarpEngine::Channels::DEV) }
+    scope :listed, -> { where.not(channel: WarpEngine::ReleaseChannel::DEV) }
     scope :in_channels, ->(channels) { where(channel: Array(channels)) }
 
     # Returns the newest of +releases+ (by creation time, then id) on a channel
-    # offered to a caller asking for +channel+ (WarpEngine::Channels.offered:
+    # offered to a caller asking for +channel+ (WarpEngine::ReleaseChannel.offered:
     # +stable+, or +stable+ and +beta+ for +beta+); +nil+ when there is none.
     # A development build is never the latest.
-    def self.latest(releases, channel: WarpEngine::Channels::STABLE)
-      offered = WarpEngine::Channels.offered(channel)
+    def self.latest(releases, channel: WarpEngine::ReleaseChannel::STABLE)
+      offered = WarpEngine::ReleaseChannel.offered(channel)
       releases.select { |r| offered.include?(r.channel) }.max_by { |r| [ r.created_at || Time.at(0), r.id ] }
     end
 
-    # Returns +true+ for a development build (WarpEngine::Channels::DEV).
-    def dev? = channel == WarpEngine::Channels::DEV
+    # Returns +true+ for a development build (WarpEngine::ReleaseChannel::DEV).
+    def dev? = channel == WarpEngine::ReleaseChannel::DEV
 
     # Returns the branch a development build was made of
-    # (WarpEngine::Channels.branch_of), or +nil+.
-    def branch = WarpEngine::Channels.branch_of(version)
+    # (WarpEngine::ReleaseChannel.branch_of), or +nil+.
+    def branch = WarpEngine::ReleaseChannel.branch_of(version)
 
-    # Returns the software's platform, whose outlets to refresh.
-    def outlet_platform = software&.platform
+    # Returns the software's platform, whose feeds to refresh.
+    def feed_platform = software&.platform
 
     # Validation: adds an error when the software's platform expects no +html+
     # kind and the release has an +html+ asset.

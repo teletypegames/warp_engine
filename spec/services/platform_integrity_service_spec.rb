@@ -28,12 +28,12 @@ RSpec.describe WarpEngine::PlatformIntegrityService do
   it "reports a platform without a required kind, an upload without a name and a required kind no pipeline builds" do
     register("amiga") do
       label "Amiga"
-      kind :cartridge
+      kind :package
       kind :html
     end
     register("atari") do
       label "Atari"
-      kind :cartridge, ext: ".atr", required: true, built: false
+      kind :package, ext: ".atr", required: true, built: false
     end
 
     report = described_class.new.check(names: %w[amiga atari], data: false)
@@ -45,7 +45,7 @@ RSpec.describe WarpEngine::PlatformIntegrityService do
   it "reports a template that does not render" do
     register("amiga") do
       label "Amiga"
-      kind :cartridge, ext: ".adf", required: true
+      kind :package, ext: ".adf", required: true
       ci template: "/nowhere/amiga.yaml.erb"
     end
 
@@ -55,7 +55,7 @@ RSpec.describe WarpEngine::PlatformIntegrityService do
   it "reports a marker option the engine reads itself and one that takes no value" do
     register("amiga") do
       label "Amiga"
-      kind :cartridge, ext: ".adf", required: true
+      kind :package, ext: ".adf", required: true
       option :disable, values: %w[web], description: "taken"
       option :media, values: [], description: "empty"
     end

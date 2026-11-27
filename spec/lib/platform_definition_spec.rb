@@ -4,15 +4,15 @@ require "zip"
 RSpec.describe WarpEngine::Platform do
   describe "the builtin definitions" do
     {
-      "tic80"      => [ %w[cartridge source html docs win_x64 linux_x64 mac_x64], %w[cartridge] ],
+      "tic80"      => [ %w[package source html docs win_x64 linux_x64 mac_x64], %w[package] ],
       "ebitengine" => [ %w[html win_x86 win_x64 linux_x64 linux_arm64 docs mac_x64 mac_arm64], %w[html] ],
       "love"       => [ %w[html win_x64 linux_x64 mac_universal docs], %w[html] ],
-      "c64"        => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
-      "plus4"      => [ %w[cartridge docs win_x64 linux_x64 mac_arm64], %w[cartridge] ],
+      "c64"        => [ %w[package docs win_x64 linux_x64 mac_arm64], %w[package] ],
+      "plus4"      => [ %w[package docs win_x64 linux_x64 mac_arm64], %w[package] ],
       "godot"      => [ %w[html win_x86 win_x64 linux_x64 mac_universal docs], %w[html] ],
       "bevy"       => [ %w[html win_x64 linux_x64 linux_arm64 docs], %w[html] ],
       "phaser"     => [ %w[html docs], %w[html] ],
-      "dos"        => [ %w[cartridge win_x86 docs], %w[cartridge] ]
+      "dos"        => [ %w[package win_x86 docs], %w[package] ]
     }.each do |name, (expected, required)|
       it "gives #{name} the kinds it accepts and requires" do
         platform = described_class.find!(name)
@@ -36,16 +36,16 @@ RSpec.describe WarpEngine::Platform do
   describe "an asset kind" do
     it "names the upload and the asset, unpacked or not" do
       docs = WarpEngine::AssetKinds.fetch("docs")
-      cartridge = WarpEngine::AssetKinds.fetch("cartridge")
+      package = WarpEngine::AssetKinds.fetch("package")
 
       expect([ docs.upload_name("g-1.0"), docs.asset_name("g-1.0") ]).to eq(%w[g-1.0-docs.zip docs])
-      expect(cartridge.upload_name("g-1.0", ext: ".prg")).to eq("g-1.0.prg")
-      expect { cartridge.upload_name("g-1.0") }.to raise_error(ArgumentError)
+      expect(package.upload_name("g-1.0", ext: ".prg")).to eq("g-1.0.prg")
+      expect { package.upload_name("g-1.0") }.to raise_error(ArgumentError)
       expect(WarpEngine::ReleaseAsset::KINDS).to eq(WarpEngine::AssetKinds.names)
     end
 
     it "names every alternative of a kind with several extensions, the preferred first" do
-      spec = WarpEngine::Platform.find!("c64").kind_specs.find { |kind| kind.name == "cartridge" }
+      spec = WarpEngine::Platform.find!("c64").kind_specs.find { |kind| kind.name == "package" }
 
       expect(spec.upload_names("g-1.0")).to eq(%w[g-1.0.prg g-1.0.d64])
       expect([ spec.upload_name("g-1.0"), spec.asset_name("g-1.0") ]).to eq(%w[g-1.0.prg g-1.0.prg])
@@ -67,7 +67,7 @@ RSpec.describe WarpEngine::Platform do
       template = File.join(dir, "amiga.yaml.erb")
       config.register_platform "amiga" do
         label "Amiga"
-        kind :cartridge, ext: ".adf", required: true
+        kind :package, ext: ".adf", required: true
         kind :html
         ci template: template
       end
@@ -82,7 +82,7 @@ RSpec.describe WarpEngine::Platform do
 
       expect(described_class.names).to include("amiga")
       expect(platform).not_to be_legacy
-      expect([ platform.label, platform.expected_kinds, platform.required_kinds ]).to eq([ "Amiga", %w[cartridge html], %w[cartridge] ])
+      expect([ platform.label, platform.expected_kinds, platform.required_kinds ]).to eq([ "Amiga", %w[package html], %w[package] ])
     end
 
     it "publishes through the engine's own steps" do
@@ -93,7 +93,7 @@ RSpec.describe WarpEngine::Platform do
       release = described_class.find!("amiga").publish("lemmings", "1.0")
 
       expect(release.software).to have_attributes(platform: "amiga", title: "Lemmings")
-      expect(release.release_assets.map(&:kind)).to eq(%w[cartridge])
+      expect(release.release_assets.map(&:kind)).to eq(%w[package])
     end
 
     it "builds from its CI-neutral template, with the upload generated from its kinds" do

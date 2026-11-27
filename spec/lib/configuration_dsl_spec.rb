@@ -60,24 +60,24 @@ RSpec.describe WarpEngine::Configuration::DSL do
     expect { apply { site "https://example.org" } }.to raise_error(NoMethodError)
   end
 
-  describe "shelf" do
-    it "writes a shelf outlet keyed by its platform, once per key" do
+  describe "directory" do
+    it "writes a directory feed keyed by its platform, once per key" do
       2.times do
         apply do
-          shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16,
+          directory :c64, kind: "package", path: "directories/C64", extension: ".PRG", name_length: 16,
                       urls: %w[ftp://ftp.example.org/C64]
         end
       end
 
-      expect(config.outlets).to eq([ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64",
+      expect(config.feeds).to eq([ { key: "c64", type: "directory", platform: "c64", kind: "package", path: "directories/C64",
                                        extension: ".PRG", name_length: 16, urls: %w[ftp://ftp.example.org/C64] } ])
     end
 
     it "leaves an unknown key to the boot check" do
-      apply { shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG", folder: "x" }
-      allow(WarpEngine.config).to receive(:outlets).and_return(config.outlets)
+      apply { directory :c64, kind: "package", path: "directories/C64", extension: ".PRG", folder: "x" }
+      allow(WarpEngine.config).to receive(:feeds).and_return(config.feeds)
 
-      expect { WarpEngine::Outlets.validate! }.to raise_error(WarpEngine::ConfigurationError, /unknown option folder/)
+      expect { WarpEngine::Feeds.validate! }.to raise_error(WarpEngine::ConfigurationError, /unknown option folder/)
     end
   end
 
@@ -155,7 +155,7 @@ RSpec.describe WarpEngine::Configuration::DSL do
           tools     "registry.example/tools:1"
 
           platform :godot, builder: "registry.example/godot:4"
-          platform :dos,   builder: "registry.example/dos", tools: "registry.example/tools:2", forge_release: true
+          platform :dos,   builder: "registry.example/dos", tools: "registry.example/tools:2", scm_release: true
         end
       end
 
@@ -165,7 +165,7 @@ RSpec.describe WarpEngine::Configuration::DSL do
       expect(adapter).to be_configured
       expect(adapter.platforms).to eq(
         "godot" => { tools: "registry.example/tools:1", builder: "registry.example/godot:4" },
-        "dos"   => { tools: "registry.example/tools:2", builder: "registry.example/dos", forge_release: true }
+        "dos"   => { tools: "registry.example/tools:2", builder: "registry.example/dos", scm_release: true }
       )
     end
 

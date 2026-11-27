@@ -1,0 +1,51 @@
+module WarpEngine
+  module Feeds
+    # The base of every feed type; a host registers its own with
+    # +register_feed_type+.
+    class Base
+      def self.type_name: () -> String
+      def self.static?: () -> bool
+      def self.dynamic?: () -> bool
+      def self.validate_all!: (Array[Base] feeds) -> Array[Base]
+
+      attr_reader key: String
+      attr_reader options: Hash[Symbol, untyped]
+
+      def initialize: (String | Symbol key, ?Hash[untyped, untyped] options) -> void
+      def type: () -> String
+      def platforms: () -> Array[String]
+      # A WarpEngine::Catalog::Selection, or +nil+ for a feed that decides per caller.
+      def selection: () -> untyped
+      def validate!: () -> self
+      def descriptor: () -> Hash[Symbol, untyped]
+      def describe: () -> String
+      def report: () -> Array[String]
+
+      private
+
+      def option_list: (Symbol name) -> Array[String]
+      def check_keys!: (Array[Symbol] allowed) -> void
+      def check_platforms!: (Array[String] names) -> void
+      def check_kinds!: (Array[String] names) -> void
+    end
+
+    # The result of Static#sync!.
+    interface _SyncResult
+      def changed?: () -> boolish
+      def lines: () -> Array[String]
+    end
+
+    # A feed that writes files.
+    module Static : Base
+      def self.included: (Class base) -> void
+      def sync!: (?dry_run: bool) -> _SyncResult
+    end
+
+    # A feed that answers requests; the class defines <tt>self.draw_routes(mapper)</tt>.
+    module Dynamic : Base
+      def self.included: (Class base) -> void
+      def hosts: () -> Array[String]
+      def serves?: (untyped request) -> bool
+    end
+  end
+end

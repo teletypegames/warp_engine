@@ -7,11 +7,11 @@ RSpec.describe WarpEngine::BuildsService do
     it "returns all supported platforms with expected kinds" do
       expect(result[:platforms]).to have_key("tic80")
       expect(result[:platforms]["tic80"][:label]).to eq("TIC-80")
-      expect(result[:platforms]["tic80"][:kinds]).to include("cartridge", "html")
+      expect(result[:platforms]["tic80"][:kinds]).to include("package", "html")
     end
 
-    it "returns c64 with the cartridge and the native players; it plays on the web in a runtime" do
-      expect(result[:platforms]["c64"][:kinds]).to eq(%w[cartridge docs win_x64 linux_x64 mac_arm64])
+    it "returns c64 with the package and the native players; it plays on the web in a runtime" do
+      expect(result[:platforms]["c64"][:kinds]).to eq(%w[package docs win_x64 linux_x64 mac_arm64])
     end
 
     it "returns plus4 with the same kinds as c64" do

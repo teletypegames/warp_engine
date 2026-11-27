@@ -8,7 +8,7 @@ RSpec.describe "Admin API access", type: :request do
     before { admin_config.enabled = false }
 
     it "does not exist, not even for an admin token" do
-      get "/api/admin/v1/softwares", headers: auth
+      get "/api/admin/v2/softwares", headers: auth
 
       expect(response).to have_http_status(:not_found)
       expect(json).to eq("error" => "Not found")
@@ -20,7 +20,7 @@ RSpec.describe "Admin API access", type: :request do
   end
 
   it "wants a token, and says how to bring one" do
-    get "/api/admin/v1/softwares"
+    get "/api/admin/v2/softwares"
 
     expect(response).to have_http_status(:unauthorized)
     expect(response.headers["WWW-Authenticate"]).to start_with("Bearer")
@@ -29,7 +29,7 @@ RSpec.describe "Admin API access", type: :request do
   it "refuses a token without an admin scope" do
     publisher = create(:application_token, owner: admin_owner, scopes: %w[update])
 
-    get "/api/admin/v1/softwares", headers: auth(publisher)
+    get "/api/admin/v2/softwares", headers: auth(publisher)
 
     expect(response).to have_http_status(:unauthorized)
   end
@@ -38,7 +38,7 @@ RSpec.describe "Admin API access", type: :request do
     token = admin_token_with("admin:read", expires_at: 1.hour.from_now)
     token.update_column(:expires_at, 1.minute.ago)
 
-    get "/api/admin/v1/softwares", headers: auth(token)
+    get "/api/admin/v2/softwares", headers: auth(token)
 
     expect(response).to have_http_status(:unauthorized)
   end
@@ -47,7 +47,7 @@ RSpec.describe "Admin API access", type: :request do
     token = admin_token
     admin_config.token_owner_class = "Image"
 
-    get "/api/admin/v1/softwares", headers: auth(token)
+    get "/api/admin/v2/softwares", headers: auth(token)
 
     expect(response).to have_http_status(:unauthorized)
   end
@@ -56,7 +56,7 @@ RSpec.describe "Admin API access", type: :request do
     api_get "/softwares"
 
     expect(response).to have_http_status(:ok)
-    expect(response.headers["WarpEngine-Admin-Api"]).to eq("1")
+    expect(response.headers["WarpEngine-Admin-Api"]).to eq("2")
     expect(response.headers["WarpEngine-Version"]).to eq(WarpEngine::VERSION)
     expect(admin_token.reload.last_used_at).to be_present
   end
@@ -137,17 +137,17 @@ RSpec.describe "Admin API access", type: :request do
         WarpEngine::AdminApi::Principal.new(owner: admin_owner, scopes: %w[admin:read], label: "key")
       end
 
-      get "/api/admin/v1/softwares", headers: { "X-Api-Key" => "k3y" }
+      get "/api/admin/v2/softwares", headers: { "X-Api-Key" => "k3y" }
       expect(response).to have_http_status(:ok)
 
-      get "/api/admin/v1/softwares", headers: auth
+      get "/api/admin/v2/softwares", headers: auth
       expect(response).to have_http_status(:unauthorized)
     end
 
     it "counts as no answer when it returns something that is not a principal" do
       admin_config.authenticator = ->(_request) { admin_owner }
 
-      get "/api/admin/v1/softwares"
+      get "/api/admin/v2/softwares"
 
       expect(response).to have_http_status(:unauthorized)
     end
@@ -155,7 +155,7 @@ RSpec.describe "Admin API access", type: :request do
     it "counts as no answer when it raises" do
       admin_config.authenticator = ->(_request) { raise "boom" }
 
-      get "/api/admin/v1/softwares"
+      get "/api/admin/v2/softwares"
 
       expect(response).to have_http_status(:unauthorized)
     end
@@ -170,7 +170,7 @@ RSpec.describe "Admin API access", type: :request do
       expect(data["scopes"]).to eq(%w[admin:read admin:write])
       expect(data["tokenPrefix"]).to eq(admin_token.token_prefix)
       expect(data["resources"]).to include("softwares", "downloads", "files")
-      expect(data["resources"]).not_to include("application_tokens", "pipelines", "meta")
+      expect(data["resources"]).not_to include("application_tokens", "ci_repositories", "meta")
       expect(data["readOnly"]).to be(false)
     end
 

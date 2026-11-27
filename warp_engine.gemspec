@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = ">= 3.2"
 
-  # Must match the --host passed to `gem push`; the forge serves one RubyGems
+  # Must match the --host passed to `gem push`; the scm serves one RubyGems
   # registry per org, and the engine lives in `engines`.
   spec.metadata["allowed_push_host"] = "https://git.teletypegames.org/api/packages/engines/rubygems"
   spec.metadata["source_code_uri"]   = "https://git.teletypegames.org/engines/warp_engine"

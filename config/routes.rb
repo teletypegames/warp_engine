@@ -1,15 +1,15 @@
 WarpEngine::Engine.routes.draw do
   get ".well-known/warp-engine", to: "well_known#show", format: false
 
-  WarpEngine::Outlets.draw_routes(self)
+  WarpEngine::Feeds.draw_routes(self)
 
   namespace :api do
     get "builds",                 to: "builds#index"
     get "softwares/:name/builds", to: "software_builds#show"
 
-    get  "ci/pipelines",             to: "ci/pipelines#index"
-    get  "ci/pipelines/:id/status",  to: "ci/pipelines#show"
-    post "ci/pipelines/:id/trigger", to: "ci/pipeline_runs#create"
+    get  "ci/repositories",             to: "ci/repositories#index"
+    get  "ci/repositories/:id/status",  to: "ci/repositories#show"
+    post "ci/repositories/:id/trigger", to: "ci/pipeline_runs#create"
   end
 
   post "build/upload",  to: "build/uploads#create"

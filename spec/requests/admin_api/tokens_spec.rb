@@ -97,13 +97,13 @@ RSpec.describe "Admin API tokens", type: :request do
     expect(response).to have_http_status(:conflict)
   end
 
-  it "reports a rotation that had no pipeline to push to" do
+  it "reports a rotation that had no CI repository to push to" do
     token = create(:application_token, owner: admin_owner, scopes: %w[admin:read])
 
     api_post "/application_tokens/#{token.id}/rotate", {}, token: keeper
 
     expect(response).to have_http_status(:conflict)
-    expect(json["error"]).to include("no pipelines")
+    expect(json["error"]).to include("no repositories")
   end
 
   it "refuses admin scopes on a token whose owner is not the admin owner class" do

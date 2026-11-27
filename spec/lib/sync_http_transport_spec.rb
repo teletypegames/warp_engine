@@ -36,7 +36,7 @@ RSpec.describe WarpEngine::Sync::Transports::Http do
                   .to_return(status: 200, body: "{}")
       steps = []
 
-      delivery = transport.deliver(package([ WarpEngine::Sync::PackageFile.new(path: path, name: "game-1.0.prg", kind: "cartridge") ])) { |step| steps << step }
+      delivery = transport.deliver(package([ WarpEngine::Sync::PackageFile.new(path: path, name: "game-1.0.prg", kind: "package") ])) { |step| steps << step }
 
       expect(delivery.status).to eq("succeeded")
       expect(steps).to eq([ "upload:game-1.0.prg", "publish" ])
@@ -56,9 +56,9 @@ RSpec.describe WarpEngine::Sync::Transports::Http do
   it "reads what the other engine has, without the token" do
     stub = stub_request(:get, "https://other.example/warp/api/softwares/game/builds")
              .with { |request| request.headers["X-Update-Secret"].nil? }
-             .to_return(status: 200, body: { releases: { "1.0" => { actual: %w[cartridge] } } }.to_json)
+             .to_return(status: 200, body: { releases: { "1.0" => { actual: %w[package] } } }.to_json)
 
-    expect(transport.existing(package([]))).to eq(%w[cartridge])
+    expect(transport.existing(package([]))).to eq(%w[package])
     expect(stub).to have_been_requested
 
     stub_request(:get, %r{/builds}).to_return(status: 404)

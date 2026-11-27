@@ -3,9 +3,9 @@ module WarpEngine
   # migrations to the host's, loads the ActiveAdmin resources of +app/admin+
   # when ActiveAdmin is present together with their stylesheet and script
   # (<tt>warp_engine/admin.css</tt>, <tt>warp_engine/admin.js</tt>; registered on
-  # ActiveAdmin 3, linked by the host on ActiveAdmin 4, which has no registry), validates the outlets, shelves among them
+  # ActiveAdmin 3, linked by the host on ActiveAdmin 4, which has no registry), validates the feeds, directories among them
   # (and the MCP dependency when enabled) after boot, and enqueues a
-  # WarpEngine::OutletRefreshJob for the materialized outlets of a platform on
+  # WarpEngine::FeedRefreshJob for the static feeds of a platform on
   # every <tt>warp_engine.publish</tt> notification, and hands the release to
   # WarpEngine::SyncService#dispatch while outbound sync is on (WarpEngine::Sync;
   # a failure there is logged, the publish stands), and every
@@ -41,7 +41,7 @@ module WarpEngine
 
     config.after_initialize do
       WarpEngine::AdminApi::Mcp.ensure_available! if WarpEngine.config.admin_api.mcp?
-      WarpEngine::Outlets.validate!
+      WarpEngine::Feeds.validate!
       WarpEngine::Sync.config.validate!.each { |warning| Rails.logger.warn("[WarpEngine] #{warning}") }
       WarpEngine::Forks.config.validate!.each { |warning| Rails.logger.warn("[WarpEngine] #{warning}") }
     end
@@ -76,17 +76,17 @@ module WarpEngine
       ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
         software = payload[:software]
         WarpEngine::ForkService.new.announce_later(software) if software.is_a?(WarpEngine::Software)
-        WarpEngine::SourceVerifyJob.perform_later(software.source_link.id) if software.is_a?(WarpEngine::Software) && software.source_link&.public.nil?
+        WarpEngine::SourceVerifyJob.perform_later(software.source.id) if software.is_a?(WarpEngine::Software) && software.source&.public.nil?
       rescue StandardError => e
         Rails.logger.error("[WarpEngine::Forks] after publish: #{e.class}: #{e.message}")
       end
     end
 
-    initializer "warp_engine.outlets" do
+    initializer "warp_engine.feeds" do
       ActiveSupport::Notifications.subscribe("warp_engine.publish") do |*, payload|
-        WarpEngine::OutletRefreshJob.perform_later(payload[:platform]) if WarpEngine::Outlets.any?
+        WarpEngine::FeedRefreshJob.perform_later(payload[:platform]) if WarpEngine::Feeds.any?
         release = payload[:release]
-        if release.respond_to?(:dev?) && release.dev? && WarpEngine.forge.configured?
+        if release.respond_to?(:dev?) && release.dev? && WarpEngine.scm.configured?
           WarpEngine::PreviewCommentJob.perform_later(release.id)
         end
       end

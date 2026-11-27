@@ -3,10 +3,8 @@ module WarpEngine
     # Writes the catalog records of a publish in one transaction. Every write
     # restores a soft-deleted record instead of creating a second one.
     class Recorder
-      # The label of the external link the metadata's +site+ becomes.
+      # The label of the link the metadata's +site+ becomes.
       SITE_LABEL = "Source Code".freeze
-      # The label of the external link the metadata's +repo+ becomes.
-      REPO_LABEL = "Repository".freeze
 
       # [definition] the WarpEngine::Platform::Definition of the platform
       def initialize(definition)
@@ -14,7 +12,8 @@ module WarpEngine
       end
 
       # Creates or updates the WarpEngine::Software named in +metadata+ (its
-      # +site+ becomes an external link, its +repo+ the +source+ link; a
+      # +site+ becomes a WarpEngine::SoftwareLink, its +repo+ the
+      # WarpEngine::SoftwareSource; a
       # +forks_allowed+ given as text is read as a boolean), creates the
       # WarpEngine::Release +version+ when new, writes a WarpEngine::ReleaseAsset
       # for every <tt>kind => path</tt> of +assets+ (the software's +app+ is
@@ -28,7 +27,7 @@ module WarpEngine
         attributes = software_attributes(metadata)
         ActiveRecord::Base.transaction do
           software = restore(WarpEngine::Software.find_or_initialize_by(name: attributes[:name]), attributes.except(:name))
-          restore(WarpEngine::ExternalLink.find_or_initialize_by(software_id: software.id, label: SITE_LABEL), url: metadata[:site]) if metadata[:site].present?
+          restore(WarpEngine::SoftwareLink.find_or_initialize_by(software_id: software.id, label: SITE_LABEL), url: metadata[:site]) if metadata[:site].present?
           record_source(software, metadata[:repo]) if metadata[:repo].present?
 
           release = restore(WarpEngine::Release.find_or_initialize_by(software_id: software.id, version: version), {})
@@ -53,10 +52,7 @@ module WarpEngine
       end
 
       def record_source(software, url)
-        link = WarpEngine::ExternalLink.where(software_id: software.id).sources.order(deleted_at: :desc).first ||
-               WarpEngine::ExternalLink.find_or_initialize_by(software_id: software.id, label: REPO_LABEL)
-        WarpEngine::ExternalLink.kept.sources.where(software_id: software.id).where.not(id: link.id).find_each(&:soft_delete!)
-        restore(link, url: url, kind: "source", label: link.label.presence || REPO_LABEL)
+        restore(WarpEngine::SoftwareSource.for(software), url: url)
       end
 
       def restore(record, attributes)

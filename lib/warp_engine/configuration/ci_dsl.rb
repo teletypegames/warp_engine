@@ -26,7 +26,7 @@ module WarpEngine
       }.freeze
 
       # The keys a +platform+ line accepts.
-      PLATFORM_KEYS = %i[builder exporter tools web_shell bundle_id_prefix forge_release].freeze
+      PLATFORM_KEYS = %i[builder exporter tools web_shell bundle_id_prefix scm_release].freeze
 
       # Evaluates +block+ for the adapter +kind+ and returns the built adapter.
       def self.build(kind, &block)

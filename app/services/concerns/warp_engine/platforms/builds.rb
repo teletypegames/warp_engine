@@ -1,6 +1,6 @@
 module WarpEngine
   module Platforms
-    # One module per WarpEngine::AssetKinds kind (+BuildCartridge+,
+    # One module per WarpEngine::AssetKinds kind (+BuildPackage+,
     # +BuildWinX64+, ...) for legacy Updatable services: including one
     # registers the kind. Deprecated with Updatable; the file names and
     # unpacking now come from the WarpEngine::AssetKind.
@@ -14,8 +14,8 @@ module WarpEngine
         end
       end
 
-      # The legacy module of the +cartridge+ kind.
-      BuildCartridge = module_for("cartridge")
+      # The legacy module of the +package+ kind.
+      BuildPackage = module_for("package")
       # The legacy module of the +source+ kind.
       BuildSource = module_for("source")
       # The legacy module of the +html+ kind.

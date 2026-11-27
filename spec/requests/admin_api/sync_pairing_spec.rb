@@ -67,7 +67,7 @@ RSpec.describe "Admin API sync pairing", type: :request do
   it "answers 409 while inbound sync is off" do
     sync_config(inbound: { enabled: false, pairing: :anyone })
 
-    post "/api/admin/v1/sync_pairings", params: { label: "x" }.to_json,
+    post "/api/admin/v2/sync_pairings", params: { label: "x" }.to_json,
                                         headers: auth(pair_token).merge("CONTENT_TYPE" => "application/json")
 
     expect(response).to have_http_status(:conflict)

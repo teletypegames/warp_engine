@@ -2,7 +2,7 @@ require "rails_helper"
 require "tmpdir"
 require_relative "../../support/admin_api_helpers"
 
-RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :request do
+RSpec.describe "Admin API vocabulary, statistics, CI repositories and files", type: :request do
   include AdminApiHelpers
 
   describe "software statuses" do
@@ -64,14 +64,14 @@ RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :r
     before do
       create(:download, file_path: "ra-1.0.tic", release: release, user_agent: "curl/8")
       create(:download, file_path: "ra-1.0.tic", release: release, created_at: 2.months.ago)
-      create(:download, file_path: "other.zip", ip_address: "10.0.0.9", outlet: "assembly64", client_id: "Ultimate")
+      create(:download, file_path: "other.zip", ip_address: "10.0.0.9", feed: "assembly64", client_id: "Ultimate")
     end
 
-    it "tells the outlet and the Client-Id apart" do
-      api_get "/downloads", params: { outlet: "assembly64" }
-      expect(json["data"].map { |d| [ d["filePath"], d["outlet"], d["clientId"] ] }).to eq([ %w[other.zip assembly64 Ultimate] ])
+    it "tells the feed and the Client-Id apart" do
+      api_get "/downloads", params: { feed: "assembly64" }
+      expect(json["data"].map { |d| [ d["filePath"], d["feed"], d["clientId"] ] }).to eq([ %w[other.zip assembly64 Ultimate] ])
 
-      api_get "/downloads", params: { outlet: "none" }
+      api_get "/downloads", params: { feed: "none" }
       expect(json["data"].size).to eq(2)
 
       api_get "/downloads", params: { clientId: "ultim" }
@@ -123,7 +123,7 @@ RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :r
     end
   end
 
-  describe "pipelines" do
+  describe "CI repositories" do
     let(:ci) { instance_double(WarpEngine::CI::Woodpecker::Adapter, configured?: true, name: "Woodpecker") }
 
     before { allow(WarpEngine).to receive(:ci).and_return(ci) }
@@ -131,46 +131,46 @@ RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :r
     it "answers 503 without a CI server" do
       allow(ci).to receive(:configured?).and_return(false)
 
-      api_get "/pipelines"
+      api_get "/ci_repositories"
 
       expect(response).to have_http_status(:service_unavailable)
       expect(json["error"]).to eq("CI not configured")
     end
 
     it "lists, links a software, reads runs and triggers" do
-      pipeline = create(:pipeline, repo_name: "ra", platform: "tic80")
+      repository = create(:ci_repository, repo_name: "ra", platform: "tic80")
       software = create(:software)
       run = WarpEngine::CI::Run.new(number: 7, status: "success", branch: "main", created_at: Time.utc(2026, 9, 1))
-      allow(ci).to receive(:runs).with(pipeline.remote_repo_id, page: 1).and_return([ run ])
-      allow(ci).to receive(:trigger).with(pipeline.remote_repo_id, branch: "dev").and_return(run)
+      allow(ci).to receive(:runs).with(repository.remote_repo_id, page: 1).and_return([ run ])
+      allow(ci).to receive(:trigger).with(repository.remote_repo_id, branch: "dev").and_return(run)
 
-      api_get "/pipelines", params: { active: "true" }
+      api_get "/ci_repositories", params: { active: "true" }
       expect(json["data"].first).to include("repoName" => "ra", "fullName" => "testorg/ra")
 
-      api_patch "/pipelines/#{pipeline.id}", { softwareId: software.id }
+      api_patch "/ci_repositories/#{repository.id}", { softwareId: software.id }
       expect(json["data"]["softwareId"]).to eq(software.id)
 
-      api_get "/pipelines/#{pipeline.id}/runs"
+      api_get "/ci_repositories/#{repository.id}/runs"
       expect(json["data"].first).to include("number" => 7, "status" => "success")
-      expect(pipeline.reload.last_pipeline_status).to eq("success")
+      expect(repository.reload.last_pipeline_status).to eq("success")
 
-      api_post "/pipelines/#{pipeline.id}/trigger", { branch: "dev" }
+      api_post "/ci_repositories/#{repository.id}/trigger", { branch: "dev" }
       expect(json["data"]["number"]).to eq(7)
     end
 
-    it "refuses to trigger an inactive pipeline" do
-      pipeline = create(:pipeline, :inactive)
+    it "refuses to trigger an inactive CI repository" do
+      repository = create(:ci_repository, :inactive)
 
-      api_post "/pipelines/#{pipeline.id}/trigger"
+      api_post "/ci_repositories/#{repository.id}/trigger"
 
       expect(response).to have_http_status(:conflict)
     end
 
     it "answers 502 when the CI server fails" do
-      pipeline = create(:pipeline)
+      repository = create(:ci_repository)
       allow(ci).to receive(:runs).and_raise(WarpEngine::CI::ConnectionError, "down")
 
-      api_get "/pipelines/#{pipeline.id}/runs"
+      api_get "/ci_repositories/#{repository.id}/runs"
 
       expect(response).to have_http_status(:bad_gateway)
     end
@@ -178,7 +178,7 @@ RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :r
     it "syncs the repositories" do
       allow(ci).to receive(:repos).and_return([ WarpEngine::CI::Repo.new(id: 4242, name: "fresh", owner: "org", active: true) ])
 
-      api_post "/pipelines/sync"
+      api_post "/ci_repositories/sync"
 
       expect(json["data"]["created"].map { |p| p["repoName"] }).to eq(%w[fresh])
     end
@@ -205,7 +205,7 @@ RSpec.describe "Admin API vocabulary, statistics, pipelines and files", type: :r
 
     it "uploads, creates a directory, renames and deletes" do
       upload = Rack::Test::UploadedFile.new(StringIO.new("data"), "application/zip", original_filename: "new.zip")
-      post "/api/admin/v1/files", params: { dir: "game-1.0", file: upload }, headers: auth
+      post "/api/admin/v2/files", params: { dir: "game-1.0", file: upload }, headers: auth
       expect(response).to have_http_status(:created)
       conform!
       expect(json["data"]["path"]).to eq("game-1.0/new.zip")

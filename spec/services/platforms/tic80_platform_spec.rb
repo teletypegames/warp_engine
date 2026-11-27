@@ -32,7 +32,8 @@ RSpec.describe "the tic80 platform" do
         WarpEngine::ReleaseAsset.unscoped.where(release_id: r.id).delete_all
         r.delete
       end
-      WarpEngine::ExternalLink.unscoped.where(software_id: sw.id).delete_all
+      WarpEngine::SoftwareLink.unscoped.where(software_id: sw.id).delete_all
+      WarpEngine::SoftwareSource.unscoped.where(software_id: sw.id).delete_all
       sw.delete
     end
   end
@@ -52,7 +53,7 @@ RSpec.describe "the tic80 platform" do
   it "registers the release without a docs zip" do
     release = platform.publish(name, version)
 
-    expect(asset_kinds(release)).to match_array(%w[cartridge source html])
+    expect(asset_kinds(release)).to match_array(%w[package source html])
   end
 
   it "reads the category from the cartridge header, and leaves it empty when there is none" do
@@ -97,13 +98,13 @@ RSpec.describe "the tic80 platform" do
     platform.publish(name, version)
 
     kept = WarpEngine::ReleaseAsset.kept.where(release_id: release.id).pluck(:kind)
-    expect(kept).to match_array(%w[cartridge source html mac_x64])
+    expect(kept).to match_array(%w[package source html mac_x64])
     expect(WarpEngine::ReleaseAsset.discarded.where(release_id: release.id).pluck(:kind)).to eq(%w[mac_universal])
   end
 
   it "exposes expected_kinds from included Build concerns" do
     expect(platform.expected_kinds).to match_array(
-      %w[cartridge source html docs win_x64 linux_x64 mac_x64]
+      %w[package source html docs win_x64 linux_x64 mac_x64]
     )
   end
 end

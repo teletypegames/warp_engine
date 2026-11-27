@@ -56,9 +56,9 @@ RSpec.describe "Steps every generated pipeline shares" do
           expect(names.index("tag")).to be > names.index("publish")
         end
 
-        it "ends the #{platform} pipeline with a forge release only when the host asks for one" do
+        it "ends the #{platform} pipeline with an SCM release only when the host asks for one" do
           expect(step_names.call(YAML.safe_load(render(config_class, platform)))).not_to include("release")
-          expect(step_names.call(YAML.safe_load(render(config_class, platform, spec: { forge_release: true }))).last).to eq("release")
+          expect(step_names.call(YAML.safe_load(render(config_class, platform, spec: { scm_release: true }))).last).to eq("release")
         end
       end
 
@@ -135,7 +135,7 @@ RSpec.describe "Steps every generated pipeline shares" do
   end
 
   it "leaves the CI's own variables the only ${...} in the shared steps, which Woodpecker substitutes before the shell runs" do
-    config = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "godot" => { builder: "b", forge_release: true } })
+    config = WarpEngine::CI::Woodpecker::PipelineConfig.new(platforms: { "godot" => { builder: "b", scm_release: true } })
     document = YAML.safe_load(config.render(platform: "godot", name: "game", update_server: "u"))
     shared = document["steps"].select { |step| %w[version tag release].include?(step["name"]) }.flat_map { |step| step["commands"] }.join("\n")
 
@@ -144,11 +144,11 @@ RSpec.describe "Steps every generated pipeline shares" do
   end
 
   describe "the tag step" do
-    forges = {
+    scms = {
       WarpEngine::CI::Woodpecker::PipelineConfig => {
-        env:    { "CI_FORGE_URL" => "https://forge.example/", "CI_REPO" => "games/game", "GITEA_TOKEN" => "t" },
+        env:    { "CI_FORGE_URL" => "https://scm.example/", "CI_REPO" => "games/game", "GITEA_TOKEN" => "t" },
         script: ->(document) { document["steps"].find { |step| step["name"] == "tag" }["commands"].join("\n") },
-        found:  ->(sha) { %({"name":"x","id":"1111","commit":{"url":"https://forge.example/c","sha":"#{sha}","created":"x"}}) }
+        found:  ->(sha) { %({"name":"x","id":"1111","commit":{"url":"https://scm.example/c","sha":"#{sha}","created":"x"}}) }
       },
       WarpEngine::CI::Gitlab::PipelineConfig => {
         env:    { "CI_API_V4_URL" => "https://gitlab.example/api/v4", "CI_PROJECT_ID" => "7", "TAG_TOKEN" => "t" },
@@ -178,10 +178,10 @@ RSpec.describe "Steps every generated pipeline shares" do
       end
     end
 
-    forges.each do |config_class, forge|
+    scms.each do |config_class, scm|
       describe config_class do
-        let(:script) { forge[:script].call(YAML.safe_load(render(config_class, "godot"))) }
-        let(:env) { forge[:env].merge("CI_COMMIT_SHA" => "aaaa1111", "CI_COMMIT_BRANCH" => "feature/x") }
+        let(:script) { scm[:script].call(YAML.safe_load(render(config_class, "godot"))) }
+        let(:env) { scm[:env].merge("CI_COMMIT_SHA" => "aaaa1111", "CI_COMMIT_BRANCH" => "feature/x") }
 
         it "tags a new version" do
           calls = run_tag(script, env, version: "1.2.0", lookup: %({"message":"not found"}))
@@ -191,20 +191,20 @@ RSpec.describe "Steps every generated pipeline shares" do
         end
 
         it "leaves a version that is tagged already alone" do
-          calls = run_tag(script, env, version: "1.2.0", lookup: forge[:found].call("bbbb2222"))
+          calls = run_tag(script, env, version: "1.2.0", lookup: scm[:found].call("bbbb2222"))
 
           expect(calls.grep(/POST|DELETE/)).to be_empty
         end
 
         it "moves the branch's dev tag onto the commit" do
-          calls = run_tag(script, env, version: "dev-1.2.0-feature-x", lookup: forge[:found].call("bbbb2222"))
+          calls = run_tag(script, env, version: "dev-1.2.0-feature-x", lookup: scm[:found].call("bbbb2222"))
 
           expect(calls.grep(/DELETE/).first).to include("dev-feature-x")
           expect(calls.last).to include("POST").and include("dev-feature-x").and include("aaaa1111")
         end
 
         it "does not move a dev tag that is on the commit already" do
-          calls = run_tag(script, env, version: "dev-1.2.0-feature-x", lookup: forge[:found].call("aaaa1111"))
+          calls = run_tag(script, env, version: "dev-1.2.0-feature-x", lookup: scm[:found].call("aaaa1111"))
 
           expect(calls.grep(/POST|DELETE/)).to be_empty
         end
@@ -231,20 +231,20 @@ RSpec.describe "Steps every generated pipeline shares" do
     WarpEngine.config.platforms.delete("amiga")
   end
 
-  it "makes no forge release of a dev tag" do
+  it "makes no scm release of a dev tag" do
     [ WarpEngine::CI::Woodpecker::PipelineConfig, WarpEngine::CI::Gitlab::PipelineConfig ].each do |config_class|
-      expect(render(config_class, "godot", spec: { forge_release: true })).to include('case "$CI_COMMIT_TAG" in dev-*)')
+      expect(render(config_class, "godot", spec: { scm_release: true })).to include('case "$CI_COMMIT_TAG" in dev-*)')
     end
   end
 
   it "attaches a build's own list when it writes .release-assets, and the uploaded files otherwise" do
-    yaml = render(WarpEngine::CI::Woodpecker::PipelineConfig, "godot", spec: { forge_release: true })
+    yaml = render(WarpEngine::CI::Woodpecker::PipelineConfig, "godot", spec: { scm_release: true })
 
     expect(yaml).to include(".release-assets", "NAME='game'", '"$NAME-$VERSION.*"', "RELEASE_NOTES.md", "gitea_token", "CI_FORGE_URL")
   end
 
   it "makes a GitLab release with the job token" do
-    yaml = render(WarpEngine::CI::Gitlab::PipelineConfig, "godot", spec: { forge_release: true })
+    yaml = render(WarpEngine::CI::Gitlab::PipelineConfig, "godot", spec: { scm_release: true })
 
     expect(yaml).to include("JOB-TOKEN", "packages/generic", "/releases")
     expect(yaml).not_to include("gitea_token")

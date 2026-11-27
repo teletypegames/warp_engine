@@ -21,9 +21,9 @@ RSpec.describe "GET /api/service", type: :request do
     expect(json["api"]).to eq("version" => WarpEngine::API_VERSION, "catalog" => { "pageSize" => 24, "maxPageSize" => 100 })
   end
 
-  it "lists the outlets, the catalog API first, a shelf with where it is served" do
-    allow(WarpEngine.config).to receive(:outlets).and_return(
-      [ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG",
+  it "lists the feeds, the catalog API first, a directory with where it is served" do
+    allow(WarpEngine.config).to receive(:feeds).and_return(
+      [ { key: "c64", type: "directory", platform: "c64", kind: "package", path: "directories/C64", extension: ".PRG",
           urls: [ "http://archive.example/C64" ] },
         { key: "assembly64", type: "assembly64", hosts: [ "a64.example" ] } ]
     )
@@ -31,13 +31,13 @@ RSpec.describe "GET /api/service", type: :request do
     get "/api/service"
 
     json = JSON.parse(response.body)
-    expect(json).not_to have_key("shelves")
-    outlets = json["outlets"]
-    expect(outlets.map { |outlet| outlet.values_at("key", "type") })
-      .to eq([ %w[wecp wecp], %w[c64 shelf], %w[assembly64 assembly64] ])
-    expect(outlets[1]).to include("platforms" => [ "c64" ], "kinds" => [ "cartridge" ], "layout" => "flat",
+    expect(json).not_to have_key("directories")
+    feeds = json["feeds"]
+    expect(feeds.map { |feed| feed.values_at("key", "type") })
+      .to eq([ %w[wecp wecp], %w[c64 directory], %w[assembly64 assembly64] ])
+    expect(feeds[1]).to include("platforms" => [ "c64" ], "kinds" => [ "package" ], "layout" => "flat",
                                   "index" => "INDEX.TXT", "urls" => [ "http://archive.example/C64" ])
-    expect(outlets.last).to include("hosts" => [ "a64.example" ], "path" => "/leet/search", "platforms" => [ "c64" ])
+    expect(feeds.last).to include("hosts" => [ "a64.example" ], "path" => "/leet/search", "platforms" => [ "c64" ])
   end
 
   it "names the store registry, or null where it is off" do

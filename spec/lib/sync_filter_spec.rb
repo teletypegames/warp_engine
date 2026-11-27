@@ -66,12 +66,12 @@ RSpec.describe WarpEngine::Sync::Filter do
   end
 
   it "keeps the required kinds whatever the kind lists say" do
-    filter = described_class.new(sync_config(allowed_kinds: %w[html], denied_kinds: %w[cartridge]).outbound)
+    filter = described_class.new(sync_config(allowed_kinds: %w[html], denied_kinds: %w[package]).outbound)
     kinds = filter.kind_specs(WarpEngine::Platform.find!("c64")).map(&:name)
 
-    expect(kinds).to include("cartridge")
+    expect(kinds).to include("package")
     expect(kinds).to include("html") if WarpEngine::Platform.find!("c64").expected_kinds.include?("html")
-    expect(kinds - %w[cartridge html]).to be_empty
+    expect(kinds - %w[package html]).to be_empty
   end
 
   describe WarpEngine::Sync::Configuration do
@@ -93,9 +93,9 @@ RSpec.describe WarpEngine::Sync::Filter do
     end
 
     it "warns about a required kind a list leaves out" do
-      warnings = sync_config(denied_kinds: %w[cartridge]).validate!
+      warnings = sync_config(denied_kinds: %w[package]).validate!
 
-      expect(warnings).to include(a_string_including("c64 platform requires cartridge"))
+      expect(warnings).to include(a_string_including("c64 platform requires package"))
     end
   end
 

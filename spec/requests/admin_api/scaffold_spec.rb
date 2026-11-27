@@ -4,13 +4,13 @@ RSpec.describe "Admin API scaffold", type: :request do
   include AdminApiHelpers
 
   let(:repo) do
-    WarpEngine::Forge::Repo.new(id: 9, owner: "games", name: "rabbit", html_url: "https://git.example/games/rabbit",
+    WarpEngine::Scm::Repo.new(id: 9, owner: "games", name: "rabbit", html_url: "https://git.example/games/rabbit",
                                 clone_url: "https://git.example/games/rabbit.git", ssh_url: "ssh://git@git.example/games/rabbit.git")
   end
-  let(:forge) { instance_double(WarpEngine::Forge::Gitea, configured?: true, create_repo: repo) }
+  let(:scm) { instance_double(WarpEngine::Scm::Gitea, configured?: true, create_repo: repo) }
 
   before do
-    allow(WarpEngine).to receive(:forge).and_return(forge)
+    allow(WarpEngine).to receive(:scm).and_return(scm)
     allow(WarpEngine).to receive(:ci).and_return(WarpEngine::CI::Null.new)
   end
 
@@ -18,7 +18,7 @@ RSpec.describe "Admin API scaffold", type: :request do
     api_post("/softwares/scaffold", { name: "rabbit", title: "Rabbit", platform: "c64" })
 
     expect(response).to have_http_status(:created)
-    expect(json["data"]).to include("repository" => include("sshUrl" => repo.ssh_url), "pipelineId" => nil,
+    expect(json["data"]).to include("repository" => include("sshUrl" => repo.ssh_url), "ciRepositoryId" => nil,
                                     "warnings" => [ "no CI is configured: the repository builds nothing yet" ])
     expect(WarpEngine::Software.find_by(name: "rabbit").owner).to eq(admin_owner)
   end

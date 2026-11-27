@@ -69,7 +69,7 @@
         <p class="we-sr-hint">Each push first asks the peer; a release it holds with every kind of file this push would bring is left out. Untick it to send them again.</p>
         <div class="we-sr-h">Channels</div>
         <div class="we-sr-opts">
-          <% WarpEngine::Channels::ALL.each do |channel| %>
+          <% WarpEngine::ReleaseChannel::ALL.each do |channel| %>
             <label class="we-sr-opt"><%= check_box_tag "channels[]", channel, shown.channels.include?(channel), id: "we-sr-channel-#{channel}" %> <span><%= channel %></span></label>
           <% end %>
         </div>
@@ -130,7 +130,7 @@
                 <td><%= link_to release.software.name, admin_software_path(release.software) %></td>
                 <td class="we-sr-mono"><%= release.version %></td>
                 <td><%= release.software.platform %></td>
-                <td><%= WarpEngine::Channels.for(release.version) %></td>
+                <td><%= WarpEngine::ReleaseChannel.of(release.version) %></td>
               </tr>
             <% end %>
           </tbody>

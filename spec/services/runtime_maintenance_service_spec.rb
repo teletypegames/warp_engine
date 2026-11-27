@@ -28,7 +28,7 @@ RSpec.describe WarpEngine::RuntimeMaintenanceService do
     File.write("#{folder}.html.zip", "zip")
     File.binwrite(File.join(tmpdir, "rabbit-#{version}.prg"), "\x01\x08")
     release.release_assets.create!(kind: "html", path: folder)
-    release.release_assets.create!(kind: "cartridge", path: File.join(tmpdir, "rabbit-#{version}.prg"))
+    release.release_assets.create!(kind: "package", path: File.join(tmpdir, "rabbit-#{version}.prg"))
     release
   end
 
@@ -70,7 +70,7 @@ RSpec.describe WarpEngine::RuntimeMaintenanceService do
     expect(File.directory?(File.join(tmpdir, "rabbit-1.0"))).to be(true)
 
     service.prune_html(dry_run: false)
-    expect(release.reload.release_assets.map(&:kind)).to eq([ "cartridge" ])
+    expect(release.reload.release_assets.map(&:kind)).to eq([ "package" ])
     expect(File.exist?(File.join(tmpdir, "rabbit-1.0"))).to be(false)
     expect(File.exist?(File.join(tmpdir, "rabbit-1.0.html.zip"))).to be(false)
   end
@@ -94,9 +94,9 @@ RSpec.describe WarpEngine::RuntimeMaintenanceService do
   it "binds releases that never played on the web to the current version when asked, leaving out the excluded ones" do
     version = installed
     plain = create(:release, software: software, version: "2.0")
-    plain.release_assets.create!(kind: "cartridge", path: File.join(tmpdir, "rabbit-2.0.prg"))
+    plain.release_assets.create!(kind: "package", path: File.join(tmpdir, "rabbit-2.0.prg"))
     other = create(:release, software: create(:software, name: "net", platform: "c64"), version: "1.0")
-    other.release_assets.create!(kind: "cartridge", path: File.join(tmpdir, "net-1.0.prg"))
+    other.release_assets.create!(kind: "package", path: File.join(tmpdir, "net-1.0.prg"))
 
     expect(service.migrate(dry_run: false).count).to eq(0)
     report = service.migrate(dry_run: false, unplayed: true, exclude: %w[net])

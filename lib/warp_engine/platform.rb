@@ -83,7 +83,7 @@ module WarpEngine
       #   WarpEngine::Platform.kind_list("web, win_x64 linux_x64") # => ["web", "win_x64", "linux_x64"]
       def kind_list(value)
         list = value.is_a?(Array) ? value : value.to_s.split(/[\s,]+/)
-        list.map { |kind| kind.to_s.strip }.reject(&:empty?).uniq
+        WarpEngine::AssetKinds.canonical_list(list.map { |kind| kind.to_s.strip }.reject(&:empty?))
       end
 
       # Returns what the host registered as +name+ (a Definition or a legacy
@@ -108,7 +108,7 @@ module WarpEngine
     WEB = "web".freeze
 
     # The name that, among the disabled kinds, takes the software out of the
-    # store engines (WarpEngine::StoreClients: RetroArch, Batocera), which
+    # store engines (WarpEngine::Clients: RetroArch, Batocera), which
     # skip it.
     STORES = "stores".freeze
 
@@ -136,9 +136,9 @@ module WarpEngine
       (definition.expected_kinds - definition.required_kinds) + (web ? [ WEB ] : []) + (in_stores? ? [ STORES ] : [])
     end
 
-    # Returns +true+ when a store engine (WarpEngine::StoreClients) carries
+    # Returns +true+ when a store engine (WarpEngine::Clients) carries
     # the platform.
-    def in_stores? = WarpEngine::StoreClients.platforms.include?(name)
+    def in_stores? = WarpEngine::Clients.platforms.include?(name)
 
     # Returns this platform without +kinds+ (see Platform.kind_list; the
     # names of #disableable_kinds count, any other is ignored): its pipeline
@@ -146,7 +146,7 @@ module WarpEngine
     # the catalog leaves them out, and with WEB it plays nowhere on the web.
     # Returns +self+ when nothing is left out.
     #
-    #   WarpEngine::Platform.find!("c64").without("web win_x64").expected_kinds # => ["cartridge", "docs", "linux_x64", "mac_arm64"]
+    #   WarpEngine::Platform.find!("c64").without("web win_x64").expected_kinds # => ["package", "docs", "linux_x64", "mac_arm64"]
     def without(kinds)
       disabled = self.class.kind_list(kinds) & disableable_kinds
       return self if disabled.empty?
@@ -218,9 +218,9 @@ module WarpEngine
     # or +nil+.
     def version_file = legacy_registration&.version_source.presence ? nil : definition.version_file
 
-    # Returns the folder spec of asset +kind+ on a +folders+ shelf, read from the
+    # Returns the folder spec of asset +kind+ on a +folders+ directory, read from the
     # release +metadata+, or +nil+ when the platform has none.
-    def shelf_folder(metadata, kind) = definition.shelf_folder&.call(metadata, kind)
+    def directory_folder(metadata, kind) = definition.directory_folder&.call(metadata, kind)
 
     # Returns every WebBinding of the platform, the disabled ones too: the
     # definition's bindings with the host's WarpEngine::Configuration#platform_web

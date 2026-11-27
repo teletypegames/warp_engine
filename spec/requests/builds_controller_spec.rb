@@ -9,7 +9,7 @@ RSpec.describe "GET /api/builds", type: :request do
       json = JSON.parse(response.body)
       expect(json["platforms"]).to be_a(Hash)
       expect(json["platforms"]["tic80"]["label"]).to eq("TIC-80")
-      expect(json["platforms"]["tic80"]["kinds"]).to include("cartridge")
+      expect(json["platforms"]["tic80"]["kinds"]).to include("package")
       expect(json["allKinds"]).to be_an(Array)
     end
   end

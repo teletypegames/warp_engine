@@ -173,6 +173,8 @@ module WarpEngine
       @step = "check"
       kinds = transport.existing(package)
       return nil if kinds.nil? || kinds.empty?
+
+      kinds = WarpEngine::AssetKinds.canonical_list(kinds)
       return nil if (package.kinds - kinds).any?
 
       "already on the peer (#{kinds.sort.join(', ')})"

@@ -10,7 +10,7 @@ RSpec.describe "Sync: a peer's own channels and the images" do
   let!(:server) { sync_peer(label: "Other", host: "https://other.example/warp", secret: "other-token") }
   let(:software) { create(:software, name: "game", platform: "c64", status: "released") }
 
-  before { sync_config(allowed_channels: WarpEngine::Channels::ALL) }
+  before { sync_config(allowed_channels: WarpEngine::ReleaseChannel::ALL) }
 
   describe "the channels of a peer" do
     it "narrows the pushes after a publish" do

@@ -69,7 +69,7 @@ RSpec.describe WarpEngine::SyncPushService do
     FileUtils.rm_f(Dir.glob(File.join(folder, "*")))
     File.write(File.join(folder, "old-1.0.prg"), "prg")
     File.write(File.join(folder, "old-1.0.metadata.json"), "{}")
-    WarpEngine::ReleaseAsset.create!(release: release, kind: "cartridge", path: File.join(folder, "old-1.0.prg"))
+    WarpEngine::ReleaseAsset.create!(release: release, kind: "package", path: File.join(folder, "old-1.0.prg"))
     stub_publish
 
     expect(described_class.new.push(release, server).status).to eq("succeeded")
@@ -114,12 +114,12 @@ RSpec.describe WarpEngine::SyncPushService do
 
       result = described_class.new.push(release, server, skip_existing: true)
 
-      expect(result).to have_attributes(status: "skipped", message: "already on the peer (cartridge, win_x64)")
+      expect(result).to have_attributes(status: "skipped", message: "already on the peer (package, win_x64)")
       expect(uploads).to be_empty
     end
 
     it "sends it when the server lacks a kind this push brings" do
-      stub_builds(releases: { "1.0" => { actual: %w[cartridge], missing: [] } })
+      stub_builds(releases: { "1.0" => { actual: %w[package], missing: [] } })
       stub_publish
 
       expect(described_class.new.push(release, server, skip_existing: true).status).to eq("succeeded")
@@ -127,7 +127,7 @@ RSpec.describe WarpEngine::SyncPushService do
     end
 
     it "sends it when the server has another version or no such software" do
-      stub_builds(releases: { "0.9" => { actual: %w[cartridge win_x64] } })
+      stub_builds(releases: { "0.9" => { actual: %w[package win_x64] } })
       stub_publish
       expect(described_class.new.push(release, server, skip_existing: true).status).to eq("succeeded")
 

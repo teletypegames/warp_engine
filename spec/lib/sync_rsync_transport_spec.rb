@@ -52,7 +52,7 @@ RSpec.describe WarpEngine::Sync::Transports::Rsync do
       meta = File.join(dir, "game-1.0.metadata.json").tap { |path| File.write(path, "{}") }
       steps = []
 
-      delivery = transport.deliver(package([ WarpEngine::Sync::PackageFile.new(path: prg, name: "game-1.0.prg", kind: "cartridge"),
+      delivery = transport.deliver(package([ WarpEngine::Sync::PackageFile.new(path: prg, name: "game-1.0.prg", kind: "package"),
                                              WarpEngine::Sync::PackageFile.new(path: meta, name: "game-1.0.metadata.json", kind: nil) ])) { |step| steps << step }
 
       expect(delivery.status).to eq("succeeded")
@@ -82,10 +82,10 @@ RSpec.describe WarpEngine::Sync::Transports::Rsync do
       -rw-r--r--            120 2026/11/18 21:11:00 game-1.0.metadata.json
     OUT
     stub_rsync(out: listing)
-    files = [ WarpEngine::Sync::PackageFile.new(path: "/x", name: "game-1.0.prg", kind: "cartridge"),
+    files = [ WarpEngine::Sync::PackageFile.new(path: "/x", name: "game-1.0.prg", kind: "package"),
               WarpEngine::Sync::PackageFile.new(path: "/y", name: "game-1.0-win-x64.zip", kind: "win_x64") ]
 
-    expect(transport.existing(package(files))).to eq(%w[cartridge])
+    expect(transport.existing(package(files))).to eq(%w[package])
     expect(calls.last[:command].last).to eq("warp@mirror.example:/srv/mirror/game/1.0/")
   end
 

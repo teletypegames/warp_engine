@@ -64,8 +64,8 @@ module LocalHelpers
     stub_request(:post, "#{GITEA}/users/warp/tokens").to_return(status: 201, body: { sha1: "push-token" }.to_json)
   end
 
-  def ready_component(key, settings: {}, secrets: {})
-    WarpEngine::LocalComponent.for(key).tap do |record|
+  def ready_provider(key, settings: {}, secrets: {})
+    WarpEngine::LocalProvider.for(key).tap do |record|
       record.update!(state: "ready", settings: settings)
       record.secrets = secrets
       record.save!

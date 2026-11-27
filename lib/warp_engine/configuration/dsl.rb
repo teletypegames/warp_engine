@@ -11,7 +11,7 @@ module WarpEngine
     # The block form of WarpEngine.configure: <tt>WarpEngine.configure do ... end</tt>
     # without a block parameter runs here. Every call writes the same settings
     # the <tt>c.setting = value</tt> form does, so the rest of the engine reads one
-    # Configuration either way. The collections (outlets, extras, platforms,
+    # Configuration either way. The collections (feeds, extras, platforms,
     # ignored user agents) are keyed, so a block that runs again on a reload
     # replaces its entries instead of adding them twice.
     class DSL
@@ -66,30 +66,30 @@ module WarpEngine
         @config.ignored_user_agents = (Array(@config.ignored_user_agents) + patterns.flatten).uniq
       end
 
-      # Defines a shelf (an outlet of the type +shelf+, see
-      # WarpEngine::Outlets::Shelf for the options) for +platform+, under
-      # +key+ (the platform name by default). An outlet with the same key is
+      # Defines a directory (a feed of the type +directory+, see
+      # WarpEngine::Feeds::Directory for the options) for +platform+, under
+      # +key+ (the platform name by default). A feed with the same key is
       # replaced.
       #
-      #   shelf :c64, kind: "cartridge", path: "shelves/C64", extension: ".PRG"
-      #   shelf :dos, key: :apps, kinds: %w[cartridge win_x86], layout: "folders", path: "shelves/APPS"
-      def shelf(platform, key: platform, **options)
-        outlet(key, type: :shelf, platform: platform.to_s, **options)
+      #   directory :c64, kind: "package", path: "directories/C64", extension: ".PRG"
+      #   directory :dos, key: :apps, kinds: %w[package win_x86], layout: "folders", path: "directories/APPS"
+      def directory(platform, key: platform, **options)
+        feed(key, type: :directory, platform: platform.to_s, **options)
       end
 
-      # Defines an outlet under +key+ of the type +type+ (see WarpEngine::Outlets),
-      # its options as keywords. An outlet with the same key is replaced.
+      # Defines a feed under +key+ of the type +type+ (see WarpEngine::Feeds),
+      # its options as keywords. A feed with the same key is replaced.
       #
-      #   outlet :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
-      def outlet(key, type:, **options)
+      #   feed :assembly64, type: :assembly64, platforms: %w[c64], hosts: %w[a64.example.org]
+      def feed(key, type:, **options)
         definition = { key: key.to_s, type: type.to_s, **options }
-        @config.outlets = Array(@config.outlets).reject { |other| other.to_h.symbolize_keys[:key].to_s == key.to_s } + [ definition ]
+        @config.feeds = Array(@config.feeds).reject { |other| other.to_h.symbolize_keys[:key].to_s == key.to_s } + [ definition ]
       end
 
-      # Registers the outlet type +name+ with the class named +class_name+, a
-      # WarpEngine::Outlets::Base subclass.
-      def register_outlet_type(name, class_name)
-        @config.outlet_types = @config.outlet_types.merge(name.to_s => class_name.to_s)
+      # Registers the feed type +name+ with the class named +class_name+, a
+      # WarpEngine::Feeds::Base subclass.
+      def register_feed_type(name, class_name)
+        @config.feed_types = @config.feed_types.merge(name.to_s => class_name.to_s)
       end
 
       # Registers a platform; see WarpEngine::Configuration#register_platform.
@@ -114,11 +114,11 @@ module WarpEngine
       #   platform_tooling :c64, template: "https://git.example/build/c64-tools"
       def platform_tooling(platform, **values) = @config.platform_tooling(platform, **values)
 
-      # Chooses the forge new softwares get their repository on; see
-      # WarpEngine::Configuration#forge.
+      # Chooses the SCM new softwares get their repository on; see
+      # WarpEngine::Configuration#scm.
       #
-      #   forge :gitea, url: "https://git.example", token: ENV["GITEA_TOKEN"], owner: "games"
-      def forge(type, **options) = @config.forge(type, **options)
+      #   scm :gitea, url: "https://git.example", token: ENV["GITEA_TOKEN"], owner: "games"
+      def scm(type, **options) = @config.scm(type, **options)
 
       # Evaluates +block+ with a WarpEngine::Configuration::AdminApiDSL on the
       # admin API settings.
@@ -149,7 +149,7 @@ module WarpEngine
       # Evaluates +block+ on the WarpEngine::Local::Configuration (see
       # WarpEngine::Configuration::LocalDSL): the git server and CI this engine
       # may start beside itself.
-      def local_components(&block)
+      def local_providers(&block)
         LocalDSL.new(@config.local).instance_eval(&block)
       end
 

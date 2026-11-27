@@ -6,7 +6,7 @@ RSpec.describe WarpEngine::Software, "forks" do
   it "is forkable only with a public source and the author's consent" do
     expect(software).not_to be_forkable
 
-    link = WarpEngine::ExternalLink.create!(software: software, label: "R", url: "https://git.example/a.git", kind: "source")
+    link = WarpEngine::SoftwareSource.create!(software: software, url: "https://git.example/a.git")
     expect(software.reload).not_to be_forkable
 
     link.update_columns(public: true)

@@ -5,25 +5,25 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
   include AdminApiHelpers
 
   it "wants an admin:read token by default" do
-    get "/api/admin/v1/openapi.json"
+    get "/api/admin/v2/openapi.json"
     expect(response).to have_http_status(:unauthorized)
 
-    get "/api/admin/v1/openapi.json", headers: auth(admin_token_with("admin:tokens"))
+    get "/api/admin/v2/openapi.json", headers: auth(admin_token_with("admin:tokens"))
     expect(response).to have_http_status(:forbidden)
   end
 
   it "is a valid OpenAPI 3.1 document addressed to this host" do
-    get "/api/admin/v1/openapi.json", headers: auth
+    get "/api/admin/v2/openapi.json", headers: auth
 
     expect(response).to have_http_status(:ok)
     expect(json["openapi"]).to eq("3.1.0")
-    expect(json["info"]).to include("version" => WarpEngine::VERSION, "x-api-version" => 1)
-    expect(json["servers"]).to eq([ { "url" => "http://www.example.com/api/admin/v1" } ])
+    expect(json["info"]).to include("version" => WarpEngine::VERSION, "x-api-version" => 2)
+    expect(json["servers"]).to eq([ { "url" => "http://www.example.com/api/admin/v2" } ])
     expect(JSONSchemer.openapi(json).validate.map { |e| e["error"] }).to be_empty
   end
 
   it "resolves every reference it makes, as Redoc demands" do
-    get "/api/admin/v1/openapi.json", headers: auth
+    get "/api/admin/v2/openapi.json", headers: auth
 
     refs = response.body.scan(%r{"\$ref":"#/components/(\w+)/(\w+)"}).uniq
     dangling = refs.reject { |kind, name| json.dig("components", kind, name) }
@@ -35,7 +35,7 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
   it "can be public, and comes as YAML too" do
     admin_config.openapi_requires_auth = false
 
-    get "/api/admin/v1/openapi.yaml"
+    get "/api/admin/v2/openapi.yaml"
 
     expect(response).to have_http_status(:ok)
     expect(response.media_type).to eq("application/yaml")
@@ -46,22 +46,22 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
     admin_config.read_only = true
     admin_config.resources = %i[softwares downloads]
 
-    get "/api/admin/v1/openapi.json", headers: auth
+    get "/api/admin/v2/openapi.json", headers: auth
 
     verbs = json["paths"].values.flat_map(&:keys).uniq
     expect(verbs).to eq(%w[get])
     expect(json["paths"].keys).to include("/softwares", "/downloads/summary", "/me")
-    expect(json["paths"].keys).not_to include("/files", "/platform_links", "/pipelines")
+    expect(json["paths"].keys).not_to include("/files", "/platform_links", "/ci_repositories")
   end
 
   it "leaves out what the host has not configured" do
-    get "/api/admin/v1/openapi.json", headers: auth
+    get "/api/admin/v2/openapi.json", headers: auth
 
-    expect(json["paths"].keys).not_to include("/pipelines", "/device_grants", "/softwares/{softwareId}/extras/{association}")
+    expect(json["paths"].keys).not_to include("/ci_repositories", "/device_grants", "/softwares/{softwareId}/extras/{association}")
   end
 
   it "names the scope every operation needs" do
-    get "/api/admin/v1/openapi.json", headers: auth
+    get "/api/admin/v2/openapi.json", headers: auth
 
     operation = json.dig("paths", "/application_tokens", "post")
     expect(operation["x-required-scope"]).to eq("admin:tokens")
@@ -81,7 +81,7 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
     documented = document["paths"].flat_map { |path, verbs| verbs.keys.map { |verb| "#{verb.upcase} #{path}" } }
     routed = WarpEngine::Engine.routes.routes.select { |route| route.defaults[:controller] == "warp_engine/api/admin/operations" }
                                     .map do |route|
-      "#{route.verb} #{route.path.spec.to_s.delete_prefix('/api/admin/v1').gsub(/:(\w+)/, '{\1}')}"
+      "#{route.verb} #{route.path.spec.to_s.delete_prefix('/api/admin/v2').gsub(/:(\w+)/, '{\1}')}"
     end
 
     expect(documented).to match_array(routed)
@@ -97,7 +97,7 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
 
   describe "the docs page" do
     it "does not exist unless the host asks for it" do
-      get "/api/admin/v1/docs", headers: auth
+      get "/api/admin/v2/docs", headers: auth
 
       expect(response).to have_http_status(:not_found)
     end
@@ -106,7 +106,7 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
       admin_config.docs_ui = true
       admin_config.openapi_requires_auth = false
 
-      get "/api/admin/v1/docs"
+      get "/api/admin/v2/docs"
 
       expect(response).to have_http_status(:ok)
       expect(response.media_type).to eq("text/html")
@@ -129,10 +129,10 @@ RSpec.describe "Admin API OpenAPI document", type: :request do
       get "/api/service"
 
       expect(json["admin"]).to eq(
-        "version"    => 1,
-        "url"        => "http://www.example.com/api/admin/v1",
-        "openapiUrl" => "http://www.example.com/api/admin/v1/openapi.json",
-        "mcpUrl"     => "http://www.example.com/api/admin/v1/mcp",
+        "version"    => 2,
+        "url"        => "http://www.example.com/api/admin/v2",
+        "openapiUrl" => "http://www.example.com/api/admin/v2/openapi.json",
+        "mcpUrl"     => "http://www.example.com/api/admin/v2/mcp",
         "schemes"    => [ "bearer" ]
       )
     end

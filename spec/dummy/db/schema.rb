@@ -1,4 +1,4 @@
-ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_27_084050) do
   create_table "application_tokens", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
@@ -15,6 +15,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.index ["deleted_at"], name: "idx_application_tokens_deleted_at"
     t.index ["owner_type", "owner_id"], name: "idx_application_tokens_owner"
     t.index ["token_digest"], name: "idx_application_tokens_token_digest", unique: true
+  end
+
+  create_table "ci_repositories", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.datetime "last_pipeline_at", precision: 3
+    t.string "last_pipeline_status", limit: 32
+    t.string "platform", limit: 32, null: false
+    t.string "repo_name", limit: 128, null: false
+    t.string "repo_owner", limit: 128, null: false
+    t.bigint "software_id", unsigned: true
+    t.datetime "updated_at", precision: 3
+    t.bigint "woodpecker_repo_id", null: false, unsigned: true
+    t.index ["deleted_at"], name: "idx_ci_repositories_deleted"
+    t.index ["repo_owner", "repo_name"], name: "idx_ci_repositories_owner_name", unique: true
+    t.index ["software_id"], name: "idx_ci_repositories_software"
+    t.index ["woodpecker_repo_id"], name: "idx_ci_repositories_wp_id", unique: true
+  end
+
+  create_table "client_configs", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "client", limit: 32, null: false
+    t.datetime "created_at", precision: 3
+    t.json "logo_urls"
+    t.string "name"
+    t.string "pinned_version", limit: 64
+    t.string "software_name", limit: 128
+    t.json "statuses"
+    t.string "store_key", limit: 64
+    t.string "subfolder", limit: 128
+    t.datetime "updated_at", precision: 3
+    t.index ["client"], name: "idx_client_configs_client", unique: true
   end
 
   create_table "device_grants", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -40,49 +72,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.string "client_id", limit: 100
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
+    t.string "feed", limit: 32
     t.string "file_path", null: false
     t.string "ip_address"
-    t.string "outlet", limit: 32
     t.string "referer", limit: 500
     t.bigint "release_id", unsigned: true
     t.datetime "updated_at", precision: 3
     t.string "user_agent", limit: 500
     t.index ["deleted_at"], name: "idx_downloads_deleted_at"
+    t.index ["feed"], name: "index_downloads_on_feed"
     t.index ["file_path"], name: "index_downloads_on_file_path"
-    t.index ["outlet"], name: "index_downloads_on_outlet"
     t.index ["release_id"], name: "index_downloads_on_release_id"
-  end
-
-  create_table "external_links", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
-    t.datetime "created_at", precision: 3
-    t.datetime "deleted_at", precision: 3
-    t.string "kind", limit: 16, default: "link", null: false
-    t.string "label", limit: 128
-    t.boolean "public"
-    t.string "ref"
-    t.bigint "software_id", unsigned: true
-    t.datetime "updated_at", precision: 3
-    t.string "url"
-    t.datetime "verified_at", precision: 3
-    t.string "verify_error", limit: 512
-    t.index ["deleted_at"], name: "idx_external_links_deleted_at"
-    t.index ["software_id", "kind"], name: "idx_external_links_software_kind"
-    t.index ["software_id"], name: "idx_external_links_software_id"
-  end
-
-  create_table "fork_links", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
-    t.datetime "checked_at", precision: 3
-    t.string "child_engine", null: false
-    t.string "child_name", limit: 128, null: false
-    t.string "child_title"
-    t.datetime "created_at", precision: 3
-    t.datetime "deleted_at", precision: 3
-    t.string "last_error", limit: 512
-    t.bigint "software_id", null: false, unsigned: true
-    t.string "status", limit: 16, default: "pending", null: false
-    t.datetime "updated_at", precision: 3
-    t.index ["software_id", "child_engine", "child_name"], name: "idx_fork_links_child", unique: true
-    t.index ["status"], name: "idx_fork_links_status"
   end
 
   create_table "images", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -95,7 +95,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.index ["deleted_at"], name: "idx_images_deleted_at"
   end
 
-  create_table "local_components", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "local_providers", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3, null: false
     t.string "key", limit: 64, null: false
     t.text "last_error"
@@ -104,10 +104,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.json "settings"
     t.string "state", limit: 16, default: "off", null: false
     t.datetime "updated_at", precision: 3, null: false
-    t.index ["key"], name: "idx_local_components_key", unique: true
+    t.index ["key"], name: "idx_local_providers_key", unique: true
   end
 
-  create_table "local_operations", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "local_tasks", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", precision: 3, null: false
     t.text "error"
     t.string "kind", limit: 16, null: false
@@ -116,25 +116,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.json "steps"
     t.string "target", limit: 128, null: false
     t.datetime "updated_at", precision: 3, null: false
-    t.index ["created_at"], name: "idx_local_operations_created"
-  end
-
-  create_table "pipelines", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
-    t.boolean "active", default: true, null: false
-    t.datetime "created_at", precision: 3
-    t.datetime "deleted_at", precision: 3
-    t.datetime "last_pipeline_at", precision: 3
-    t.string "last_pipeline_status", limit: 32
-    t.string "platform", limit: 32, null: false
-    t.string "repo_name", limit: 128, null: false
-    t.string "repo_owner", limit: 128, null: false
-    t.bigint "software_id", unsigned: true
-    t.datetime "updated_at", precision: 3
-    t.bigint "woodpecker_repo_id", null: false, unsigned: true
-    t.index ["deleted_at"], name: "idx_pipelines_deleted"
-    t.index ["repo_owner", "repo_name"], name: "idx_pipelines_owner_name", unique: true
-    t.index ["software_id"], name: "idx_pipelines_software"
-    t.index ["woodpecker_repo_id"], name: "idx_pipelines_wp_id", unique: true
+    t.index ["created_at"], name: "idx_local_tasks_created"
   end
 
   create_table "platform_links", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -214,6 +196,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.index ["key"], name: "idx_software_categories_key", unique: true
   end
 
+  create_table "software_forks", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "checked_at", precision: 3
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.string "engine_url", null: false
+    t.string "last_error", limit: 512
+    t.string "name", limit: 128, null: false
+    t.bigint "software_id", null: false, unsigned: true
+    t.string "status", limit: 16, default: "pending", null: false
+    t.string "title"
+    t.datetime "updated_at", precision: 3
+    t.index ["software_id", "engine_url", "name"], name: "idx_software_forks_engine_name", unique: true
+    t.index ["status"], name: "idx_software_forks_status"
+  end
+
   create_table "software_images", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "image_id", null: false
@@ -225,6 +222,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.index ["image_id"], name: "fk_rails_a456fbc278"
     t.index ["software_id", "image_id"], name: "index_software_images_on_software_id_and_image_id", unique: true
     t.index ["software_id", "position"], name: "index_software_images_on_software_id_and_position"
+  end
+
+  create_table "software_links", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.string "label", limit: 128
+    t.bigint "software_id", unsigned: true
+    t.datetime "updated_at", precision: 3
+    t.string "url"
+    t.index ["deleted_at"], name: "idx_software_links_deleted_at"
+    t.index ["software_id"], name: "idx_software_links_software_id"
+  end
+
+  create_table "software_sources", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", precision: 3
+    t.datetime "deleted_at", precision: 3
+    t.boolean "public"
+    t.string "ref"
+    t.bigint "software_id", null: false, unsigned: true
+    t.datetime "updated_at", precision: 3
+    t.string "url"
+    t.datetime "verified_at", precision: 3
+    t.string "verify_error", limit: 512
+    t.index ["deleted_at"], name: "idx_software_sources_deleted_at"
+    t.index ["software_id"], name: "idx_software_sources_software_id"
   end
 
   create_table "software_statuses", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -245,6 +267,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.datetime "created_at", precision: 3
     t.datetime "deleted_at", precision: 3
     t.text "desc"
+    t.string "directory_name", limit: 32
     t.json "disabled_kinds"
     t.string "fork_of_engine"
     t.string "fork_of_name", limit: 128
@@ -257,7 +280,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.bigint "owner_id", unsigned: true
     t.string "owner_type", limit: 128
     t.string "platform", limit: 128
-    t.string "shelf_name", limit: 32
     t.string "site"
     t.string "status", limit: 20, default: "development"
     t.text "story"
@@ -268,20 +290,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.index ["fork_of_engine", "fork_of_name"], name: "idx_softwares_fork_of"
     t.index ["name"], name: "idx_softwares_name", unique: true
     t.index ["owner_type", "owner_id"], name: "idx_softwares_owner"
-  end
-
-  create_table "store_clients", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
-    t.string "client", limit: 32, null: false
-    t.datetime "created_at", precision: 3
-    t.json "logo_urls"
-    t.string "name"
-    t.string "pinned_version", limit: 64
-    t.string "software_name", limit: 128
-    t.json "statuses"
-    t.string "store_key", limit: 64
-    t.string "subfolder", limit: 128
-    t.datetime "updated_at", precision: 3
-    t.index ["client"], name: "idx_store_clients_client", unique: true
   end
 
   create_table "sync_events", id: { type: :bigint, unsigned: true }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -336,15 +344,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
     t.datetime "updated_at", precision: 3
   end
 
+  add_foreign_key "ci_repositories", "softwares", name: "fk_ci_repositories_software", on_delete: :nullify
   add_foreign_key "downloads", "releases", name: "fk_downloads_release", on_delete: :nullify
-  add_foreign_key "external_links", "softwares", name: "fk_softwares_external_links", on_delete: :cascade
-  add_foreign_key "fork_links", "softwares", name: "fk_softwares_fork_links", on_delete: :cascade
-  add_foreign_key "pipelines", "softwares", name: "fk_pipelines_software", on_delete: :nullify
   add_foreign_key "release_assets", "releases", name: "fk_releases_release_assets", on_delete: :cascade
   add_foreign_key "releases", "runtime_versions", name: "fk_runtime_versions_releases", on_delete: :nullify
   add_foreign_key "releases", "softwares", name: "fk_softwares_releases", on_delete: :cascade
   add_foreign_key "runtime_components", "runtime_versions", name: "fk_runtime_versions_components", on_delete: :cascade
+  add_foreign_key "software_forks", "softwares", name: "fk_softwares_software_forks", on_delete: :cascade
   add_foreign_key "software_images", "images"
   add_foreign_key "software_images", "softwares", on_delete: :cascade
+  add_foreign_key "software_links", "softwares", name: "fk_softwares_software_links", on_delete: :cascade
+  add_foreign_key "software_sources", "softwares", name: "fk_softwares_software_sources", on_delete: :cascade
   add_foreign_key "sync_events", "sync_peers", name: "fk_sync_peers_events", on_delete: :nullify
 end

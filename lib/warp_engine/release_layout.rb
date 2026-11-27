@@ -21,10 +21,10 @@ module WarpEngine
 
     # Returns the names of the root folders of the file container that are no
     # software's: the runtimes (WarpEngine::Runtime::ROOT) and the first
-    # folder of every outlet with a +path+ (the shelves).
+    # folder of every feed with a +path+ (the directories).
     def reserved
-      roots = WarpEngine::Outlets.materialized.filter_map do |outlet|
-        outlet.path.to_s.split("/").find(&:present?) if outlet.respond_to?(:path)
+      roots = WarpEngine::Feeds.static.filter_map do |feed|
+        feed.path.to_s.split("/").find(&:present?) if feed.respond_to?(:path)
       end
       ([ WarpEngine::Runtime::ROOT ] + roots).uniq
     end

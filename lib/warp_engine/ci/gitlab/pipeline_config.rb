@@ -5,7 +5,7 @@ module WarpEngine
   module CI
     module Gitlab
       # The GitLab pipeline of a platform: CI::PipelineConfig rendered by
-      # Gitlab::Renderer, with the GitLab forge scripts (<tt>gitlab/scripts/</tt>:
+      # Gitlab::Renderer, with the GitLab SCM scripts (<tt>gitlab/scripts/</tt>:
       # tags with the +TAG_TOKEN+ project variable, releases with the job token).
       class PipelineConfig < WarpEngine::CI::PipelineConfig
         # Returns +:gitlab+.

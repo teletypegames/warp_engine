@@ -2,10 +2,11 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
   permit_params do
     [
       :name, :title, :author, :desc, :story,
-      :license, :platform, :status, :category, :highlighted, :shelf_name, :sync_enabled, { disabled_kinds: [] },
+      :license, :platform, :status, :category, :highlighted, :directory_name, :sync_enabled, { disabled_kinds: [] },
       :forks_allowed, :fork_of_engine, :fork_of_name, :fork_of_version, :fork_of_repo,
       { software_images_attributes: [ :id, :image_id, :is_default, :position, :file_upload, :_destroy ] },
-      { external_links_attributes: [ :id, :label, :url, :kind, :ref, :_destroy ] },
+      { links_attributes: [ :id, :label, :url, :_destroy ] },
+      { source_attributes: [ :id, :url, :ref, :_destroy ] },
       { releases_attributes: [ :id, :version, :_destroy,
                                { release_assets_attributes: [ :id, :kind, :path, :_destroy ] } ] }
     ] + WarpEngine::AdditionalResource.permitted_params_for(:software)
@@ -61,11 +62,11 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
       end
     end
 
-    if resource.pipeline
+    if resource.ci_repository
       div class: "we-quick-link" do
-        a href: admin_pipeline_path(resource.pipeline) do
+        a href: admin_ci_repository_path(resource.ci_repository) do
           text_node WarpEngine::AdminIcons.svg(:branch)
-          text_node "Pipeline"
+          text_node "CI repository"
         end
       end
     end
@@ -99,13 +100,13 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
     para link_to("All sync events of #{resource.name}", admin_sync_events_path(q: { software_id_eq: resource.id })) if WarpEngine::Sync.config.events?
   end
 
-  sidebar "Forks", only: :show, if: -> { resource.fork? || WarpEngine::Current.fork_count(resource).positive? || resource.fork_links.exists? } do
+  sidebar "Forks", only: :show, if: -> { resource.fork? || WarpEngine::Current.fork_count(resource).positive? || resource.forks.exists? } do
     para "Fork of #{resource.fork_of_name} (#{resource.fork_of_engine})" if resource.fork?
     forks = WarpEngine::ForkService.new.forks(resource)
     para "#{forks.size} listed fork(s)"
-    pending = resource.fork_links.where(status: "pending").count
-    para link_to("#{pending} waiting for moderation", admin_fork_links_path(q: { software_id_eq: resource.id, status_eq: "pending" })) if pending.positive?
-    para link_to("All announced forks", admin_fork_links_path(q: { software_id_eq: resource.id })) if resource.fork_links.exists?
+    pending = resource.forks.where(status: "pending").count
+    para link_to("#{pending} waiting for moderation", admin_software_forks_path(q: { software_id_eq: resource.id, status_eq: "pending" })) if pending.positive?
+    para link_to("All announced forks", admin_software_forks_path(q: { software_id_eq: resource.id })) if resource.forks.exists?
   end
 
   sidebar "Download Statistics", only: :show do
@@ -147,7 +148,7 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         f.input :category, as: :datalist, collection: WarpEngine::SoftwareCategory.ordered.pluck(:key),
                 hint: "A key from the category vocabulary; a new word is added to it for review. Empty means uncategorised."
         f.input :highlighted
-        f.input :shelf_name, hint: "File name on a shelf (A-Z, 0-9, -); empty uses the name"
+        f.input :directory_name, hint: "File name on a directory (A-Z, 0-9, -); empty uses the name"
         f.input :disabled_kinds, as: :check_boxes, label: "Disabled kinds",
                 collection: WarpEngine::Platform.find(resource.platform, app: resource.app)&.disableable_kinds || [],
                 hint: "Not built, not uploaded, left out of the catalog; web: no web play. The CI marker's disable: key sets them on publish."
@@ -181,15 +182,19 @@ ActiveAdmin.register WarpEngine::Software, as: "Software" do
         end
       end
 
-      f.inputs "External Links" do
-        f.has_many :external_links, allow_destroy: true, new_record: true do |el|
-          state = { true => "public", false => "private or unreachable", nil => "not checked yet" }[el.object.public]
-          el.input :label
-          el.input :url, hint: (el.object.source? && el.object.persisted? ? "Source check: #{state} #{el.object.verify_error}".strip : nil)
-          el.input :kind, as: :select, collection: WarpEngine::ExternalLink::KINDS, include_blank: false,
-                          hint: "source: the git repository the software is built from (one per software)"
-          el.input :ref, hint: "Branch or tag of a source; empty for the default branch"
+      f.inputs "Links" do
+        f.has_many :links, allow_destroy: true, new_record: true do |link|
+          link.input :label
+          link.input :url
         end
+      end
+
+      f.inputs "Source", for: [ :source, f.object.source || f.object.build_source ] do |source|
+        state = { true => "public", false => "private or unreachable", nil => "not checked yet" }[source.object.public]
+        source.input :url, label: "Repository URL",
+                           hint: (source.object.persisted? ? "Source check: #{state} #{source.object.verify_error}".strip : "The git repository the software is built from")
+        source.input :ref, hint: "Branch or tag; empty for the default branch"
+        source.input :_destroy, as: :boolean, label: "Remove the source" if source.object.persisted?
       end
 
       f.inputs "Forks" do

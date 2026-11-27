@@ -10,11 +10,11 @@ RSpec.describe WarpEngine::SecretSyncService do
   end
 
   describe "#provision" do
-    it "hands the token to the provider for every pipeline" do
-      repo = create(:pipeline)
+    it "hands the token to the provider for every CI repository" do
+      repo = create(:ci_repository)
       allow(ci).to receive(:secret_set)
 
-      result = service.provision("plaintoken", pipelines: [ repo ])
+      result = service.provision("plaintoken", repositories: [ repo ])
 
       expect(result[:synced]).to eq([ repo ])
       expect(ci).to have_received(:secret_set).with(
@@ -23,12 +23,12 @@ RSpec.describe WarpEngine::SecretSyncService do
     end
 
     it "records failed repos without raising" do
-      repo = create(:pipeline)
+      repo = create(:ci_repository)
       allow(ci).to receive(:secret_set).and_raise(
         WarpEngine::CI::ConnectionError, "unreachable"
       )
 
-      result = service.provision("tok", pipelines: [ repo ])
+      result = service.provision("tok", repositories: [ repo ])
 
       expect(result[:synced]).to be_empty
       expect(result[:failed].size).to eq(1)
@@ -39,7 +39,7 @@ RSpec.describe WarpEngine::SecretSyncService do
     it "deletes secrets from all relevant repos" do
       token = create(:application_token)
       sw = create(:software, name: "game1", owner: token.owner)
-      repo = create(:pipeline, :with_software, software: sw)
+      repo = create(:ci_repository, :with_software, software: sw)
 
       allow(ci).to receive(:secret_delete)
 
@@ -53,7 +53,7 @@ RSpec.describe WarpEngine::SecretSyncService do
     it "creates new token, provisions, revokes old" do
       token = create(:application_token)
       sw = create(:software, name: "game1", owner: token.owner)
-      repo = create(:pipeline, :with_software, software: sw)
+      repo = create(:ci_repository, :with_software, software: sw)
 
       allow(ci).to receive(:secret_set)
 
@@ -67,7 +67,7 @@ RSpec.describe WarpEngine::SecretSyncService do
     it "rolls back if all repos fail" do
       token = create(:application_token)
       sw = create(:software, name: "game1", owner: token.owner)
-      create(:pipeline, :with_software, software: sw)
+      create(:ci_repository, :with_software, software: sw)
 
       allow(ci).to receive(:secret_set).and_raise(
         WarpEngine::CI::ConnectionError, "down"
@@ -85,17 +85,17 @@ RSpec.describe WarpEngine::SecretSyncService do
       result = service.rotate(token)
 
       expect(result[:rotated]).to be false
-      expect(result[:reason]).to eq("no pipelines")
+      expect(result[:reason]).to eq("no repositories")
     end
   end
 
-  describe "#pipelines_for_token" do
+  describe "#repositories_for_token" do
     it "returns all active repos for unrestricted tokens" do
       token = create(:application_token, :unrestricted)
-      repo1 = create(:pipeline)
-      create(:pipeline, :inactive)
+      repo1 = create(:ci_repository)
+      create(:ci_repository, :inactive)
 
-      repos = service.pipelines_for_token(token)
+      repos = service.repositories_for_token(token)
 
       expect(repos).to eq([ repo1 ])
     end
@@ -104,10 +104,10 @@ RSpec.describe WarpEngine::SecretSyncService do
       token = create(:application_token)
       own_sw = create(:software, name: "mine", owner: token.owner)
       other_sw = create(:software, name: "theirs", owner: create(:test_owner))
-      own_repo = create(:pipeline, :with_software, software: own_sw)
-      create(:pipeline, :with_software, software: other_sw)
+      own_repo = create(:ci_repository, :with_software, software: own_sw)
+      create(:ci_repository, :with_software, software: other_sw)
 
-      repos = service.pipelines_for_token(token)
+      repos = service.repositories_for_token(token)
 
       expect(repos).to eq([ own_repo ])
     end

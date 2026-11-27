@@ -24,13 +24,13 @@ module WarpEngine
     #    (<tt>scripts/upload.sh</tt>, <tt>scripts/publish.sh</tt>): the kinds
     #    the pipeline always builds (and the metadata) must be there, every
     #    other kind the platform accepts is uploaded when the build made it;
-    # 5. +tag+ after a push build when releases follow tags, and the forge
+    # 5. +tag+ after a push build when releases follow tags, and the SCM
     #    +release+ when the host asks for it.
     #
     # The adapter's renderer then writes the steps in its YAML dialect. This is
     # the provider-neutral base; CI::Woodpecker::PipelineConfig and
     # CI::Gitlab::PipelineConfig supply the renderer, the branch variables, the
-    # forge scripts and secrets.
+    # SCM scripts and secrets.
     #
     # A CI-neutral template renders to a mapping with +steps+ (each +name+,
     # +image+, +commands+, optionally +environment+, +artifacts+, +pull+ and
@@ -86,7 +86,7 @@ module WarpEngine
       #
       # [platforms] the platforms the adapter builds, a Hash of platform name to its
       #             settings (+builder+, +exporter+, +tools+, +web_shell+,
-      #             +bundle_id_prefix+, +forge_release+)
+      #             +bundle_id_prefix+, +scm_release+)
       def initialize(platforms: {})
         @platforms = platforms.to_h { |key, spec| [ key.to_s, spec.to_h.symbolize_keys ] }
       end
@@ -129,7 +129,7 @@ module WarpEngine
           steps = steps.map { |step| step.release || RELEASE_STEPS.include?(step.name) ? step.with(on: :tag) : step }
           steps << tag_step(spec)
         end
-        steps << release_step(name.to_s, spec) if spec[:forge_release]
+        steps << release_step(name.to_s, spec) if spec[:scm_release]
         YAML.dump(renderer.render(steps, extras))
       end
 
@@ -207,16 +207,16 @@ module WarpEngine
       end
 
       # Returns the shell script of the +tag+ step, run after a push build
-      # (<tt>scripts/tag.sh</tt> with the adapter's forge functions): a new
-      # version gets its <tt>v<version></tt> tag on the forge, whose pipeline
+      # (<tt>scripts/tag.sh</tt> with the adapter's SCM functions): a new
+      # version gets its <tt>v<version></tt> tag on the SCM, whose pipeline
       # releases it; a version already tagged releases nothing. A dev build moves
       # the branch's <tt>dev-<branch></tt> tag onto its commit, so the dev release
       # follows the branch.
       def tag_script
-        branch_prelude + Scripts.read("forge", dir: scripts_dir) + Scripts.read("tag")
+        branch_prelude + Scripts.read("scm", dir: scripts_dir) + Scripts.read("tag")
       end
 
-      # Returns the shell script of the forge +release+ step of the software
+      # Returns the shell script of the SCM +release+ step of the software
       # +name+: <tt>scripts/release_files.sh</tt> (which files, title and notes)
       # and the adapter's <tt>scripts/release.sh</tt>.
       def release_script(name)
@@ -233,7 +233,7 @@ module WarpEngine
 
       def default_branch_expression = raise(NotImplementedError)
 
-      def forge_secrets = {}
+      def scm_secrets = {}
 
       def branch_prelude
         %(BRANCH_SOURCE="#{branch_expression}"\nDEFAULT_BRANCH_SOURCE="#{default_branch_expression}"\n)
@@ -325,12 +325,12 @@ module WarpEngine
       end
 
       def tag_step(spec)
-        Step.new(name: "tag", image: spec[:tools] || "alpine", secrets: forge_secrets, on: :branch,
+        Step.new(name: "tag", image: spec[:tools] || "alpine", secrets: scm_secrets, on: :branch,
                  commands: helper_commands(spec, %w[curl], tag_script))
       end
 
       def release_step(name, spec)
-        Step.new(name: "release", image: spec[:tools] || "alpine", secrets: forge_secrets, on: :tag,
+        Step.new(name: "release", image: spec[:tools] || "alpine", secrets: scm_secrets, on: :tag,
                  commands: helper_commands(spec, %w[curl jq], release_script(name)))
       end
     end

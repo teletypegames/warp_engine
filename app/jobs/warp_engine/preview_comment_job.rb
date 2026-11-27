@@ -1,9 +1,9 @@
 module WarpEngine
   # Tells the open pull request of a development build's branch where the
   # build plays and downloads: one comment per pull request, written by the
-  # forge (WarpEngine.forge) and changed on every later build of the branch.
+  # SCM (WarpEngine.scm) and changed on every later build of the branch.
   # Runs after the publish of a development build (warp_engine.publish), when
-  # a forge is configured and the software's pipeline names its repository.
+  # an SCM is configured and the software's CI repository names its git repository.
   class PreviewCommentJob < ApplicationJob
     queue_as :default
 
@@ -12,20 +12,20 @@ module WarpEngine
 
     # Comments on the pull request of the branch of release +release_id+.
     # Does nothing for a release that is no development build, has no branch,
-    # no pipeline or no open pull request; a forge error is logged, not raised.
+    # no CI repository or no open pull request; an SCM error is logged, not raised.
     def perform(release_id)
       release = WarpEngine::Release.kept.find_by(id: release_id)
       return unless release&.dev? && release.branch
 
-      pipeline = release.software&.pipeline
-      return if pipeline.nil? || !WarpEngine.forge.configured?
+      repository = release.software&.ci_repository
+      return if repository.nil? || !WarpEngine.scm.configured?
 
-      number = WarpEngine.forge.open_pull_request(owner: pipeline.repo_owner, name: pipeline.repo_name, branch: release.branch)
+      number = WarpEngine.scm.open_pull_request(owner: repository.repo_owner, name: repository.repo_name, branch: release.branch)
       return if number.nil?
 
-      WarpEngine.forge.upsert_comment(owner: pipeline.repo_owner, name: pipeline.repo_name, number: number,
+      WarpEngine.scm.upsert_comment(owner: repository.repo_owner, name: repository.repo_name, number: number,
                                       marker: MARKER, body: self.class.body(release))
-    rescue WarpEngine::Forge::Error => e
+    rescue WarpEngine::Scm::Error => e
       Rails.logger.warn("[WarpEngine::PreviewCommentJob] #{release&.software&.name} #{release&.version}: #{e.message}")
     end
 

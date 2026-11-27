@@ -31,12 +31,12 @@ RSpec.describe "POST /build/publish", type: :request do
 
   it "answers 422 with the missing kinds when the platform's required build was not uploaded" do
     updater = stub_updater
-    allow(updater).to receive(:publish).and_raise(WarpEngine::Platforms::MissingAssetsError.new("game-1.0", [ "cartridge" ]))
+    allow(updater).to receive(:publish).and_raise(WarpEngine::Platforms::MissingAssetsError.new("game-1.0", [ "package" ]))
 
     publish
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(JSON.parse(response.body)).to include("missing" => [ "cartridge" ])
+    expect(JSON.parse(response.body)).to include("missing" => [ "package" ])
   end
 
   describe "an older version than the newest published" do

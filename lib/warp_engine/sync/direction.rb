@@ -26,7 +26,7 @@ module WarpEngine
       def initialize
         @enabled = false
         self.class.lists.each { |list| instance_variable_set(:"@#{list}", []) }
-        @allowed_channels = [ WarpEngine::Channels::STABLE ]
+        @allowed_channels = [ WarpEngine::ReleaseChannel::STABLE ]
       end
 
       # Returns the list settings of the class: LISTS, plus a subclass's own.
@@ -53,7 +53,7 @@ module WarpEngine
       # list may name. Returns the warnings worth logging (none here).
       def validate!
         check_keys(%i[allowed_platforms denied_platforms], WarpEngine::Platform.names, "platform")
-        check_keys(%i[allowed_channels], WarpEngine::Channels::ALL, "channel")
+        check_keys(%i[allowed_channels], WarpEngine::ReleaseChannel::ALL, "channel")
         []
       end
 
@@ -102,7 +102,7 @@ module WarpEngine
 
       # Returns a copy that holds nothing back: no switch, no lists, every
       # kind, only the +channels+ (default every channel).
-      def permissive(channels: WarpEngine::Channels::ALL)
+      def permissive(channels: WarpEngine::ReleaseChannel::ALL)
         with(software_switch: false, **(self.class.lists - [ :allowed_channels ]).to_h { |list| [ list, [] ] },
              allowed_channels: Array(channels).map(&:to_s))
       end
@@ -115,7 +115,7 @@ module WarpEngine
         raise ArgumentError, "sync outbound software_switch must be one of #{SOFTWARE_SWITCHES.inspect}" unless SOFTWARE_SWITCHES.include?(software_switch)
 
         super
-        check_keys(KIND_LISTS, WarpEngine::AssetKinds.names, "asset kind")
+        check_keys(KIND_LISTS, WarpEngine::AssetKinds.names + WarpEngine::AssetKinds::ALIASES.keys, "asset kind")
         required_kind_warnings
       end
 

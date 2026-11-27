@@ -28,7 +28,7 @@ module WarpEngine
     # [sort]      a key of SORTS
     # [channel]   +beta+ makes a newer pre-release the latest; +stable+ (default) otherwise
     def index(owner_id: nil, subject: nil, page: nil, per_page: nil, statuses: [], platform: nil, category: nil, query: nil, sort: nil,
-              channel: WarpEngine::Channels::STABLE)
+              channel: WarpEngine::ReleaseChannel::STABLE)
       scope = filtered(visible_scope(subject), owner_id: owner_id, statuses: statuses, platform: platform, category: category, query: query)
       total = scope.count
       per = page_size(per_page, total, paged: !page.nil?)
@@ -36,7 +36,7 @@ module WarpEngine
       pages = per.zero? ? 1 : [ (total.to_f / per).ceil, 1 ].max
 
       softwares = scope.includes(releases: [ :release_assets ])
-                       .includes(:external_links, :software_images)
+                       .includes(:links, :source, :software_images)
                        .order(*SORTS.fetch(sort.to_s, SORTS["title"]))
                        .offset((current - 1) * per)
                        .limit(per)

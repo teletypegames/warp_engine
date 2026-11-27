@@ -27,7 +27,7 @@ RSpec.describe WarpEngine::CI do
     end
 
     it "hands back whatever object the host named" do
-      own = Class.new { def name = "Forge Runner" }.new
+      own = Class.new { def name = "Scm Runner" }.new
       WarpEngine.config.ci_adapter = own
 
       expect(WarpEngine.ci).to be(own)

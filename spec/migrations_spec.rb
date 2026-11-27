@@ -38,7 +38,7 @@ RSpec.describe "Engine migrations" do
     )
     engine_tables = versions.flat_map do |version|
       file = Dir.glob(WarpEngine::Engine.root.join("db/migrate/#{version}_*.rb")).first
-      File.read(file).scan(/create_table :(\w+)/).flatten
+      File.read(file).split(/^\s*def down\b/).first.scan(/create_table :(\w+)/).flatten
     end
     template_tables = templates.flat_map { |t| File.read(t).scan(/create_table :(\w+)/).flatten }
     duplicated = (engine_tables & template_tables) - [ "application_tokens" ]

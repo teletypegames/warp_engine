@@ -14,7 +14,7 @@ module WarpEngine
 
     # Returns how many forks of +software+ are listed: the kept softwares of
     # this engine that name it as their parent and its visible
-    # WarpEngine::ForkLink records.
+    # WarpEngine::SoftwareFork records.
     def fork_count(software)
       self.fork_counts ||= load_fork_counts
       fork_counts.fetch(software.name, 0)
@@ -45,7 +45,7 @@ module WarpEngine
       if own
         WarpEngine::Software.kept.where(fork_of_engine: own).group(:fork_of_name).count.each { |name, count| counts[name] += count }
       end
-      WarpEngine::ForkLink.visible.joins(:software).group("softwares.name").count.each { |name, count| counts[name] += count }
+      WarpEngine::SoftwareFork.visible.joins(:software).group("softwares.name").count.each { |name, count| counts[name] += count }
       counts
     end
   end

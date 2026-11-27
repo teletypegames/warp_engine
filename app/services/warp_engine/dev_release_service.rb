@@ -1,5 +1,5 @@
 module WarpEngine
-  # Keeps the development builds (WarpEngine::Channels::DEV) from piling up:
+  # Keeps the development builds (WarpEngine::ReleaseChannel::DEV) from piling up:
   # of a software's builds of one branch only the newest stays, and none stays
   # once it has not been updated for the given number of days, except on the
   # kept branches. A pruned build
@@ -24,7 +24,7 @@ module WarpEngine
               dry_run: true, now: Time.current)
       cutoff = now - ttl_days.to_i.days
       @kept = Array(keep_branches).map { |branch| branch.to_s.tr("/", "-") }
-      doomed = WarpEngine::Release.kept.where(channel: WarpEngine::Channels::DEV).includes(:software, :release_assets)
+      doomed = WarpEngine::Release.kept.where(channel: WarpEngine::ReleaseChannel::DEV).includes(:software, :release_assets)
                                   .group_by { |release| [ release.software_id, release.branch || release.version ] }
                                   .flat_map { |_, builds| doomed_of(builds, cutoff) }
       lines = doomed.map { |release, reason| "#{release.software&.name} #{release.version}: #{reason}" }

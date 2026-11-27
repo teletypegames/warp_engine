@@ -11,5 +11,5 @@ module WarpEngine
   def self.images: () -> (Object & Images::_Adapter)
   def self.ci: () -> (Object & CI::_Adapter)
   def self.access_policy: () -> (Object & AccessPolicy::_Policy)
-  def self.forge: () -> (Object & Forge::_Adapter)
+  def self.scm: () -> (Object & Scm::_Adapter)
 end

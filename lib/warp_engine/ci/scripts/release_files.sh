@@ -1,6 +1,6 @@
 # shellcheck shell=sh
 # shellcheck disable=SC2034 # the variables are read by the script that follows
-# Defines collect_release_files, which sets FILES (what to attach to the forge
+# Defines collect_release_files, which sets FILES (what to attach to the SCM
 # release: the build's own .release-assets list, or the versioned files),
 # TITLE and NOTES (RELEASE_NOTES.md). Set before it is called: NAME, VERSION.
 collect_release_files() {

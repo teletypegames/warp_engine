@@ -39,7 +39,7 @@ module WarpEngine
 
   module Local
     def self.ci_adapter: (Object & CI::_Adapter base) -> (Object & CI::_Adapter)?
-    def self.forge_adapter: () -> (Object & Forge::_Adapter)?
+    def self.scm_adapter: () -> (Object & Scm::_Adapter)?
   end
 
   module CI
@@ -62,9 +62,9 @@ module WarpEngine
     self.@gitlab_adapter: Gitlab::Adapter?
   end
 
-  module Forge
+  module Scm
     class Gitea
-      include Forge::_Adapter
+      include Scm::_Adapter
     end
   end
 end

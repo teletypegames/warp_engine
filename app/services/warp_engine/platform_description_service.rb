@@ -22,8 +22,8 @@ module WarpEngine
         "description" => "tag (default): a new version is released by the tag the pipeline sets; push: every push to the default branch releases" }
     ].freeze
 
-    # The longest +shelf_name+ (WarpEngine::Software validates it too).
-    SHELF_NAME_LENGTH = 32
+    # The longest +directory_name+ (WarpEngine::Software validates it too).
+    DIRECTORY_NAME_LENGTH = 32
 
     # The longest +category+ key (WarpEngine::Software validates it too).
     CATEGORY_LENGTH = 64
@@ -108,7 +108,7 @@ module WarpEngine
         "author" => { "type" => "string" },
         "desc" => { "type" => "string", "description" => "The description the catalog shows" },
         "site" => { "type" => "string", "format" => "uri", "description" => "Becomes the \"#{Publish::Recorder::SITE_LABEL}\" link" },
-        "repo" => { "type" => "string", "description" => "The git repository: becomes the \"#{Publish::Recorder::REPO_LABEL}\" source link" },
+        "repo" => { "type" => "string", "description" => "The git repository: becomes the software's source" },
         "forks_allowed" => { "type" => "boolean", "description" => "Whether the developer tools may offer a fork (default true)" },
         "fork_of_engine" => { "type" => "string", "format" => "uri", "description" => "For a fork: the parent engine's base URL" },
         "fork_of_name" => { "type" => "string", "description" => "For a fork: the parent's name on its engine" },
@@ -117,8 +117,10 @@ module WarpEngine
         "license" => { "type" => "string", "pattern" => LICENSE_PATTERN, "description" => "An SPDX licence id, e.g. MIT" },
         "category" => { "type" => "string", "maxLength" => CATEGORY_LENGTH, "examples" => categories,
                         "description" => "A category key; a new key is registered for review" },
-        "shelf_name" => { "type" => "string", "maxLength" => SHELF_NAME_LENGTH, "pattern" => "^[A-Za-z0-9-]+$",
-                          "description" => "The name on the platform's shelves; upcased on save" },
+        "directory_name" => { "type" => "string", "maxLength" => DIRECTORY_NAME_LENGTH, "pattern" => "^[A-Za-z0-9-]+$",
+                          "description" => "The name on the platform's directories; upcased on save" },
+        "shelf_name" => { "type" => "string", "maxLength" => DIRECTORY_NAME_LENGTH, "pattern" => "^[A-Za-z0-9-]+$", "deprecated" => true,
+                          "description" => "Deprecated alias of directory_name, read when directory_name is not set" },
         "web" => web_schema(platform)
       }
       required = %w[name title]

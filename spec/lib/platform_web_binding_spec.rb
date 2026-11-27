@@ -4,7 +4,7 @@ RSpec.describe WarpEngine::Platform::WebBinding do
   def platform(name) = WarpEngine::Platform.find!(name)
 
   it "binds C64 and Plus/4 to EmulatorJS with their VICE cores, DOS to its DOSBox core, TIC-80 to its player" do
-    expect(platform("c64").web_binding).to have_attributes(key: "emulatorjs", runtime: "emulatorjs", payload: "cartridge",
+    expect(platform("c64").web_binding).to have_attributes(key: "emulatorjs", runtime: "emulatorjs", payload: "package",
                                                            default: true)
     expect(platform("c64").web_binding.params).to include(core: "vice_x64sc")
     expect(platform("plus4").web_binding.params).to include(core: "vice_xplus4")

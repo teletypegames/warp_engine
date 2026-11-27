@@ -30,7 +30,7 @@ module WarpEngine
       def reason_for(software, version)
         return "the release has no software" if software.nil?
 
-        channel = WarpEngine::Channels.for(version)
+        channel = WarpEngine::ReleaseChannel.of(version)
         return "the #{channel} channel is not in allowed_channels" unless list(:allowed_channels).include?(channel)
         return "the #{channel} channel is not in #{@peer.label}'s channels" if peer_refuses?(channel)
 
@@ -48,10 +48,11 @@ module WarpEngine
 
       # Returns +true+ when the kind lists of +config+ let the files of +kind+ go.
       def self.kind_allowed?(kind, config)
-        allowed = Array(config.try(:allowed_kinds)).map(&:to_s)
-        return false if Array(config.try(:denied_kinds)).map(&:to_s).include?(kind.to_s)
+        kind = WarpEngine::AssetKinds.canonical(kind)
+        allowed = WarpEngine::AssetKinds.canonical_list(config.try(:allowed_kinds))
+        return false if WarpEngine::AssetKinds.canonical_list(config.try(:denied_kinds)).include?(kind)
 
-        allowed.empty? || allowed.include?(kind.to_s)
+        allowed.empty? || allowed.include?(kind)
       end
 
       # Returns +true+ when +name+ matches one of +patterns+, strings in which

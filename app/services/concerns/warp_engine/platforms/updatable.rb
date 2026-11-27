@@ -10,11 +10,11 @@ module WarpEngine
     #
     #   class AmigaService
     #     include WarpEngine::Platforms::Updatable
-    #     include WarpEngine::Platforms::Builds::BuildCartridge
+    #     include WarpEngine::Platforms::Builds::BuildPackage
     #
     #     label "Amiga"
-    #     required_kinds "cartridge"
-    #     def cartridge_ext = ".adf"
+    #     required_kinds "package"
+    #     def package_ext = ".adf"
     #   end
     module Updatable
       extend ActiveSupport::Concern
@@ -41,20 +41,21 @@ module WarpEngine
 
         # Adds +kind+ to #expected_kinds unless it is there already.
         def register_expected_kind(kind)
+          kind = WarpEngine::AssetKinds.canonical(kind)
           expected_kinds << kind unless expected_kinds.include?(kind)
         end
 
         # The kinds an upload must contain. With +kinds+ adds them.
         def required_kinds(*kinds)
           @required_kinds ||= []
-          @required_kinds |= kinds.flatten.map(&:to_s)
+          @required_kinds |= WarpEngine::AssetKinds.canonical_list(kinds.flatten)
         end
 
         # The kinds a release may lack without counting as missing. With +kinds+
         # adds them.
         def optional_kinds(*kinds)
           @optional_kinds ||= []
-          @optional_kinds |= kinds.flatten.map(&:to_s)
+          @optional_kinds |= WarpEngine::AssetKinds.canonical_list(kinds.flatten)
         end
 
         # The CI release rule (<tt>"tag"</tt>), or +nil+. With +value+ sets it.
@@ -63,8 +64,8 @@ module WarpEngine
           @release_rule
         end
 
-        # The folder spec of a +folders+ shelf; +nil+ unless overridden.
-        def shelf_folder(_metadata, _kind) = nil
+        # The folder spec of a +folders+ directory; +nil+ unless overridden.
+        def directory_folder(_metadata, _kind) = nil
 
         # The instance method names #update calls with <tt>name-version</tt>
         # before it publishes.
@@ -88,7 +89,7 @@ module WarpEngine
           end
           WarpEngine::Platform::Definition.new(
             name: platform, label: label, kind_specs: specs, metadata: :json, release_rule: release_rule,
-            shelf_folder: method(:shelf_folder), ci_template: nil, ci_variables: {}, version_source: nil
+            directory_folder: method(:directory_folder), ci_template: nil, ci_variables: {}, version_source: nil
           )
         end
       end

@@ -15,20 +15,20 @@ RSpec.describe "the c64 platform" do
 
   after { FileUtils.remove_entry(tmpdir) }
 
-  it "publishes a program with the cartridge alone, without a browser player" do
+  it "publishes a program with the package alone, without a browser player" do
     release = platform.publish("we-c64", "0.1.1").reload
 
-    expect(release.release_assets.map(&:kind)).to eq([ "cartridge" ])
+    expect(release.release_assets.map(&:kind)).to eq([ "package" ])
   end
 
-  it "publishes a disk image as the cartridge when the build made one instead of a program" do
+  it "publishes a disk image as the package when the build made one instead of a program" do
     File.delete(File.join(dir, "we-c64-0.1.1.prg"))
     File.binwrite(File.join(dir, "we-c64-0.1.1.d64"), "disk")
 
     release = platform.publish("we-c64", "0.1.1").reload
 
     expect(release.release_assets.map { |asset| [ asset.kind, File.basename(asset.path.to_s) ] })
-      .to eq([ [ "cartridge", "we-c64-0.1.1.d64" ] ])
+      .to eq([ [ "package", "we-c64-0.1.1.d64" ] ])
   end
 
   it "prefers the program when the build made a program and a disk image" do
@@ -43,7 +43,7 @@ RSpec.describe "the c64 platform" do
     File.delete(File.join(dir, "we-c64-0.1.1.prg"))
 
     expect { platform.publish("we-c64", "0.1.1") }
-      .to raise_error(WarpEngine::Platforms::MissingAssetsError, /cartridge/)
+      .to raise_error(WarpEngine::Platforms::MissingAssetsError, /package/)
     expect(WarpEngine::Software.find_by(name: "we-c64")).to be_nil
   end
 
@@ -54,7 +54,7 @@ RSpec.describe "the c64 platform" do
 
     release = platform.publish("we-c64", "0.1.1").reload
 
-    expect(release.release_assets.map(&:kind)).to eq([ "cartridge" ])
+    expect(release.release_assets.map(&:kind)).to eq([ "package" ])
     expect(File.exist?(File.join(dir, "html"))).to be(false)
   end
 end

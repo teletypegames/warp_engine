@@ -1,7 +1,7 @@
 module WarpEngine
   # One kind of release asset and how it travels from the CI to the file
   # container: the upload is <tt><name>-<version></tt> plus +suffix+ (+nil+ when
-  # the platform supplies the extension, as for +cartridge+ and +source+). A
+  # the platform supplies the extension, as for +package+ and +source+). A
   # kind with an +unpack_to+ is a zip the engine unpacks into a folder named
   # after the kind in the release's folder (WarpEngine::ReleaseLayout), which
   # then is the asset; +unpack_to+ is what followed <tt><name>-<version></tt>
@@ -37,10 +37,16 @@ module WarpEngine
   end
 
   # The registry of every AssetKind, in the order the catalog lists them.
+  #
+  # The one place old kind names are read: every way a kind comes in (the CI
+  # upload and publish, the platform and config DSL, the Admin API, the
+  # +kind+ filters, a sync peer) goes through #canonical, so
+  # <tt>cartridge</tt> is read as +package+. The engine only ever writes the
+  # new names.
   module AssetKinds
     # Every asset kind, by name.
     ALL = [
-      AssetKind.new("cartridge",     nil,                  nil),
+      AssetKind.new("package",     nil,                  nil),
       AssetKind.new("source",        nil,                  nil),
       AssetKind.new("html",          ".html.zip",          ""),
       AssetKind.new("docs",          "-docs.zip",          "-docs"),
@@ -59,8 +65,20 @@ module WarpEngine
       AssetKind.new("cli_mac_arm64",   "-mac-arm64-cli.zip",   nil, false)
     ].index_by(&:name).freeze
 
-    # Returns the AssetKind named +name+. Raises KeyError for an unknown one.
-    def self.fetch(name) = ALL.fetch(name.to_s)
+    # The old kind names a caller may still send, with the kind each is read as.
+    ALIASES = { "cartridge" => "package" }.freeze
+
+    # Returns the name +name+ stands for: its ALIASES entry, or +name+ as a
+    # String. An unknown name is returned as it is, for the caller to reject.
+    def self.canonical(name) = ALIASES.fetch(name.to_s, name.to_s)
+
+    # Returns the names in +names+ (an Array or a single name) through
+    # #canonical, without duplicates.
+    def self.canonical_list(names) = Array(names).map { |name| canonical(name) }.uniq
+
+    # Returns the AssetKind named +name+ (an alias included, see #canonical).
+    # Raises KeyError for an unknown one.
+    def self.fetch(name) = ALL.fetch(canonical(name))
 
     # Returns the kind names, in order.
     def self.names = ALL.keys

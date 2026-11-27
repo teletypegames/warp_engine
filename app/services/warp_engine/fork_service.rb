@@ -8,15 +8,15 @@ module WarpEngine
   # On the fork's side, #announce tells the parent engine about a published
   # fork. On the parent's side, #receive takes an announcement and queues
   # #verify, which reads the fork back through the child engine's catalog
-  # API and keeps a WarpEngine::ForkLink only when the fork really names one
+  # API and keeps a WarpEngine::SoftwareFork only when the fork really names one
   # of our softwares; #recheck repeats that later. #forks lists the forks of
   # a software for <tt>GET /api/softwares/:name/forks</tt>.
   class ForkService
     # The ActiveSupport::Notifications event instrumented when an announced
-    # fork waits for moderation, with +fork_link+ and +software+ in the payload.
+    # fork waits for moderation, with +software_fork+ and +software+ in the payload.
     NOTIFICATION = "warp_engine.fork_announced".freeze
 
-    # The software names a fork link may carry: what WarpEngine::ScaffoldService
+    # The software names an announced fork may carry: what WarpEngine::ScaffoldService
     # accepts, plus underscores and dots older catalogs use.
     NAME_FORMAT = /\A[a-z0-9][a-z0-9._-]{0,127}\z/i
 
@@ -82,10 +82,10 @@ module WarpEngine
 
     # Reads the fork +name+ back from the engine +engine+ and records it when
     # its catalog record names one of our kept softwares as its parent: a new
-    # WarpEngine::ForkLink starts +pending+ (or +visible+ under +:auto+
+    # WarpEngine::SoftwareFork starts +pending+ (or +visible+ under +:auto+
     # moderation) and instruments NOTIFICATION while pending; a known one
     # keeps the administrator's decision (a +gone+ one comes back as new).
-    # Returns the WarpEngine::ForkLink, or +nil+ when the fork was not confirmed.
+    # Returns the WarpEngine::SoftwareFork, or +nil+ when the fork was not confirmed.
     def verify(engine:, name:)
       return nil if WarpEngine::Forks.denied?(engine) || !WarpEngine::Forks.public_url?(engine)
 
@@ -93,54 +93,54 @@ module WarpEngine
       parent = lookup.error ? nil : parent_of(lookup.fork_of)
       return nil unless parent
 
-      keys = { software_id: parent.id, child_engine: engine, child_name: name }
-      link = WarpEngine::ForkLink.kept.find_by(keys) || WarpEngine::ForkLink.revive(keys)
+      keys = { software_id: parent.id, engine_url: engine, name: name }
+      link = WarpEngine::SoftwareFork.kept.find_by(keys) || WarpEngine::SoftwareFork.revive(keys)
       reopened = link.new_record? || link.status == "gone"
       link.status = WarpEngine::Forks.config.moderation == :auto ? "visible" : "pending" if reopened
-      link.assign_attributes(child_title: lookup.title.to_s.truncate(255).presence, checked_at: Time.current, last_error: nil)
+      link.assign_attributes(title: lookup.title.to_s.truncate(255).presence, checked_at: Time.current, last_error: nil)
       link.save!
-      ActiveSupport::Notifications.instrument(NOTIFICATION, fork_link: link, software: parent) if reopened && link.status == "pending"
+      ActiveSupport::Notifications.instrument(NOTIFICATION, software_fork: link, software: parent) if reopened && link.status == "pending"
       link
     end
 
-    # Verifies the WarpEngine::ForkLink +link+ again: a fork that is no longer
+    # Verifies the WarpEngine::SoftwareFork +link+ again: a fork that is no longer
     # found, or no longer names its parent, becomes +gone+ (with the reason in
     # +last_error+); one found again after +gone+ waits for moderation again.
     # Returns the link.
     def recheck(link)
-      lookup = lookup(link.child_engine, link.child_name)
+      lookup = lookup(link.engine_url, link.name)
       parent = lookup.error ? nil : parent_of(lookup.fork_of)
       if parent&.id == link.software_id
         reopened = link.status == "gone"
         link.status = WarpEngine::Forks.config.moderation == :auto ? "visible" : "pending" if reopened
-        link.update!(child_title: lookup.title.to_s.truncate(255).presence || link.child_title, checked_at: Time.current, last_error: nil)
-        ActiveSupport::Notifications.instrument(NOTIFICATION, fork_link: link, software: link.software) if reopened && link.status == "pending"
+        link.update!(title: lookup.title.to_s.truncate(255).presence || link.title, checked_at: Time.current, last_error: nil)
+        ActiveSupport::Notifications.instrument(NOTIFICATION, software_fork: link, software: link.software) if reopened && link.status == "pending"
       else
         link.update!(status: "gone", checked_at: Time.current, last_error: (lookup.error || "the fork no longer names this software").truncate(512))
       end
       link
     end
 
-    # Rechecks every kept fork link that is not hidden and was last checked
+    # Rechecks every kept announced fork that is not hidden and was last checked
     # longer ago than WarpEngine::Forks::Configuration#recheck_days. Returns
     # how many were rechecked.
     def recheck_due
-      due = WarpEngine::ForkLink.kept.where.not(status: "hidden")
-                                .where(checked_at: nil).or(WarpEngine::ForkLink.kept.where.not(status: "hidden")
+      due = WarpEngine::SoftwareFork.kept.where.not(status: "hidden")
+                                .where(checked_at: nil).or(WarpEngine::SoftwareFork.kept.where.not(status: "hidden")
                                 .where(checked_at: ...WarpEngine::Forks.config.recheck_days.days.ago))
       due.find_each.count { |link| recheck(link) }
     end
 
     # Returns the forks of +software+ to list: its children on this engine
     # within +scope+ (the softwares the caller may see) and its visible
-    # WarpEngine::ForkLink records, each a Hash with +engine+, +name+,
+    # WarpEngine::SoftwareFork records, each a Hash with +engine+, +name+,
     # +title+ and +local+.
     def forks(software, scope: WarpEngine::Software.kept)
       own = WarpEngine::Forks.engine_url
       local = own ? scope.where(fork_of_engine: own, fork_of_name: software.name).order(:title).to_a : []
-      remote = software.fork_links.where(status: "visible").order(:child_title, :child_name).to_a
+      remote = software.forks.where(status: "visible").order(:title, :name).to_a
       local.map { |child| { engine: own, name: child.name, title: child.title, local: true } } +
-        remote.map { |link| { engine: link.child_engine, name: link.child_name, title: link.child_title.presence || link.child_name, local: false } }
+        remote.map { |link| { engine: link.engine_url, name: link.name, title: link.title.presence || link.name, local: false } }
     end
 
     private

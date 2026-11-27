@@ -146,8 +146,8 @@ module WarpEngine
     end
 
     def allowed_channels_are_known
-      unknown = channels - WarpEngine::Channels::ALL
-      errors.add(:allowed_channels, "has unknown channels #{unknown.join(', ')} (#{WarpEngine::Channels::ALL.join(', ')})") if unknown.any?
+      unknown = channels - WarpEngine::ReleaseChannel::ALL
+      errors.add(:allowed_channels, "has unknown channels #{unknown.join(', ')} (#{WarpEngine::ReleaseChannel::ALL.join(', ')})") if unknown.any?
     end
 
     ActiveSupport.run_load_hooks(:warp_engine_sync_peer, self)

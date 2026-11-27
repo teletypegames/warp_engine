@@ -17,7 +17,7 @@ module WarpEngine
     # with, or to the release of an asset in the root whose name it starts
     # the same way (a renamed software's files).
     # The paths of the WarpEngine::ReleaseAsset and WarpEngine::Download
-    # records follow, then the outlets are refreshed. The reserved folders
+    # records follow, then the feeds are refreshed. The reserved folders
     # (WarpEngine::ReleaseLayout.reserved), the software folders and the
     # hidden entries stay; an entry no release owns, or whose target exists,
     # is reported and left alone. Returns a Report.
@@ -45,7 +45,7 @@ module WarpEngine
         lines << "#{entry} -> #{target}"
         move(entry, target) unless dry_run
       end
-      WarpEngine::Outlets.refresh if !dry_run && count.positive?
+      WarpEngine::Feeds.refresh if !dry_run && count.positive?
       Report.new(lines, count)
     end
 

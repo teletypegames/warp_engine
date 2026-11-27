@@ -5,7 +5,7 @@ module WarpEngine
   module CI
     module Woodpecker
       # The Woodpecker pipeline of a platform: CI::PipelineConfig rendered by
-      # Woodpecker::Renderer, with the Gitea/Forgejo forge scripts
+      # Woodpecker::Renderer, with the Gitea/Forgejo SCM scripts
       # (<tt>woodpecker/scripts/</tt>) and the +gitea_token+ secret for the tag
       # and release steps.
       class PipelineConfig < WarpEngine::CI::PipelineConfig
@@ -25,7 +25,7 @@ module WarpEngine
 
         def default_branch_expression = "${CI_REPO_DEFAULT_BRANCH:-}"
 
-        def forge_secrets = { "GITEA_TOKEN" => "gitea_token" }
+        def scm_secrets = { "GITEA_TOKEN" => "gitea_token" }
       end
     end
   end

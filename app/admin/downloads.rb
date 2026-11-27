@@ -56,7 +56,7 @@ ActiveAdmin.register WarpEngine::Download, as: "Download" do
     column :ip_address
     column("User-Agent") { |d| d.user_agent&.truncate(40) }
     column("Referer")    { |d| d.referer&.truncate(40) }
-    column("Outlet")     { |d| d.outlet || "–" }
+    column("Feed")     { |d| d.feed || "–" }
     column :created_at
   end
 
@@ -65,7 +65,7 @@ ActiveAdmin.register WarpEngine::Download, as: "Download" do
   filter :ip_address_cont, label: "IP address"
   filter :user_agent_cont, label: "User-Agent"
   filter :referer_cont, label: "Referer"
-  filter :outlet, as: :select, collection: -> { WarpEngine::Download.distinct.where.not(outlet: nil).order(:outlet).pluck(:outlet) }
+  filter :feed, as: :select, collection: -> { WarpEngine::Download.distinct.where.not(feed: nil).order(:feed).pluck(:feed) }
   filter :client_id_cont, label: "Client-Id"
   filter :created_at
 
@@ -90,7 +90,7 @@ ActiveAdmin.register WarpEngine::Download, as: "Download" do
       row :ip_address
       row :user_agent
       row :referer
-      row(:outlet) { |d| d.outlet || "–" }
+      row(:feed) { |d| d.feed || "–" }
       row("Client-Id") { |d| d.client_id || "–" }
       row :created_at
       row :updated_at

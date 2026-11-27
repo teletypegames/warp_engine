@@ -41,9 +41,9 @@ module WarpEngine
     # [dev_release_keep_branches]     the branches whose newest development build is never removed for its
     #                                 age, e.g. <tt>%w[develop]</tt> (default empty)
     # [additional_resources]          the WarpEngine::AdditionalResource list (default empty)
-    # [outlets]                       the outlet definitions, shelves among them, as hashes with +key+,
-    #                                 +type+ and the type's options (see WarpEngine::Outlets; default empty)
-    # [outlet_types]                  the outlet types the host registered: a Hash of type name to class name
+    # [feeds]                       the feed definitions, directories among them, as hashes with +key+,
+    #                                 +type+ and the type's options (see WarpEngine::Feeds; default empty)
+    # [feed_types]                  the feed types the host registered: a Hash of type name to class name
     #                                 (default empty)
     # [store_name]                    the display name of this catalog in the store registry (default +nil+:
     #                                 the host name of its address)
@@ -82,8 +82,8 @@ module WarpEngine
                   :dev_release_ttl_days,
                   :dev_release_keep_branches,
                   :additional_resources,
-                  :outlets,
-                  :outlet_types,
+                  :feeds,
+                  :feed_types,
                   :store_name,
                   :store_registry,
                   :sync_transports,
@@ -127,9 +127,9 @@ module WarpEngine
     # platform name to a Hash of values, filled by #platform_tooling.
     attr_reader :platform_toolings
 
-    # The forge the engine creates repositories on: a Hash with +type+ and the
-    # adapter's options, set by #forge; +nil+ for none.
-    attr_reader :forge_settings
+    # The SCM the engine creates repositories on: a Hash with +type+ and the
+    # adapter's options, set by #scm; +nil+ for none.
+    attr_reader :scm_settings
 
     # Creates a configuration with every setting at its default.
     def initialize
@@ -158,8 +158,8 @@ module WarpEngine
       @dev_release_ttl_days          = 30
       @dev_release_keep_branches     = []
       @additional_resources          = []
-      @outlets                       = []
-      @outlet_types                  = {}
+      @feeds                       = []
+      @feed_types                  = {}
       @store_name                    = nil
       @store_registry                = :own
       @sync_transports               = {}
@@ -170,7 +170,7 @@ module WarpEngine
       @runtime_versions              = {}
       @platform_web_changes          = {}
       @platform_toolings             = {}
-      @forge_settings                = nil
+      @scm_settings                = nil
     end
 
     # Registers (or replaces) a platform the engine does not ship. With a block,
@@ -179,7 +179,7 @@ module WarpEngine
     #
     #   config.register_platform "amiga" do
     #     label "Amiga"
-    #     kind :cartridge, ext: ".adf", required: true
+    #     kind :package, ext: ".adf", required: true
     #     ci template: Rails.root.join("ci/amiga.yaml.erb")
     #   end
     #
@@ -265,15 +265,15 @@ module WarpEngine
       @platform_toolings[platform.to_s] = @platform_toolings.fetch(platform.to_s, {}).merge(values)
     end
 
-    # Chooses the forge new softwares get their repository on
+    # Chooses the SCM new softwares get their repository on
     # (WarpEngine::ScaffoldService): +type+ (+:gitea+, which Forgejo answers
-    # too) and the adapter's options (see WarpEngine::Forge::Gitea).
+    # too) and the adapter's options (see WarpEngine::Scm::Gitea).
     #
-    #   config.forge :gitea, url: "https://git.example", token: ENV["GITEA_TOKEN"], owner: "games"
+    #   config.scm :gitea, url: "https://git.example", token: ENV["GITEA_TOKEN"], owner: "games"
     #
     # Returns the settings Hash.
-    def forge(type, **options)
-      @forge_settings = { type: type.to_s, **options }
+    def scm(type, **options)
+      @scm_settings = { type: type.to_s, **options }
     end
 
     # Sets #profile. Raises ArgumentError for a value not in PROFILES.

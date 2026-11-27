@@ -2,21 +2,21 @@ require "rails_helper"
 require_relative "../../support/admin_api_helpers"
 require_relative "../../support/local_helpers"
 
-RSpec.describe "Admin API local components", type: :request do
+RSpec.describe "Admin API local providers", type: :request do
   include AdminApiHelpers
   include LocalHelpers
   include ActiveJob::TestHelper
 
-  it "lists the components and queues their start" do
-    api_get "/local_components"
+  it "lists the providers and queues their start" do
+    api_get "/local_providers"
     expect(json["data"].pluck("key", "state")).to eq([ %w[gitea off], %w[woodpecker off] ])
 
-    api_post "/local_components/woodpecker/enable"
+    api_post "/local_providers/woodpecker/enable"
     expect(response).to have_http_status(:accepted)
     expect(json["data"]).to include("kind" => "enable", "target" => "woodpecker", "state" => "queued")
-    expect(WarpEngine::LocalOperationJob).to have_been_enqueued
+    expect(WarpEngine::LocalTaskJob).to have_been_enqueued
 
-    api_get "/local_operations/#{json['data']['id']}"
+    api_get "/local_tasks/#{json['data']['id']}"
     expect(json["data"]["state"]).to eq("queued")
   end
 
@@ -30,19 +30,19 @@ RSpec.describe "Admin API local components", type: :request do
   end
 
   it "shows the generated sign-in only to admin:tokens" do
-    ready_component("gitea", secrets: { "admin_password" => "secret-pw" })
+    ready_provider("gitea", secrets: { "admin_password" => "secret-pw" })
 
-    api_get "/local_components/gitea/credentials"
+    api_get "/local_providers/gitea/credentials"
     expect(response).to have_http_status(:forbidden)
 
-    api_get "/local_components/gitea/credentials", token: admin_token_with("admin:read", "admin:tokens")
+    api_get "/local_providers/gitea/credentials", token: admin_token_with("admin:read", "admin:tokens")
     expect(json["data"]).to eq("url" => "http://localhost:7471", "user" => "warp-admin", "password" => "secret-pw")
   end
 
   it "is not there without a runtime" do
     WarpEngine.config.local.runtime = :null
 
-    get "/api/admin/v1/local_components", headers: auth
+    get "/api/admin/v2/local_providers", headers: auth
 
     expect(response).to have_http_status(:not_found)
   end

@@ -8,10 +8,10 @@ target :seams do
         "lib/warp_engine/access_policy.rb",
         "lib/warp_engine/images.rb",
         "lib/warp_engine/ci.rb",
-        "lib/warp_engine/forge.rb",
+        "lib/warp_engine/scm.rb",
         "lib/warp_engine/store_registry.rb",
         "lib/warp_engine/sync/transport.rb",
-        "lib/warp_engine/outlets/base.rb"
+        "lib/warp_engine/feeds/base.rb"
 
   library "uri", "pathname"
 

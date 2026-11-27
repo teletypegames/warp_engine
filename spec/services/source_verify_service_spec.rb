@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe WarpEngine::SourceVerifyService do
   let(:software) { create(:software) }
-  let(:link) { WarpEngine::ExternalLink.create!(software: software, label: "R", url: "https://git.example/a.git", kind: "source") }
+  let(:link) { WarpEngine::SoftwareSource.create!(software: software, url: "https://git.example/a.git") }
 
   it "marks a source that answers without a sign-in as public" do
     commands = []
@@ -26,15 +26,13 @@ RSpec.describe WarpEngine::SourceVerifyService do
     expect(link.reload).to have_attributes(public: false, verify_error: "fatal: Authentication failed")
   end
 
-  it "leaves a plain link alone" do
-    plain = WarpEngine::ExternalLink.create!(software: software, label: "Site", url: "https://example.org")
-
-    expect(described_class.new(runner: ->(*) { raise "not called" }).verify(plain)).to be_nil
+  it "checks nothing without a source" do
+    expect(described_class.new(runner: ->(*) { raise "not called" }).verify(nil)).to be_nil
   end
 
   it "checks the sources that were never checked" do
     link
-    checked = WarpEngine::ExternalLink.create!(software: create(:software), label: "R", url: "https://git.example/b.git", kind: "source")
+    checked = WarpEngine::SoftwareSource.create!(software: create(:software), url: "https://git.example/b.git")
     checked.update_columns(public: true, verified_at: 1.hour.ago)
 
     count = described_class.new(runner: ->(*) { [ "", true ] }).verify_due

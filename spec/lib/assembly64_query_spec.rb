@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe WarpEngine::Outlets::Assembly64::Query do
+RSpec.describe WarpEngine::Feeds::Assembly64::Query do
   it "reads the query the Ultimate firmware builds" do
     query = described_class.parse('(name:"Thread of Ariadne") & (group:"Teletype") & (category:games) & (rating:>=3)')
 

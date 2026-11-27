@@ -11,7 +11,7 @@ module WarpEngine
 
         module_function
 
-        # Declares the +software_statuses+, +software_categories+, +platform_links+ and +store_clients+
+        # Declares the +software_statuses+, +software_categories+, +platform_links+ and +client_configs+
         # resources on +api+.
         def define(api)
           crud(api, :software_statuses, label: "Software statuses", model: -> { seeded_statuses },
@@ -29,7 +29,7 @@ module WarpEngine
           end
 
           platform_links(api)
-          store_clients(api)
+          client_configs(api)
         end
 
         # Declares a resource +name+ with list, get, create, update and delete
@@ -73,34 +73,34 @@ module WarpEngine
           end
         end
 
-        # Declares the +store_clients+ resource on +api+: what the host set for each store engine it
-        # serves (WarpEngine::StoreClient); a blank field takes the default.
-        def store_clients(api)
-          serializer = -> { Admin::StoreClientSerializer }
-          api.resource(:store_clients, label: "Store engines") do |r|
-            r.list "/store_clients", summary: "List the store engine settings", item: X.store_client,
+        # Declares the +client_configs+ resource on +api+: what the host set for each store engine it
+        # serves (WarpEngine::ClientConfig); a blank field takes the default.
+        def client_configs(api)
+          serializer = -> { Admin::ClientConfigSerializer }
+          api.resource(:client_configs, label: "Store engines") do |r|
+            r.list "/client_configs", summary: "List the store engine settings", item: X.client_config,
                    sort: { client: :client } do |ctx|
-              ctx.list(WarpEngine::StoreClient.all, serializer.call)
+              ctx.list(WarpEngine::ClientConfig.all, serializer.call)
             end
 
-            r.get "/store_clients/:id", summary: "One store engine's settings", item: X.store_client do |ctx|
-              ctx.ok(serializer.call.render_as_hash(WarpEngine::StoreClient.find(ctx.id)))
+            r.get "/client_configs/:id", summary: "One store engine's settings", item: X.client_config do |ctx|
+              ctx.ok(serializer.call.render_as_hash(WarpEngine::ClientConfig.find(ctx.id)))
             end
 
-            r.create "/store_clients", summary: "Set a store engine up", body: X.store_client_body,
-                                       required: %i[client], item: X.store_client do |ctx|
-              ctx.created(serializer.call.render_as_hash(ctx.save!(WarpEngine::StoreClient.new(ctx.attributes))))
+            r.create "/client_configs", summary: "Set a store engine up", body: X.client_config_body,
+                                       required: %i[client], item: X.client_config do |ctx|
+              ctx.created(serializer.call.render_as_hash(ctx.save!(WarpEngine::ClientConfig.new(ctx.attributes))))
             end
 
-            r.update "/store_clients/:id", summary: "Change a store engine's settings", body: X.store_client_body,
-                                           item: X.store_client do |ctx|
-              record = WarpEngine::StoreClient.find(ctx.id)
+            r.update "/client_configs/:id", summary: "Change a store engine's settings", body: X.client_config_body,
+                                           item: X.client_config do |ctx|
+              record = WarpEngine::ClientConfig.find(ctx.id)
               record.assign_attributes(ctx.attributes)
               ctx.ok(serializer.call.render_as_hash(ctx.save!(record)))
             end
 
-            r.delete "/store_clients/:id", summary: "Drop a store engine's settings (back to the defaults)" do |ctx|
-              WarpEngine::StoreClient.find(ctx.id).destroy!
+            r.delete "/client_configs/:id", summary: "Drop a store engine's settings (back to the defaults)" do |ctx|
+              WarpEngine::ClientConfig.find(ctx.id).destroy!
               ctx.no_content
             end
           end

@@ -83,9 +83,9 @@ module WarpEngine
           to_repo(client.get_repo(project_id))
         end
 
-        # Returns the CI::Repo of the forge project +project_id+: on GitLab the
-        # forge is the CI, so a new project needs no activation.
-        def activate_forge_repo(project_id) = repo(project_id)
+        # Returns the CI::Repo of the SCM project +project_id+: on GitLab the
+        # SCM is the CI, so a new project needs no activation.
+        def activate_scm_repo(project_id) = repo(project_id)
 
         # Does nothing on GitLab, where CI needs no activation. Returns +nil+.
         def activate_repo(project_id)

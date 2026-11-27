@@ -25,7 +25,7 @@ module WarpEngine
       def self.build(mode: "latest", filtered: true, channels: nil, softwares: nil, platforms: nil, categories: nil,
                      statuses: nil, skip_existing: true, config: Sync.config.outbound)
         chosen = list(channels).presence || Array(config.allowed_channels).map(&:to_s)
-        unknown = chosen - WarpEngine::Channels::ALL
+        unknown = chosen - WarpEngine::ReleaseChannel::ALL
         raise ArgumentError, "unknown channel #{unknown.join(', ')}" if unknown.any?
 
         new(mode: mode.to_s == "all" ? "all" : "latest", filtered: truthy?(filtered), skip_existing: truthy?(skip_existing),

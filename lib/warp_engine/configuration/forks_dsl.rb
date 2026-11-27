@@ -34,13 +34,13 @@ module WarpEngine
       # Sets how many announcements one address may send in an hour.
       def announcements_per_hour(value) = @settings.announcements_per_hour = value.to_i
 
-      # Sets after how many days a fork link is verified again.
+      # Sets after how many days an announced fork is verified again.
       def recheck_days(value) = @settings.recheck_days = value.to_i
 
       # Treats private and loopback addresses as public (or not with +false+).
       def allow_private_engines(value = true) = @settings.allow_private_engines = value
 
-      # Sets the seconds one request to another engine or forge may take.
+      # Sets the seconds one request to another engine or SCM may take.
       def timeout(value) = @settings.timeout = value.to_i
     end
   end

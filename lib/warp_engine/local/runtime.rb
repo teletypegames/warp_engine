@@ -1,6 +1,6 @@
 module WarpEngine
   module Local
-    # What a component asks a container runtime for: one container, its
+    # What a provider asks a container runtime for: one container, its
     # +name+ (also its alias on the network), the +image+ with a fixed
     # version, its +env+ (a Hash), the named +volumes+ (volume name to path
     # inside), the +binds+ (<tt>host:container</tt> strings), the +ports+
@@ -13,7 +13,7 @@ module WarpEngine
       end
     end
 
-    # The base of the container runtimes the local components run on
+    # The base of the container runtimes the local providers run on
     # (WarpEngine::Local.runtime): WarpEngine::Local::Runtime::Docker (the
     # Docker Engine API on its socket) and WarpEngine::Local::Runtime::Null
     # (none). A runtime touches only containers carrying the LABEL.

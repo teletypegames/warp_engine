@@ -35,7 +35,7 @@ module WarpEngine
             title:         "WarpEngine Admin API",
             version:       WarpEngine::VERSION,
             description:   "What the WarpEngine admin does, for programs: the catalog, its vocabulary, " \
-                           "downloads, pipelines, the artifact store and the application tokens.",
+                           "downloads, CI repositories, the artifact store and the application tokens.",
             "x-api-version": AdminApi::VERSION
           },
           servers:    [ { url: server_url } ],
@@ -107,7 +107,7 @@ module WarpEngine
         codes = [ 400, 401, 403, 404 ]
         codes += [ 409, 422 ] unless operation.read?
         codes << 429 if AdminApi.config.rate_limit.present?
-        codes += [ 502, 503 ] if operation.resource.name == :pipelines
+        codes += [ 502, 503 ] if operation.resource.name == :ci_repositories
 
         { operation.status.to_s => success }.merge(
           codes.to_h { |code| [ code.to_s, { "$ref": "#/components/responses/#{ERRORS[code].first}" } ] }

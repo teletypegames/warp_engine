@@ -62,12 +62,12 @@ and the value objects they pass. Do not type the rest of the engine.
 Keep new code in the layer its neighbours are in; 2.0 made them agree.
 
 - **Models** (`app/models`) hold data rules only. They do not reach up into
-  services or outlets; what both need (e.g. the name rules of
+  services or feeds; what both need (e.g. the name rules of
   `WarpEngine::Names`) lives in a neutral module in `lib/warp_engine`.
   Soft-deletable records are only ever soft-deleted (`soft_delete!`, a nested
   `_destroy` included), never destroyed.
 - **Services** (`app/services`) are named `*Service`, except the parts of one
-  (`Publish::*`) and the catalog's offer (`Catalog::Offer`). They take keyword
+  (`Publish::*`) and the catalog's selection (`Catalog::Selection`). They take keyword
   arguments, return data or result objects, raise their own errors (beside
   them, not in `errors.rb`), and know no routes or URLs.
 - **Controllers** stay thin: parse the request, call one service, render. They
@@ -78,10 +78,10 @@ Keep new code in the layer its neighbours are in; 2.0 made them agree.
   their own styles and scripts (`app/assets/*/warp_engine/admin.*`), use no
   emoji (`WarpEngine::AdminIcons` instead), no hardcoded colors (the host's
   `--c-*` tokens via `var(--we-*)`), and no host paths.
-- **Outlets**: one shape for every type — `lib/warp_engine/outlets/TYPE.rb`
+- **Feeds**: one shape for every type — `lib/warp_engine/feeds/TYPE.rb`
   (options, `validate!`, `descriptor`, `draw_routes` or `sync!`) plus the
-  objects that do the work in `lib/warp_engine/outlets/TYPE/`, taking the
-  outlet. The catalog API (`Wecp`) draws its own routes too; only the build
+  objects that do the work in `lib/warp_engine/feeds/TYPE/`, taking the
+  feed. The catalog API (`Wecp`) draws its own routes too; only the build
   and CI endpoints stay in `config/routes.rb`.
 - No compatibility aliases for renamed constants: rename, note it under
   *Upgrading* in the README, and bump the major version.

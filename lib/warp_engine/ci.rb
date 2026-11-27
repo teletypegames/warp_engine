@@ -60,7 +60,7 @@ module WarpEngine
     # [branch]     the branch or ref built
     # [message]    the commit message, when the provider gives one
     # [created_at] the start time as a Time, or +nil+
-    # [url]        the link to the run or commit on the forge
+    # [url]        the link to the run or commit on the SCM
     # [commit]     the hex id of the commit built, when the provider gives it
     # [event]      what started the run (+push+, +tag+, +pull_request+, +manual+ ...)
     # [ref]        the full ref built, e.g. <tt>refs/tags/v1.0.0</tt>
@@ -131,7 +131,7 @@ module WarpEngine
       # Raises CI::NotConfigured.
       def activate_repo(_id)                 = raise(NotConfigured, MESSAGE)
       # Raises CI::NotConfigured.
-      def activate_forge_repo(_id)           = raise(NotConfigured, MESSAGE)
+      def activate_scm_repo(_id)           = raise(NotConfigured, MESSAGE)
       # Raises CI::NotConfigured.
       def deactivate_repo(_id)               = raise(NotConfigured, MESSAGE)
       # Raises CI::NotConfigured.
@@ -162,7 +162,7 @@ module WarpEngine
       # the memoized CI::Woodpecker::Adapter for +nil+ or +:woodpecker+, the
       # CI::Gitlab::Adapter for +:gitlab+, CI::Null for +:none+ or +:null+, and
       # any other value (a host-supplied adapter object) as it is; while a
-      # local CI component is ready, its adapter built on that one
+      # local CI provider is ready, its adapter built on that one
       # (WarpEngine::Local.ci_adapter).
       def adapter
         configured = WarpEngine.config.ci_adapter

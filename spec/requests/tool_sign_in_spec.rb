@@ -50,7 +50,7 @@ RSpec.describe "Tool sign-in", type: :request do
       token = WarpEngine::ApplicationToken.authenticate(body["token"])
       expect(token).to have_attributes(owner: admin, scopes: %w[admin:read], name: "WarpEngine Toolbox")
 
-      get "/api/admin/v1/me", headers: { "Authorization" => "Bearer #{body['token']}" }
+      get "/api/admin/v2/me", headers: { "Authorization" => "Bearer #{body['token']}" }
       expect(response).to have_http_status(:ok)
     end
 

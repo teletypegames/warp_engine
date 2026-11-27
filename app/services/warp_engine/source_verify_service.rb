@@ -1,10 +1,10 @@
 require "open3"
 
 module WarpEngine
-  # Checks whether the +source+ link of a software can be read without a
+  # Checks whether the source of a software can be read without a
   # sign-in: <tt>git ls-remote</tt> with every credential helper and prompt
   # turned off, so a private repository answers as private. The result goes
-  # onto the WarpEngine::ExternalLink (+public+, +verified_at+,
+  # onto the WarpEngine::SoftwareSource (+public+, +verified_at+,
   # +verify_error+); a fork is only offered for a public source.
   class SourceVerifyService
     # The environment of the git call: no terminal prompt, no askpass, an ssh
@@ -29,15 +29,14 @@ module WarpEngine
       @timeout = timeout
     end
 
-    # Checks the source link +link+ and saves the result on it without
-    # touching its timestamps' meaning for the URL (the URL and ref stay).
-    # A link that is not a +source+ is left alone. Returns the Result, or
-    # +nil+ for a non-source link.
-    def verify(link)
-      return nil unless link&.source?
+    # Checks the WarpEngine::SoftwareSource +source+ and saves the result on
+    # it without touching its timestamps' meaning for the URL (the URL and
+    # ref stay). Returns the Result, or +nil+ without a source.
+    def verify(source)
+      return nil if source.nil?
 
-      result = check(link.url)
-      link.update_columns(public: result.public, verified_at: Time.current, verify_error: result.error&.truncate(512))
+      result = check(source.url)
+      source.update_columns(public: result.public, verified_at: Time.current, verify_error: result.error&.truncate(512))
       result
     end
 
@@ -52,9 +51,9 @@ module WarpEngine
     # Checks every source that was never checked, and the ones checked longer
     # ago than +older_than+. Returns how many were checked.
     def verify_due(older_than: WarpEngine::Forks.config.recheck_days.days)
-      links = WarpEngine::ExternalLink.kept.sources.where(verified_at: nil)
-                                       .or(WarpEngine::ExternalLink.kept.sources.where(verified_at: ...older_than.ago))
-      links.find_each.count { |link| verify(link) }
+      sources = WarpEngine::SoftwareSource.kept.where(verified_at: nil)
+                                          .or(WarpEngine::SoftwareSource.kept.where(verified_at: ...older_than.ago))
+      sources.find_each.count { |source| verify(source) }
     end
 
     private

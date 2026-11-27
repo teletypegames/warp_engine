@@ -5,7 +5,7 @@ module WarpEngine
     module Mcp
       # The instructions the MCP server gives the client.
       INSTRUCTIONS = "The WarpEngine admin: softwares, releases and their assets, the status and category " \
-                     "vocabulary, platform links, download statistics, CI pipelines and the artifact store. " \
+                     "vocabulary, platform links, download statistics, CI repositories and the artifact store. " \
                      "Every tool maps one Admin API operation; admin_whoami says what this token may do.".freeze
 
       module_function

@@ -37,7 +37,7 @@ ActiveAdmin.register WarpEngine::SyncPeer, as: "Sync Peer" do
       f.input :label
       f.input :outbound_enabled, label: "Push our releases to it (outbound)",
                                  hint: WarpEngine::Sync.outbound? ? nil : "Outbound sync is off in the initializer (sync { outbound { enabled true } })."
-      f.input :allowed_channels, as: :check_boxes, label: "Channels pushed to it", collection: WarpEngine::Channels::ALL,
+      f.input :allowed_channels, as: :check_boxes, label: "Channels pushed to it", collection: WarpEngine::ReleaseChannel::ALL,
                                  hint: "None ticked: every channel of the outbound allowed_channels " \
                                        "(#{Array(WarpEngine::Sync.config.outbound.allowed_channels).join(', ')})."
       f.input :inbound_enabled, label: "Accept its pushes (inbound)",

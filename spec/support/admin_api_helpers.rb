@@ -30,27 +30,32 @@ module AdminApiHelpers
   def json = JSON.parse(response.body)
 
   def api_get(path, token: admin_token, params: {})
-    get "/api/admin/v1#{path}", params: params, headers: auth(token)
+    get "/api/admin/v2#{path}", params: params, headers: auth(token)
     conform!
   end
 
   def api_post(path, body = {}, token: admin_token)
-    post "/api/admin/v1#{path}", params: body.to_json, headers: auth(token).merge("CONTENT_TYPE" => "application/json")
+    post "/api/admin/v2#{path}", params: body.to_json, headers: auth(token).merge("CONTENT_TYPE" => "application/json")
     conform!
   end
 
   def api_patch(path, body = {}, token: admin_token)
-    patch "/api/admin/v1#{path}", params: body.to_json, headers: auth(token).merge("CONTENT_TYPE" => "application/json")
+    patch "/api/admin/v2#{path}", params: body.to_json, headers: auth(token).merge("CONTENT_TYPE" => "application/json")
+    conform!
+  end
+
+  def api_put(path, body = {}, token: admin_token)
+    put "/api/admin/v2#{path}", params: body.to_json, headers: auth(token).merge("CONTENT_TYPE" => "application/json")
     conform!
   end
 
   def api_delete(path, token: admin_token, params: {})
-    delete "/api/admin/v1#{path}", params: params, headers: auth(token)
+    delete "/api/admin/v2#{path}", params: params, headers: auth(token)
     conform!
   end
 
   def openapi_document
-    JSON.parse(WarpEngine::AdminApi::OpenApi.document(server_url: "http://www.example.com/api/admin/v1").to_json)
+    JSON.parse(WarpEngine::AdminApi::OpenApi.document(server_url: "http://www.example.com/api/admin/v2").to_json)
   end
 
   def conform!

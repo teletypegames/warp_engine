@@ -4,7 +4,7 @@ module WarpEngine
     # at once. Declared through Resource; run by Runner.
     class Operation
       # The URL prefix of every operation route.
-      PREFIX = "/api/admin/v1".freeze
+      PREFIX = "/api/admin/v2".freeze
 
       # The declaration: owning Resource, name, HTTP verb, path (with <tt>:param</tt>
       # segments), summary, description, query and body schemas, required body

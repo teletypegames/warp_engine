@@ -22,10 +22,10 @@ module WarpEngine
         `admin` is null unless the host turned the Admin API on. Where present it names the
         Admin API's version and addresses; what lives there needs an admin token.
 
-        `outlets` lists every format the catalog leaves the engine in: this API (`wecp`), each
-        shelf (`shelf`) and the served outlets such as `assembly64`, each with its `key`,
-        `type` and `platforms` and what its type adds (a shelf its `kinds`, `layout`, `index`
-        file and the `urls` it is served at; an Assembly64 outlet its `hosts`, `path` and `repo`).
+        `feeds` lists every format the catalog leaves the engine in: this API (`wecp`), each
+        directory (`directory`) and the dynamic feeds such as `assembly64`, each with its `key`,
+        `type` and `platforms` and what its type adds (a directory its `kinds`, `layout`, `index`
+        file and the `urls` it is served at; an Assembly64 feed its `hosts`, `path` and `repo`).
 
         `stores` is null where the host turned the store registry off; otherwise its `url`
         is the registry a graphical client offers stores from.
@@ -61,9 +61,9 @@ module WarpEngine
           property :announcements, :boolean, desc: "Whether POST /api/forks takes announcements"
           property :engineUrl, String, desc: "The base URL forks name as their parent"
         end
-        property :outlets, Array, desc: "The outlets of this deployment, the catalog API first" do
-          property :key, String, desc: "The outlet key"
-          property :type, String, desc: "wecp, shelf, assembly64 or a type the host registered"
+        property :feeds, Array, desc: "The feeds of this deployment, the catalog API first" do
+          property :key, String, desc: "The feed key"
+          property :type, String, desc: "wecp, directory, assembly64 or a type the host registered"
           property :platforms, Array, desc: "The platforms it carries; empty for all"
         end
       end
@@ -72,8 +72,8 @@ module WarpEngine
       # Renders what this deployment offers: the engine name and version, the API
       # shape version and catalog paging limits, whether the catalog is gated, the
       # device sign-in endpoints (+auth+, +null+ without client identity), the
-      # Admin API addresses (+admin+, +null+ while it is off) and the outlet
-      # descriptors (WarpEngine::Outlets.descriptors) and the store registry
+      # Admin API addresses (+admin+, +null+ while it is off) and the feed
+      # descriptors (WarpEngine::Feeds.descriptors) and the store registry
       # address (+stores+, +null+ while it is off).
       # Needs no credential.
       def show
@@ -92,7 +92,7 @@ module WarpEngine
           admin:   admin_descriptor,
           stores:  WarpEngine::StoreRegistry.enabled? ? { url: warp_engine.api_stores_url } : nil,
           forks:   WarpEngine::Forks.accept_announcements? ? { announcements: true, engineUrl: WarpEngine::Forks.engine_url } : nil,
-          outlets: WarpEngine::Outlets.descriptors
+          feeds: WarpEngine::Feeds.descriptors
         }
       end
 

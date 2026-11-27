@@ -4,7 +4,7 @@ require "uri"
 
 module WarpEngine
   module Local
-    # The HTTP the components' bootstrap speaks: JSON API calls
+    # The HTTP the providers' bootstrap speaks: JSON API calls
     # (#json) and a small browser (#get, #post_form, #post_json) that keeps
     # cookies per host, for the sign-ins that have no API. Addresses under
     # one of the +rewrites+ prefixes are fetched from the address they map to,

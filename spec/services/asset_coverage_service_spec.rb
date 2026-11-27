@@ -10,20 +10,20 @@ RSpec.describe WarpEngine::AssetCoverageService do
   describe "#rows" do
     it "says which expected kinds are present and which are missing" do
       software = create(:software, name: "impostor", platform: "tic80")
-      release_with(software: software, version: "1.0", kinds: %w[cartridge source html])
+      release_with(software: software, version: "1.0", kinds: %w[package source html])
 
       row = described_class.new.rows.first
 
       expect(row.software).to eq(software)
       expect(row.expected).to eq(WarpEngine::Platform.find("tic80").expected_kinds)
-      expect(row.present).to contain_exactly("cartridge", "source", "html")
+      expect(row.present).to contain_exactly("package", "source", "html")
       expect(row.missing).to contain_exactly("docs", "win_x64", "linux_x64", "mac_x64")
       expect(row).not_to be_complete
     end
 
     it "calls a release with every expected asset complete" do
       software = create(:software, name: "pong", platform: "c64")
-      release_with(software: software, version: "0.1.0", kinds: %w[cartridge html win_x64 linux_x64 mac_arm64])
+      release_with(software: software, version: "0.1.0", kinds: %w[package html win_x64 linux_x64 mac_arm64])
 
       row = described_class.new.rows.first
 
@@ -34,7 +34,7 @@ RSpec.describe WarpEngine::AssetCoverageService do
 
     it "does not count an optional kind as missing" do
       software = create(:software, name: "we-dos", platform: "dos")
-      release_with(software: software, version: "0.6.1", kinds: %w[cartridge])
+      release_with(software: software, version: "0.6.1", kinds: %w[package])
 
       row = described_class.new.rows.first
 
@@ -133,7 +133,7 @@ RSpec.describe WarpEngine::AssetCoverageService do
   describe "#totals" do
     it "counts releases, assets and the softwares that are short of one" do
       tic80 = create(:software, name: "impostor", platform: "tic80")
-      release_with(software: tic80, version: "1.0", kinds: %w[cartridge source html docs win_x64 linux_x64 mac_x64])
+      release_with(software: tic80, version: "1.0", kinds: %w[package source html docs win_x64 linux_x64 mac_x64])
       c64 = create(:software, name: "pong", platform: "c64")
       release_with(software: c64, version: "0.1", kinds: [])
 

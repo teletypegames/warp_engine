@@ -52,14 +52,14 @@ RSpec.describe WarpEngine::AdditionalResource do
     end
 
     it "serializes the permitted attributes in camelCase unless the host serializes" do
-      link = software.external_links.create!(label: "Repo", url: "https://example.org")
-      extra = described_class.new(subject: :software, association: :external_links, label: "Links",
+      link = software.links.create!(label: "Repo", url: "https://example.org")
+      extra = described_class.new(subject: :software, association: :links, label: "Links",
                                   permitted: %i[id label url _destroy], fields: ->(form) { form },
                                   api_schema: { type: "object" })
 
       expect(extra.value_for(software)).to eq([ { "id" => link.id, "label" => "Repo", "url" => "https://example.org" } ])
 
-      custom = described_class.new(subject: :software, association: :external_links, label: "Links",
+      custom = described_class.new(subject: :software, association: :links, label: "Links",
                                    permitted: %i[id label], fields: ->(form) { form }, api_schema: { type: "object" },
                                    api_serializer: ->(record) { { name: record.label } })
       expect(custom.value_for(software)).to eq([ { "name" => "Repo" } ])

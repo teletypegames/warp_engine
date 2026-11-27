@@ -10,7 +10,7 @@ module WarpEngine
     def show(subject: nil)
       software = visible_scope(subject)
         .includes(releases: :release_assets)
-        .includes(:external_links, :software_images)
+        .includes(:links, :source, :software_images)
         .where(highlighted: true)
         .order(id: :desc)
         .first

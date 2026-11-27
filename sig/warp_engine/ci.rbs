@@ -79,7 +79,7 @@ module WarpEngine
       def repos: () -> Array[Repo]
       def repo: (repo_id id) -> Repo
       def activate_repo: (repo_id id) -> Repo
-      def activate_forge_repo: (repo_id forge_repo_id) -> Repo
+      def activate_scm_repo: (repo_id scm_repo_id) -> Repo
       def deactivate_repo: (repo_id id) -> nil
       def runs: (repo_id id, ?page: Integer) -> Array[Run]
       def run: (repo_id id, Integer | String number) -> Run?
@@ -108,7 +108,7 @@ module WarpEngine
       def repos: () -> bot
       def repo: (repo_id id) -> bot
       def activate_repo: (repo_id id) -> bot
-      def activate_forge_repo: (repo_id forge_repo_id) -> bot
+      def activate_scm_repo: (repo_id scm_repo_id) -> bot
       def deactivate_repo: (repo_id id) -> bot
       def runs: (repo_id id, ?page: Integer) -> bot
       def run: (repo_id id, Integer | String number) -> bot

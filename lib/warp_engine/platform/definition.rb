@@ -75,8 +75,8 @@ module WarpEngine
     #                  comments of <tt>name-version.lua</tt>) or a callable taking
     #                  the WarpEngine::Publish::Upload
     # [release_rule]   the CI release rule it forces (<tt>"tag"</tt>), or +nil+
-    # [shelf_folder]   a callable <tt>(metadata, kind)</tt> returning the folder
-    #                  spec of a +folders+ shelf, or +nil+
+    # [directory_folder]   a callable <tt>(metadata, kind)</tt> returning the folder
+    #                  spec of a +folders+ directory, or +nil+
     # [ci_template]    the CI-neutral pipeline template: a builtin name or a path
     # [ci_variables]   extra variables the template sees
     # [version_source] the shell command that prints the version of the source
@@ -92,7 +92,7 @@ module WarpEngine
     #                  +name+, +release+ and +app+ the CI marker may set
     # [libretro]       the LibretroCore its releases run on, or +nil+: the one
     #                  place the web runtimes and the store engines take it from
-    Definition = ::Data.define(:name, :label, :kind_specs, :metadata, :release_rule, :shelf_folder,
+    Definition = ::Data.define(:name, :label, :kind_specs, :metadata, :release_rule, :directory_folder,
                                :ci_template, :ci_variables, :version_source, :web_bindings,
                                :version_file, :variants, :default_app, :app, :options, :libretro) do
       # Builds a Definition; +web_bindings+, +variants+ and +options+ default
@@ -136,7 +136,7 @@ module WarpEngine
     # evaluate their block with it:
     #
     #   label "Amiga"
-    #   kind :cartridge, ext: ".adf", required: true
+    #   kind :package, ext: ".adf", required: true
     #   kinds :html, :win_x64
     #   kind :mac_arm64, built: false
     #   libretro "puae", name: "PUAE"
@@ -171,7 +171,7 @@ module WarpEngine
 
       # Adds the asset kind +name+ (a WarpEngine::AssetKinds name).
       #
-      # [ext]      the extension, for +cartridge+ and +source+, or a list of
+      # [ext]      the extension, for +package+ and +source+, or a list of
       #            alternatives, the preferred first
       # [required] a publish fails without it (it is then also always built)
       # [optional] the build checks do not miss it
@@ -215,9 +215,9 @@ module WarpEngine
       # Forces the CI release rule (<tt>:tag</tt>).
       def release_rule(value) = @release_rule = value.to_s
 
-      # Sets the callable that reads a +folders+ shelf's folder spec from the
+      # Sets the callable that reads a +folders+ directory's folder spec from the
       # release metadata.
-      def shelf_folder(callable) = @shelf_folder = callable
+      def directory_folder(callable) = @directory_folder = callable
 
       # Sets the libretro core the platform's releases run on (LibretroCore):
       # +key+ the core's name, +name+ the human one. A #web binding takes it
@@ -229,7 +229,7 @@ module WarpEngine
       # first binding, or the one with <tt>default: true</tt>, is the default.
       #
       # [as]       the binding key, needed when two bindings use one runtime
-      # [payload]  the asset kind the runtime plays (default +:cartridge+)
+      # [payload]  the asset kind the runtime plays (default +:package+)
       # [default]  makes this the default binding
       # [isolated] serves the page cross-origin isolated
       # [params]   the runtime parameters; <tt>core: :libretro</tt> is the
@@ -269,7 +269,7 @@ module WarpEngine
         variants = @variants.transform_values { |specs| (@kind_specs + specs).freeze }
         variants = variants.slice(@default_app).merge(variants).freeze
         base = Definition.new(name: @name, label: @label, kind_specs: @kind_specs.freeze, metadata: @metadata,
-                              release_rule: @release_rule, shelf_folder: @shelf_folder, ci_template: @ci[:template],
+                              release_rule: @release_rule, directory_folder: @directory_folder, ci_template: @ci[:template],
                               ci_variables: @ci[:variables], version_source: @version_source, version_file: @version_file,
                               web_bindings: Platform.with_default(@web_bindings).freeze, variants: variants,
                               default_app: @default_app, options: @options.freeze, libretro: @libretro)

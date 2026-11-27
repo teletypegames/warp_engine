@@ -21,7 +21,7 @@ RSpec.describe "Build platforms endpoint", type: :request do
 
     json = JSON.parse(response.body)
     expect(json).to include("name" => "c64", "label" => "C64", "releaseRule" => nil, "tooling" => {})
-    expect(json["kinds"].first).to include("name" => "cartridge", "upload" => "NAME-VERSION.prg",
+    expect(json["kinds"].first).to include("name" => "package", "upload" => "NAME-VERSION.prg",
                                                 "uploads" => %w[NAME-VERSION.prg NAME-VERSION.d64], "required" => true)
     expect(json["metadata"]).to include("format" => "json", "file" => "metadata.json")
     expect(json["version"]).to eq("source" => "metadata", "command" => nil, "file" => nil)
@@ -80,7 +80,8 @@ RSpec.describe "Build platforms endpoint", type: :request do
       expect(schema["required"]).to eq(%w[name title version])
       expect(schema["properties"].keys).to include(*WarpEngine::Publish::MetadataReader::KEYS.map(&:to_s), "version")
       expect(schema["properties"]["category"]["examples"]).to eq(%w[puzzle])
-      expect(schema["properties"]["shelf_name"]).to include("maxLength" => 32)
+      expect(schema["properties"]["directory_name"]).to include("maxLength" => 32)
+      expect(schema["properties"]["shelf_name"]).to include("deprecated" => true)
       web = schema["properties"]["web"]["properties"]
       expect(web["runtime"]["enum"]).to eq(%w[emulatorjs])
       expect(web["params"]["properties"]).to include("core" => { "type" => "string" }, "options" => { "type" => "object" })

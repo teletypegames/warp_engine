@@ -29,10 +29,10 @@ module WarpEngine
     field(:ownerId) { |sw| sw.owner_id }
     field(:highlighted)  { |sw| sw.highlighted ? true : false }
     field(:disabledKinds) { |sw| sw.disabled_kinds }
-    field(:externalLinks) { |sw| ExternalLinkSerializer.render_as_hash(sw.external_links) }
+    field(:links) { |sw| SoftwareLinkSerializer.render_as_hash(sw.links) }
     field(:source) { |sw|
-      link = sw.source_link
-      link && { url: link.url, ref: link.ref, public: link.public, verifiedAt: link.verified_at&.utc&.strftime(TS_FORMAT) }
+      source = sw.source
+      source && { url: source.url, ref: source.ref, public: source.public, verifiedAt: source.verified_at&.utc&.strftime(TS_FORMAT) }
     }
     field(:forksAllowed) { |sw| sw.forkable? }
     field(:forkOf) { |sw|

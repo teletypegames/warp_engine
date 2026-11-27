@@ -21,7 +21,7 @@ module WarpEngine
                      ipAddress: S.string("IP address contains"),
                      userAgent: S.string("User-Agent contains"),
                      referer:   S.string("Referer contains"),
-                     outlet:    S.string("Outlet key, exactly; \"none\" for the catalog API"),
+                     feed:    S.string("Feed key, exactly; \"none\" for the catalog API"),
                      clientId:  S.string("Client-Id contains"),
                      from:      S.datetime("Downloaded at or after"),
                      to:        S.datetime("Downloaded before")
@@ -59,7 +59,7 @@ module WarpEngine
           end
         end
 
-        # The kept downloads matching the filters of +ctx+ (substring matches, the exact outlet key, software
+        # The kept downloads matching the filters of +ctx+ (substring matches, the exact feed key, software
         # title, +from+/+to+ times or dates; a +to+ date takes in the whole day). Raises a 400
         # Error for a malformed time.
         def filtered(ctx)
@@ -67,8 +67,8 @@ module WarpEngine
           { filePath: :file_path, ipAddress: :ip_address, userAgent: :user_agent, referer: :referer, clientId: :client_id }.each do |param, column|
             scope = scope.where("downloads.#{column} LIKE ?", like(ctx[param])) if ctx[param].present?
           end
-          if ctx[:outlet].present?
-            scope = scope.where(outlet: ctx[:outlet] == "none" ? nil : ctx[:outlet])
+          if ctx[:feed].present?
+            scope = scope.where(feed: ctx[:feed] == "none" ? nil : ctx[:feed])
           end
           if ctx[:software].present?
             scope = scope.joins(release: :software).where("softwares.title LIKE ?", like(ctx[:software]))

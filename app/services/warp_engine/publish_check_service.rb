@@ -25,7 +25,9 @@ module WarpEngine
       return [ Problem.new(field: "platform", message: "#{platform} is not a platform", level: "error") ] if found.nil?
 
       metadata = metadata.to_h.deep_stringify_keys
-      problems = metadata_problems(found, metadata)
+      problems = alias_problems(metadata)
+      metadata = Publish::MetadataReader.canonical(metadata)
+      problems += metadata_problems(found, metadata)
       problems += version_problems(metadata["name"], version)
       problems += ownership_problems(metadata["name"], owner)
       problems += web_problems(found, metadata["web"])
@@ -35,24 +37,32 @@ module WarpEngine
 
     private
 
+    def alias_problems(metadata)
+      Publish::MetadataReader::ALIASES.filter_map do |old_key, new_key|
+        next unless metadata.key?(old_key.to_s)
+
+        Problem.new(field: old_key.to_s, message: "#{old_key} is deprecated, use #{new_key}", level: "warning")
+      end
+    end
+
     def metadata_problems(platform, metadata)
       problems = %w[name title].filter_map do |key|
         Problem.new(field: key, message: "#{key} is missing", level: "error") if metadata[key].blank?
       end
       unknown = metadata.keys - Publish::MetadataReader::KEYS.map(&:to_s) - %w[version]
       problems += unknown.map { |key| Problem.new(field: key, message: "#{key} is not read by a publish", level: "warning") }
-      problems + shelf_name_problems(platform, metadata["name"], metadata["shelf_name"])
+      problems + directory_name_problems(platform, metadata["name"], metadata["directory_name"])
     end
 
-    def shelf_name_problems(platform, name, shelf_name)
-      return [] if shelf_name.blank?
+    def directory_name_problems(platform, name, directory_name)
+      return [] if directory_name.blank?
 
-      normalized = shelf_name.to_s.strip.upcase
-      return [ Problem.new(field: "shelf_name", message: "may only have A-Z, 0-9 and -", level: "error") ] unless normalized.match?(Names::PATTERN)
-      return [ Problem.new(field: "shelf_name", message: "is longer than 32 characters", level: "error") ] if normalized.length > 32
+      normalized = directory_name.to_s.strip.upcase
+      return [ Problem.new(field: "directory_name", message: "may only have A-Z, 0-9 and -", level: "error") ] unless normalized.match?(Names::PATTERN)
+      return [ Problem.new(field: "directory_name", message: "is longer than 32 characters", level: "error") ] if normalized.length > 32
 
-      taken = WarpEngine::Software.kept.where(platform: platform.name, shelf_name: normalized).where.not(name: name).exists?
-      taken ? [ Problem.new(field: "shelf_name", message: "#{normalized} is taken on the #{platform.label} shelf", level: "error") ] : []
+      taken = WarpEngine::Software.kept.where(platform: platform.name, directory_name: normalized).where.not(name: name).exists?
+      taken ? [ Problem.new(field: "directory_name", message: "#{normalized} is taken on the #{platform.label} directory", level: "error") ] : []
     end
 
     def version_problems(name, version)
@@ -93,7 +103,7 @@ module WarpEngine
     end
 
     def kind_problems(platform, kinds)
-      missing = platform.required_kinds - Array(kinds).map(&:to_s)
+      missing = platform.required_kinds - WarpEngine::AssetKinds.canonical_list(kinds)
       problems = missing.map { |kind| Problem.new(field: "kinds", message: "#{kind} is required and not built", level: "error") }
       unknown = Array(kinds).map(&:to_s) - platform.expected_kinds
       problems + unknown.map { |kind| Problem.new(field: "kinds", message: "#{platform.label} does not publish #{kind}", level: "warning") }

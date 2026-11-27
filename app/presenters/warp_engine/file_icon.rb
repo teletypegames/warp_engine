@@ -4,7 +4,7 @@ module WarpEngine
   module FileIcon
     # Icon per group of lower-case extensions (with the leading dot): images,
     # audio, video, archives, documents, spreadsheets, web files, source
-    # code, cartridges and disk images, and executables.
+    # code, cartridge and disk images, and executables.
     BY_EXTENSION = {
       %w[.png .jpg .jpeg .gif .bmp .webp .svg]             => :image,
       %w[.mp3 .ogg .wav .flac .aac]                        => :music,

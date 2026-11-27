@@ -15,20 +15,20 @@ RSpec.describe "the dos platform" do
 
   after { FileUtils.remove_entry(tmpdir) }
 
-  it "takes the program folder as the cartridge and the Win32 folder as win_x86" do
+  it "takes the program folder as the package and the Win32 folder as win_x86" do
     File.binwrite(File.join(dir, "we-dos-0.6.0-win-x86.zip"), "PK win32")
 
     release = platform.publish("we-dos", "0.6.0").reload
 
     expect(release.software).to have_attributes(platform: "dos", title: "WEDOS", category: "tool")
     expect(release.release_assets.map { |asset| [ asset.kind, File.basename(asset.path) ] })
-      .to contain_exactly([ "cartridge", "we-dos-0.6.0.zip" ], [ "win_x86", "we-dos-0.6.0-win-x86.zip" ])
+      .to contain_exactly([ "package", "we-dos-0.6.0.zip" ], [ "win_x86", "we-dos-0.6.0-win-x86.zip" ])
   end
 
-  it "publishes a DOS-only program with the cartridge alone" do
+  it "publishes a DOS-only program with the package alone" do
     release = platform.publish("we-dos", "0.6.0").reload
 
-    expect(release.release_assets.map(&:kind)).to eq([ "cartridge" ])
+    expect(release.release_assets.map(&:kind)).to eq([ "package" ])
   end
 
   it "is download only" do
@@ -39,23 +39,23 @@ RSpec.describe "the dos platform" do
     expect(release.errors[:base].join).to include("DOS releases cannot be web playable")
   end
 
-  describe "its shelf folder" do
+  describe "its directory folder" do
     let(:dos) do
       { "folder" => "WEDOS", "settings" => [ "WEDOS.CFG" ], "store_name" => "WEDOS Store", "store_description" => "Installs.",
         "win32_folder" => "WEDOSW", "win32_store_name" => "WEDOS for Windows" }
     end
 
     it "reads the DOS folder and the Win32 folder from the dos block, with the settings of both" do
-      expect(WarpEngine::Platform::DosShelfFolder.call({ "dos" => dos }, "cartridge"))
+      expect(WarpEngine::Platform::DosFolder.call({ "dos" => dos }, "package"))
         .to eq(folder: "WEDOS", settings: [ "WEDOS.CFG" ], name: "WEDOS Store", description: "Installs.", platform: "DOS")
-      expect(WarpEngine::Platform::DosShelfFolder.call({ "dos" => dos }, "win_x86"))
+      expect(WarpEngine::Platform::DosFolder.call({ "dos" => dos }, "win_x86"))
         .to eq(folder: "WEDOSW", settings: [ "WEDOS.CFG" ], name: "WEDOS for Windows", description: "", platform: "WIN32")
     end
 
     it "has nothing for a release without a dos block, a kind it does not build or a missing Win32 folder" do
-      expect(WarpEngine::Platform::DosShelfFolder.call({}, "cartridge")).to be_nil
-      expect(WarpEngine::Platform::DosShelfFolder.call({ "dos" => dos }, "html")).to be_nil
-      expect(WarpEngine::Platform::DosShelfFolder.call({ "dos" => dos.except("win32_folder") }, "win_x86")).to be_nil
+      expect(WarpEngine::Platform::DosFolder.call({}, "package")).to be_nil
+      expect(WarpEngine::Platform::DosFolder.call({ "dos" => dos }, "html")).to be_nil
+      expect(WarpEngine::Platform::DosFolder.call({ "dos" => dos.except("win32_folder") }, "win_x86")).to be_nil
     end
 
     it "releases from tags" do

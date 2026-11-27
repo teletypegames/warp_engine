@@ -1,8 +1,8 @@
 module WarpEngine
-  # Writes application tokens into the secrets of CI pipelines, so a pipeline
+  # Writes application tokens into the secrets of CI repositories, so a repository
   # can publish with them.
   class SecretSyncService
-    # The name of the pipeline secret that holds the token.
+    # The name of the repository secret that holds the token.
     SECRET_NAME = "application_token".freeze
 
     # [ci] the CI adapter, by default WarpEngine.ci
@@ -10,48 +10,48 @@ module WarpEngine
       @ci = ci
     end
 
-    # Sets SECRET_NAME to +plain_token+ on every pipeline of +pipelines+. A
-    # failing pipeline is logged and skipped. Returns a Hash with the +synced+
-    # pipelines and the +failed+ ones (Hashes with +pipeline+ and +error+).
-    def provision(plain_token, pipelines:)
+    # Sets SECRET_NAME to +plain_token+ on every repository of +repositories+. A
+    # failing repository is logged and skipped. Returns a Hash with the +synced+
+    # repositories and the +failed+ ones (Hashes with +repository+ and +error+).
+    def provision(plain_token, repositories:)
       results = { synced: [], failed: [] }
 
-      Array(pipelines).each do |pipeline|
-        @ci.secret_set(pipeline.remote_repo_id, name: SECRET_NAME, value: plain_token)
-        results[:synced] << pipeline
+      Array(repositories).each do |repository|
+        @ci.secret_set(repository.remote_repo_id, name: SECRET_NAME, value: plain_token)
+        results[:synced] << repository
       rescue CI::Error => e
-        Rails.logger.error("[SecretSyncService] failed for #{pipeline.full_name}: #{e.message}")
-        results[:failed] << { pipeline: pipeline, error: e.message }
+        Rails.logger.error("[SecretSyncService] failed for #{repository.full_name}: #{e.message}")
+        results[:failed] << { repository: repository, error: e.message }
       end
 
       results
     end
 
-    # Deletes SECRET_NAME from every pipeline of +pipelines+; failures are logged.
-    def remove(pipelines:)
-      Array(pipelines).each do |pipeline|
-        @ci.secret_delete(pipeline.remote_repo_id, SECRET_NAME)
+    # Deletes SECRET_NAME from every repository of +repositories+; failures are logged.
+    def remove(repositories:)
+      Array(repositories).each do |repository|
+        @ci.secret_delete(repository.remote_repo_id, SECRET_NAME)
       rescue CI::Error => e
-        Rails.logger.warn("[SecretSyncService] delete failed for #{pipeline.full_name}: #{e.message}")
+        Rails.logger.warn("[SecretSyncService] delete failed for #{repository.full_name}: #{e.message}")
       end
     end
 
-    # Deletes the secret from the pipelines of +application_token+ (#pipelines_for_token).
+    # Deletes the secret from the repositories of +application_token+ (#repositories_for_token).
     def deprovision(application_token)
-      remove(pipelines: pipelines_for_token(application_token))
+      remove(repositories: repositories_for_token(application_token))
     end
 
     # Replaces +application_token+: creates a copy (same owner, scopes, expiry
     # and restriction, named "... (rotated <date>)"), soft-deletes the old one and
-    # provisions the new value to its pipelines. When no pipeline takes it, the
+    # provisions the new value to its repositories. When no repository takes it, the
     # old token is restored and the new one soft-deleted.
     #
     # Returns a Hash: <tt>{ rotated: true, new_token:, sync_result: }</tt>, or
     # <tt>{ rotated: false, reason:, sync_result: }</tt> (no +sync_result+ when
-    # there are no pipelines).
+    # there are no repositories).
     def rotate(application_token)
-      pipelines = pipelines_for_token(application_token)
-      return { rotated: false, reason: "no pipelines" } if pipelines.empty?
+      repositories = repositories_for_token(application_token)
+      return { rotated: false, reason: "no repositories" } if repositories.empty?
 
       new_token = nil
       ActiveRecord::Base.transaction do
@@ -66,7 +66,7 @@ module WarpEngine
         application_token.soft_delete!
       end
 
-      result = provision(new_token.plain_token, pipelines: pipelines)
+      result = provision(new_token.plain_token, repositories: repositories)
 
       if result[:synced].any?
         { rotated: true, new_token: new_token, sync_result: result }
@@ -75,25 +75,25 @@ module WarpEngine
           application_token.restore!
           new_token.soft_delete!
         end
-        { rotated: false, reason: "all pipelines failed", sync_result: result }
+        { rotated: false, reason: "all repositories failed", sync_result: result }
       end
     end
 
-    # The active pipelines +application_token+ may publish for: none for a
+    # The active repositories +application_token+ may publish for: none for a
     # sync token (WarpEngine::ApplicationToken#sync?, it belongs to another
     # engine), every one for an unrestricted token, else those of the kept
     # softwares of its owner.
-    def pipelines_for_token(application_token)
+    def repositories_for_token(application_token)
       if application_token.sync?
         []
       elsif application_token.unrestricted?
-        Pipeline.active.to_a
+        CiRepository.active.to_a
       else
         software_ids = Software.kept.where(
           owner_type: application_token.owner_type,
           owner_id:   application_token.owner_id
         ).pluck(:id)
-        Pipeline.active.where(software_id: software_ids).to_a
+        CiRepository.active.where(software_id: software_ids).to_a
       end
     end
   end

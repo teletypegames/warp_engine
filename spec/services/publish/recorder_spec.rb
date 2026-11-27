@@ -7,11 +7,11 @@ RSpec.describe WarpEngine::Publish::Recorder do
   before { WarpEngine::SoftwareStatus.seed_defaults! }
 
   it "brings back a deleted software and a deleted release of the same version" do
-    first = recorder.record(metadata, "1.0.0", { "cartridge" => "ariadne-1.0.0.prg" })
+    first = recorder.record(metadata, "1.0.0", { "package" => "ariadne-1.0.0.prg" })
     first.software.soft_delete!
     first.soft_delete!
 
-    again = recorder.record(metadata, "1.0.0", { "cartridge" => "ariadne-1.0.0.prg" })
+    again = recorder.record(metadata, "1.0.0", { "package" => "ariadne-1.0.0.prg" })
 
     expect(again.id).to eq(first.id)
     expect(again.reload).not_to be_discarded

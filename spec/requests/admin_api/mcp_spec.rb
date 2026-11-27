@@ -8,7 +8,7 @@ RSpec.describe "Admin API MCP server", type: :request do
 
   def rpc(method, params = {}, id: 1, token: admin_token)
     message = { jsonrpc: "2.0", id: id, method: method, params: params }.compact
-    post "/api/admin/v1/mcp", params: message.to_json,
+    post "/api/admin/v2/mcp", params: message.to_json,
                               headers: auth(token).merge("CONTENT_TYPE" => "application/json",
                                                          "ACCEPT" => "application/json, text/event-stream")
   end
@@ -27,7 +27,7 @@ RSpec.describe "Admin API MCP server", type: :request do
   end
 
   it "wants an admin token" do
-    post "/api/admin/v1/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/list" }.to_json,
+    post "/api/admin/v2/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/list" }.to_json,
                               headers: { "CONTENT_TYPE" => "application/json" }
 
     expect(response).to have_http_status(:unauthorized)
@@ -44,7 +44,7 @@ RSpec.describe "Admin API MCP server", type: :request do
   end
 
   it "accepts a notification with 202 and no body" do
-    post "/api/admin/v1/mcp", params: { jsonrpc: "2.0", method: "notifications/initialized" }.to_json,
+    post "/api/admin/v2/mcp", params: { jsonrpc: "2.0", method: "notifications/initialized" }.to_json,
                               headers: auth.merge("CONTENT_TYPE" => "application/json")
 
     expect(response).to have_http_status(:accepted)
@@ -126,14 +126,14 @@ RSpec.describe "Admin API MCP server", type: :request do
   end
 
   it "answers a body that is not JSON with a parse error" do
-    post "/api/admin/v1/mcp", params: "{nope", headers: auth.merge("CONTENT_TYPE" => "application/json")
+    post "/api/admin/v2/mcp", params: "{nope", headers: auth.merge("CONTENT_TYPE" => "application/json")
 
     expect(response).to have_http_status(:bad_request)
     expect(json["error"]["code"]).to eq(-32_700)
   end
 
   it "does not open a stream" do
-    get "/api/admin/v1/mcp", headers: auth
+    get "/api/admin/v2/mcp", headers: auth
 
     expect(response).to have_http_status(:method_not_allowed)
     expect(response.headers["Allow"]).to eq("POST")

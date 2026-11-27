@@ -12,7 +12,7 @@ RSpec.describe "Forks in the catalog API", type: :request do
   describe "GET /api/softwares/:name/forks" do
     it "lists the forks" do
       create(:software, name: "child", title: "Child", fork_of_engine: "https://games.example", fork_of_name: "parent")
-      WarpEngine::ForkLink.create!(software: parent, child_engine: "https://other.example", child_name: "far", child_title: "Far", status: "visible")
+      WarpEngine::SoftwareFork.create!(software: parent, engine_url: "https://other.example", name: "far", title: "Far", status: "visible")
 
       get "/api/softwares/parent/forks"
 
@@ -55,7 +55,7 @@ RSpec.describe "Forks in the catalog API", type: :request do
 
   describe "the software record" do
     it "carries the source, the fork switch, the parent and the fork count" do
-      link = WarpEngine::ExternalLink.create!(software: parent, label: "Repository", url: "https://git.example/parent.git", kind: "source")
+      link = WarpEngine::SoftwareSource.create!(software: parent, url: "https://git.example/parent.git")
       link.update_columns(public: true, verified_at: Time.current)
       create(:software, name: "child", fork_of_engine: "https://games.example", fork_of_name: "parent")
 
@@ -64,7 +64,7 @@ RSpec.describe "Forks in the catalog API", type: :request do
       records = JSON.parse(response.body)["softwares"].to_h { |entry| [ entry["software"]["name"], entry["software"] ] }
       expect(records["parent"]).to include("forksAllowed" => true, "forkOf" => nil, "forksCount" => 1)
       expect(records["parent"]["source"]).to include("url" => "https://git.example/parent.git", "public" => true)
-      expect(records["parent"]["externalLinks"].first).to include("kind" => "source", "public" => true)
+      expect(records["parent"]["links"]).to eq([])
       expect(records["child"]["forkOf"]).to include("engine" => "https://games.example", "name" => "parent", "local" => true)
     end
   end

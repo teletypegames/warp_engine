@@ -8,11 +8,11 @@ RSpec.describe "CI API", type: :request do
     allow(WarpEngine.config).to receive(:update_secret).and_return("s3cret")
   end
 
-  describe "GET /api/ci/pipelines" do
+  describe "GET /api/ci/repositories" do
     it "returns active repos" do
-      create(:pipeline, repo_name: "mygame", platform: "tic80")
+      create(:ci_repository, repo_name: "mygame", platform: "tic80")
 
-      get "/api/ci/pipelines"
+      get "/api/ci/repositories"
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
@@ -25,19 +25,19 @@ RSpec.describe "CI API", type: :request do
     it "returns 503 when no CI provider is configured" do
       allow(ci).to receive(:configured?).and_return(false)
 
-      get "/api/ci/pipelines"
+      get "/api/ci/repositories"
 
       expect(response).to have_http_status(:service_unavailable)
     end
   end
 
-  describe "GET /api/ci/pipelines/:id/status" do
+  describe "GET /api/ci/repositories/:id/status" do
     it "returns the repo with its latest run" do
-      repo = create(:pipeline, repo_owner: "org", repo_name: "game")
+      repo = create(:ci_repository, repo_owner: "org", repo_name: "game")
       allow(ci).to receive(:run).with(repo.remote_repo_id, "latest")
         .and_return(WarpEngine::CI::Run.new(number: 1, status: "success"))
 
-      get "/api/ci/pipelines/#{repo.id}/status"
+      get "/api/ci/repositories/#{repo.id}/status"
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
@@ -46,31 +46,31 @@ RSpec.describe "CI API", type: :request do
     end
 
     it "answers without a run when the provider is unreachable" do
-      repo = create(:pipeline)
+      repo = create(:ci_repository)
       allow(ci).to receive(:run).and_raise(WarpEngine::CI::ConnectionError, "down")
 
-      get "/api/ci/pipelines/#{repo.id}/status"
+      get "/api/ci/repositories/#{repo.id}/status"
 
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body)["latestRun"]).to be_nil
     end
   end
 
-  describe "POST /api/ci/pipelines/:id/trigger" do
+  describe "POST /api/ci/repositories/:id/trigger" do
     it "requires authentication" do
-      repo = create(:pipeline)
+      repo = create(:ci_repository)
 
-      post "/api/ci/pipelines/#{repo.id}/trigger"
+      post "/api/ci/repositories/#{repo.id}/trigger"
 
       expect(response).to have_http_status(:unauthorized)
     end
 
     it "triggers a pipeline with a valid secret" do
-      repo = create(:pipeline, repo_owner: "org", repo_name: "game")
+      repo = create(:ci_repository, repo_owner: "org", repo_name: "game")
       allow(ci).to receive(:trigger).with(repo.remote_repo_id, branch: "main")
         .and_return(WarpEngine::CI::Run.new(number: 7, status: "pending"))
 
-      post "/api/ci/pipelines/#{repo.id}/trigger",
+      post "/api/ci/repositories/#{repo.id}/trigger",
            headers: { "X-Update-Secret" => "s3cret" }
 
       expect(response).to have_http_status(:ok)

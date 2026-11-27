@@ -1,8 +1,8 @@
 module WarpEngine
   module AdminApi
     module Definitions
-      # The catalog resources: softwares, releases, release assets, external links,
-      # fork links, software images and the host-defined additional resources (extras).
+      # The catalog resources: softwares, releases, release assets, links,
+      # sources, forks, software images and the host-defined additional resources (extras).
       module Catalog
         # Short name of AdminApi::Schema.
         S = AdminApi::Schema
@@ -10,7 +10,7 @@ module WarpEngine
         X = Schemas
 
         # What <tt>GET /softwares/:id</tt> can include, comma-separated in +include+.
-        INCLUDES = %w[releases images externalLinks extras].freeze
+        INCLUDES = %w[releases images links extras].freeze
 
         module_function
 
@@ -19,8 +19,9 @@ module WarpEngine
           softwares(api)
           releases(api)
           release_assets(api)
-          external_links(api)
-          fork_links(api)
+          links(api)
+          sources(api)
+          forks(api)
           software_images(api)
           extras(api)
         end
@@ -61,7 +62,7 @@ module WarpEngine
             end
 
             r.action :post, "/softwares/scaffold", name: :scaffold, status: 201,
-                     summary: "Start a software: forge repository, CI, CI token and a draft catalog entry",
+                     summary: "Start a software: SCM repository, CI, CI token and a draft catalog entry",
                      body: X.scaffold_body, required: %i[name title platform], item: X.scaffold do |ctx|
               result = WarpEngine::ScaffoldService.new.scaffold(
                 name: ctx[:name].to_s, title: ctx[:title].to_s, platform: ctx[:platform].to_s, app: ctx[:app].presence,
@@ -72,7 +73,7 @@ module WarpEngine
               ctx.created(scaffold_payload(result))
             rescue WarpEngine::ScaffoldService::Error => e
               raise Error.conflict(e.message)
-            rescue WarpEngine::Forge::Error => e
+            rescue WarpEngine::Scm::Error => e
               raise Error.new(502, e.message)
             end
 
@@ -93,7 +94,7 @@ module WarpEngine
         def releases(api)
           api.resource(:releases, label: "Releases") do |r|
             r.list "/softwares/:softwareId/releases", summary: "The releases of a software", item: X.release,
-                   filters: { commitSha: S.string("The commit the CI built the release from"), channel: S.enum(WarpEngine::Channels::ALL) },
+                   filters: { commitSha: S.string("The commit the CI built the release from"), channel: S.enum(WarpEngine::ReleaseChannel::ALL) },
                    sort: { createdAt: :created_at, version: :version }, default_sort: "-createdAt" do |ctx|
               software = WarpEngine::Software.kept.find(ctx[:softwareId])
               scope = software.releases.includes(:release_assets)
@@ -139,8 +140,9 @@ module WarpEngine
             r.create "/releases/:releaseId/assets", summary: "Add an asset to a release", body: X.release_asset_body,
                      required: %i[kind path], item: X.release_asset do |ctx|
               release = release(ctx[:releaseId])
-              check_web_playable!(release, ctx[:kind])
-              asset = ctx.save!(revived(WarpEngine::ReleaseAsset, ctx.attributes.merge("release_id" => release.id), :release_id, :kind))
+              check_web_playable!(release, WarpEngine::AssetKinds.canonical(ctx[:kind]))
+              attributes = asset_attributes(ctx.attributes).merge("release_id" => release.id)
+              asset = ctx.save!(revived(WarpEngine::ReleaseAsset, attributes, :release_id, :kind))
               ctx.created(Admin::ReleaseAssetSerializer.render_as_hash(asset))
             end
 
@@ -151,7 +153,7 @@ module WarpEngine
             r.update "/assets/:id", summary: "Change an asset", body: X.release_asset_body, item: X.release_asset do |ctx|
               asset = asset(ctx.id)
               check_web_playable!(asset.release, ctx[:kind]) if ctx.key?(:kind)
-              asset.assign_attributes(ctx.attributes)
+              asset.assign_attributes(asset_attributes(ctx.attributes))
               ctx.ok(Admin::ReleaseAssetSerializer.render_as_hash(ctx.save!(asset)))
             end
 
@@ -162,67 +164,97 @@ module WarpEngine
           end
         end
 
-        # Declares the +fork_links+ resource on +api+: the forks other engines
-        # announced, list (filtered by status or software), get, and moderate
-        # (change the status).
-        def fork_links(api)
-          api.resource(:fork_links, label: "Fork links") do |r|
-            r.list "/fork_links", summary: "The forks other engines announced", item: X.fork_link,
-                   filters: { status: S.enum(WarpEngine::ForkLink::STATUSES), softwareId: S.integer },
+        # Declares the +forks+ resource on +api+: the forks other engines
+        # announced (WarpEngine::SoftwareFork), list (filtered by status or
+        # software), get, and moderate (change the status).
+        def forks(api)
+          api.resource(:forks, label: "Forks") do |r|
+            r.list "/forks", summary: "The forks other engines announced", item: X.software_fork,
+                   filters: { status: S.enum(WarpEngine::SoftwareFork::STATUSES), softwareId: S.integer },
                    sort: { createdAt: :created_at, checkedAt: :checked_at }, default_sort: "-createdAt" do |ctx|
-              scope = WarpEngine::ForkLink.kept.includes(:software)
+              scope = WarpEngine::SoftwareFork.kept.includes(:software)
               scope = scope.where(status: ctx[:status]) if ctx[:status].present?
               scope = scope.where(software_id: ctx[:softwareId]) if ctx[:softwareId].present?
-              ctx.list(scope, Admin::ForkLinkSerializer)
+              ctx.list(scope, Admin::SoftwareForkSerializer)
             end
 
-            r.get "/fork_links/:id", summary: "One announced fork", item: X.fork_link do |ctx|
-              ctx.ok(Admin::ForkLinkSerializer.render_as_hash(WarpEngine::ForkLink.kept.find(ctx.id)))
+            r.get "/forks/:id", summary: "One announced fork", item: X.software_fork do |ctx|
+              ctx.ok(Admin::SoftwareForkSerializer.render_as_hash(WarpEngine::SoftwareFork.kept.find(ctx.id)))
             end
 
-            r.update "/fork_links/:id", summary: "Moderate an announced fork: visible lists it, hidden keeps it out",
-                     body: X.fork_link_body, required: %i[status], item: X.fork_link do |ctx|
-              link = WarpEngine::ForkLink.kept.find(ctx.id)
-              link.assign_attributes(ctx.attributes)
-              ctx.ok(Admin::ForkLinkSerializer.render_as_hash(ctx.save!(link)))
+            r.update "/forks/:id", summary: "Moderate an announced fork: visible lists it, hidden keeps it out",
+                     body: X.software_fork_body, required: %i[status], item: X.software_fork do |ctx|
+              fork = WarpEngine::SoftwareFork.kept.find(ctx.id)
+              fork.assign_attributes(ctx.attributes)
+              ctx.ok(Admin::SoftwareForkSerializer.render_as_hash(ctx.save!(fork)))
             end
 
-            r.delete "/fork_links/:id", summary: "Delete an announced fork (soft); a new announcement brings it back as pending" do |ctx|
-              WarpEngine::ForkLink.kept.find(ctx.id).soft_delete!
+            r.delete "/forks/:id", summary: "Delete an announced fork (soft); a new announcement brings it back as pending" do |ctx|
+              WarpEngine::SoftwareFork.kept.find(ctx.id).soft_delete!
               ctx.no_content
             end
           end
         end
 
-        # Declares the +external_links+ resource on +api+: a software's links, add, get, update, delete.
-        def external_links(api)
-          api.resource(:external_links, label: "External links") do |r|
-            r.action :get, "/softwares/:softwareId/external_links", name: :list,
-                     summary: "The external links of a software", item: X.external_link, many: true do |ctx|
-              links = WarpEngine::Software.kept.find(ctx[:softwareId]).external_links.order(:id)
-              ctx.ok(Admin::ExternalLinkSerializer.render_as_hash(links))
+        # Declares the +links+ resource on +api+: a software's links
+        # (WarpEngine::SoftwareLink), add, get, update, delete.
+        def links(api)
+          api.resource(:links, label: "Links") do |r|
+            r.action :get, "/softwares/:softwareId/links", name: :list,
+                     summary: "The links of a software", item: X.software_link, many: true do |ctx|
+              links = WarpEngine::Software.kept.find(ctx[:softwareId]).links.order(:id)
+              ctx.ok(Admin::SoftwareLinkSerializer.render_as_hash(links))
             end
 
-            r.create "/softwares/:softwareId/external_links", summary: "Add an external link",
-                     body: X.external_link_body, required: %i[label url], item: X.external_link do |ctx|
+            r.create "/softwares/:softwareId/links", summary: "Add a link",
+                     body: X.software_link_body, required: %i[label url], item: X.software_link do |ctx|
               software = WarpEngine::Software.kept.find(ctx[:softwareId])
-              link = ctx.save!(WarpEngine::ExternalLink.new(ctx.attributes.merge("software" => software)))
-              ctx.created(Admin::ExternalLinkSerializer.render_as_hash(link))
+              link = ctx.save!(WarpEngine::SoftwareLink.new(ctx.attributes.merge("software" => software)))
+              ctx.created(Admin::SoftwareLinkSerializer.render_as_hash(link))
             end
 
-            r.get "/external_links/:id", summary: "One external link", item: X.external_link do |ctx|
-              ctx.ok(Admin::ExternalLinkSerializer.render_as_hash(WarpEngine::ExternalLink.kept.find(ctx.id)))
+            r.get "/links/:id", summary: "One link", item: X.software_link do |ctx|
+              ctx.ok(Admin::SoftwareLinkSerializer.render_as_hash(WarpEngine::SoftwareLink.kept.find(ctx.id)))
             end
 
-            r.update "/external_links/:id", summary: "Change an external link", body: X.external_link_body,
-                     item: X.external_link do |ctx|
-              link = WarpEngine::ExternalLink.kept.find(ctx.id)
+            r.update "/links/:id", summary: "Change a link", body: X.software_link_body, item: X.software_link do |ctx|
+              link = WarpEngine::SoftwareLink.kept.find(ctx.id)
               link.assign_attributes(ctx.attributes)
-              ctx.ok(Admin::ExternalLinkSerializer.render_as_hash(ctx.save!(link)))
+              ctx.ok(Admin::SoftwareLinkSerializer.render_as_hash(ctx.save!(link)))
             end
 
-            r.delete "/external_links/:id", summary: "Delete an external link (soft)" do |ctx|
-              WarpEngine::ExternalLink.kept.find(ctx.id).soft_delete!
+            r.delete "/links/:id", summary: "Delete a link (soft)" do |ctx|
+              WarpEngine::SoftwareLink.kept.find(ctx.id).soft_delete!
+              ctx.no_content
+            end
+          end
+        end
+
+        # Declares the +sources+ resource on +api+: the one source of a
+        # software (WarpEngine::SoftwareSource), get, set and delete. Setting
+        # it brings a deleted source back; a new URL or ref clears the check.
+        def sources(api)
+          api.resource(:sources, label: "Sources") do |r|
+            r.get "/softwares/:softwareId/source", summary: "The source repository of a software (404 when it has none)",
+                                                   item: X.software_source do |ctx|
+              source = WarpEngine::Software.kept.find(ctx[:softwareId]).source
+              raise Error.not_found if source.nil?
+
+              ctx.ok(Admin::SoftwareSourceSerializer.render_as_hash(source))
+            end
+
+            r.action :put, "/softwares/:softwareId/source", name: :set, summary: "Set the source repository of a software",
+                                                            body: X.software_source_body, required: %i[url], item: X.software_source do |ctx|
+              source = WarpEngine::SoftwareSource.for(WarpEngine::Software.kept.find(ctx[:softwareId]))
+              source.assign_attributes(ctx.attributes)
+              ctx.ok(Admin::SoftwareSourceSerializer.render_as_hash(ctx.save!(source)))
+            end
+
+            r.delete "/softwares/:softwareId/source", summary: "Delete the source repository of a software (soft)" do |ctx|
+              source = WarpEngine::Software.kept.find(ctx[:softwareId]).source
+              raise Error.not_found if source.nil?
+
+              source.soft_delete!
               ctx.no_content
             end
           end
@@ -312,7 +344,7 @@ module WarpEngine
           {
             software: Admin::SoftwareSerializer.render_as_hash(result.software),
             repository: { owner: repo.owner, name: repo.name, htmlUrl: repo.html_url, cloneUrl: repo.clone_url, sshUrl: repo.ssh_url },
-            pipelineId: result.pipeline&.id,
+            ciRepositoryId: result.ci_repository&.id,
             warnings: result.warnings
           }
         end
@@ -329,7 +361,7 @@ module WarpEngine
             data[:releases] = Admin::ReleaseSerializer.render_as_hash(software.releases.includes(:release_assets).order(created_at: :desc))
           end
           data[:images] = Admin::SoftwareImageSerializer.render_as_hash(software.software_images) if wanted.include?("images")
-          data[:externalLinks] = Admin::ExternalLinkSerializer.render_as_hash(software.external_links) if wanted.include?("externalLinks")
+          data[:links] = Admin::SoftwareLinkSerializer.render_as_hash(software.links) if wanted.include?("links")
           if wanted.include?("extras")
             data[:extras] = WarpEngine::AdditionalResource.api_for(:software).to_h { |e| [ e.association, e.value_for(software) ] }
           end
@@ -359,6 +391,12 @@ module WarpEngine
         # +keys+ match, brought back (WarpEngine::SoftDeletable.revive), or a new one.
         def revived(model, attributes, *keys)
           model.revive(attributes.slice(*keys.map(&:to_s))).tap { |record| record.assign_attributes(attributes) }
+        end
+
+        # The release asset +attributes+ of a request body with an old kind name
+        # read as its new one (WarpEngine::AssetKinds.canonical).
+        def asset_attributes(attributes)
+          attributes.key?("kind") ? attributes.merge("kind" => WarpEngine::AssetKinds.canonical(attributes["kind"])) : attributes
         end
 
         # The kept WarpEngine::Release +id+ of a kept software. Raises ActiveRecord::RecordNotFound.

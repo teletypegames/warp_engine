@@ -104,13 +104,13 @@ RSpec.describe "Admin API catalog", type: :request do
     it "includes what belongs to a software when asked" do
       software = create(:software)
       release = create(:release, software: software, version: "1.0")
-      release.release_assets.create!(kind: "cartridge", path: "/softwares/x.tic")
-      software.external_links.create!(label: "Repo", url: "https://example.org")
+      release.release_assets.create!(kind: "package", path: "/softwares/x.tic")
+      software.links.create!(label: "Repo", url: "https://example.org")
 
-      api_get "/softwares/#{software.id}", params: { include: "releases,externalLinks,images" }
+      api_get "/softwares/#{software.id}", params: { include: "releases,links,images" }
 
-      expect(json["data"]["releases"].first["assets"].first["kind"]).to eq("cartridge")
-      expect(json["data"]["externalLinks"].first["label"]).to eq("Repo")
+      expect(json["data"]["releases"].first["assets"].first["kind"]).to eq("package")
+      expect(json["data"]["links"].first["label"]).to eq("Repo")
       expect(json["data"]["images"]).to eq([])
 
       api_get "/softwares/#{software.id}", params: { include: "everything" }
@@ -136,12 +136,12 @@ RSpec.describe "Admin API catalog", type: :request do
       expect(response).to have_http_status(:created)
       release_id = json["data"]["id"]
 
-      api_post "/releases/#{release_id}/assets", { kind: "cartridge", path: "/softwares/game-2.0.tic" }
+      api_post "/releases/#{release_id}/assets", { kind: "package", path: "/softwares/game-2.0.tic" }
       expect(response).to have_http_status(:created)
       asset_id = json["data"]["id"]
 
       api_get "/releases/#{release_id}/assets"
-      expect(json["data"].map { |a| a["kind"] }).to eq(%w[cartridge])
+      expect(json["data"].map { |a| a["kind"] }).to eq(%w[package])
 
       api_patch "/assets/#{asset_id}", { path: "/softwares/game-2.0b.tic" }
       expect(json["data"]["path"]).to eq("/softwares/game-2.0b.tic")
@@ -173,7 +173,7 @@ RSpec.describe "Admin API catalog", type: :request do
     end
 
     it "refuses an html asset for a download-only platform" do
-      allow_any_instance_of(WarpEngine::Platform).to receive(:expected_kinds).and_return(%w[cartridge])
+      allow_any_instance_of(WarpEngine::Platform).to receive(:expected_kinds).and_return(%w[package])
       release = create(:release, software: create(:software, platform: "c64"))
 
       api_post "/releases/#{release.id}/assets", { kind: "html", path: "/softwares/g/html" }
@@ -183,21 +183,21 @@ RSpec.describe "Admin API catalog", type: :request do
     end
   end
 
-  describe "external links" do
+  describe "links" do
     it "adds, changes and removes one" do
       software = create(:software)
 
-      api_post "/softwares/#{software.id}/external_links", { label: "Itch", url: "https://itch.io/x" }
+      api_post "/softwares/#{software.id}/links", { label: "Itch", url: "https://itch.io/x" }
       id = json["data"]["id"]
 
-      api_patch "/external_links/#{id}", { label: "itch.io" }
+      api_patch "/links/#{id}", { label: "itch.io" }
       expect(json["data"]["label"]).to eq("itch.io")
 
-      api_get "/softwares/#{software.id}/external_links"
+      api_get "/softwares/#{software.id}/links"
       expect(json["data"].size).to eq(1)
 
-      api_delete "/external_links/#{id}"
-      expect(WarpEngine::ExternalLink.find(id)).to be_discarded
+      api_delete "/links/#{id}"
+      expect(WarpEngine::SoftwareLink.find(id)).to be_discarded
     end
   end
 
@@ -227,7 +227,7 @@ RSpec.describe "Admin API catalog", type: :request do
     it "uploads a new image into the library" do
       upload = Rack::Test::UploadedFile.new(StringIO.new("png"), "image/png", original_filename: "cover.png")
 
-      post "/api/admin/v1/softwares/#{software.id}/images/upload", params: { file: upload, isDefault: "true" },
+      post "/api/admin/v2/softwares/#{software.id}/images/upload", params: { file: upload, isDefault: "true" },
                                                                   headers: auth
 
       expect(response).to have_http_status(:created)
@@ -248,7 +248,7 @@ RSpec.describe "Admin API catalog", type: :request do
     let(:software) { create(:software) }
     let(:extra) do
       WarpEngine::AdditionalResource.new(
-        subject: :software, association: :external_links, label: "Links", permitted: %i[id label url _destroy],
+        subject: :software, association: :links, label: "Links", permitted: %i[id label url _destroy],
         fields: ->(form) { form },
         api_schema: { type: "object", properties: { id: { type: "integer" }, label: { type: "string" },
                                                     url: { type: "string" } } }
@@ -263,19 +263,19 @@ RSpec.describe "Admin API catalog", type: :request do
     end
 
     it "reads and replaces an extra through nested attributes" do
-      link = software.external_links.create!(label: "Old", url: "https://old.example")
+      link = software.links.create!(label: "Old", url: "https://old.example")
 
-      api_patch "/softwares/#{software.id}/extras/external_links",
+      api_patch "/softwares/#{software.id}/extras/links",
                 { value: [ { id: link.id, _destroy: true }, { label: "New", url: "https://new.example" } ] }
       expect(response).to have_http_status(:ok)
       expect(json["data"]["value"].map { |l| l["label"] }).to eq(%w[New])
       expect(link.reload).to be_discarded
 
-      api_get "/softwares/#{software.id}/extras/external_links"
-      expect(json["data"]).to include("association" => "external_links", "multiple" => true)
+      api_get "/softwares/#{software.id}/extras/links"
+      expect(json["data"]).to include("association" => "links", "multiple" => true)
 
       api_get "/softwares/#{software.id}", params: { include: "extras" }
-      expect(json["data"]["extras"]["external_links"].first["label"]).to eq("New")
+      expect(json["data"]["extras"]["links"].first["label"]).to eq("New")
     end
 
     it "answers 404 for an extra without an API schema, or an unknown one" do
@@ -285,7 +285,7 @@ RSpec.describe "Admin API catalog", type: :request do
     end
 
     it "refuses a value of the wrong shape" do
-      api_patch "/softwares/#{software.id}/extras/external_links", { value: { label: "x" } }
+      api_patch "/softwares/#{software.id}/extras/links", { value: { label: "x" } }
 
       expect(response).to have_http_status(:bad_request)
     end
@@ -293,7 +293,7 @@ RSpec.describe "Admin API catalog", type: :request do
     it "has no extras at all where no extra has an API schema" do
       WarpEngine.config.additional_resources = []
 
-      api_get "/softwares/#{software.id}/extras/external_links"
+      api_get "/softwares/#{software.id}/extras/links"
 
       expect(response).to have_http_status(:not_found)
     end

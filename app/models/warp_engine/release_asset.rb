@@ -1,14 +1,14 @@
 module WarpEngine
   # One file of a release: its +kind+ (one of KINDS, unique within the
   # release) and the absolute +path+ of the file in the file container.
-  # Soft-deletable; saving or deleting one refreshes the outlets (shelves) of the
+  # Soft-deletable; saving or deleting one refreshes the feeds (directories) of the
   # software's platform.
   class ReleaseAsset < ApplicationRecord
     # Every asset kind, in catalog order (WarpEngine::AssetKinds.names).
     KINDS = WarpEngine::AssetKinds.names.freeze
 
     include SoftDeletable
-    include OutletRefreshing
+    include FeedRefreshing
 
     belongs_to :release
 
@@ -17,8 +17,14 @@ module WarpEngine
     validates :path, presence: true
     validates :kind, uniqueness: { scope: :release_id }
 
-    # Returns the platform of the release's software, whose outlets to refresh.
-    def outlet_platform = release&.software&.platform
+    # Sets the kind, an old kind name read as its new one
+    # (WarpEngine::AssetKinds.canonical).
+    def kind=(value)
+      super(value.nil? ? nil : WarpEngine::AssetKinds.canonical(value))
+    end
+
+    # Returns the platform of the release's software, whose feeds to refresh.
+    def feed_platform = release&.software&.platform
 
     # Finds the asset of the file at +relative+, a path relative to the file
     # container: by its exact absolute path, else by the first path ending in

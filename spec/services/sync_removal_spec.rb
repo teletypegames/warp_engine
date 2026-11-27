@@ -9,7 +9,7 @@ RSpec.describe "Sync: removals" do
   let!(:server) { sync_peer(label: "Other", host: "https://other.example/warp", secret: "other-token") }
   let(:software) { create(:software, name: "game", platform: "c64", status: "released") }
 
-  before { sync_config(allowed_channels: WarpEngine::Channels::ALL) }
+  before { sync_config(allowed_channels: WarpEngine::ReleaseChannel::ALL) }
 
   it "queues the removal of a deleted release to the peers that would have got it" do
     release = create(:release, software: software, version: "1.0")

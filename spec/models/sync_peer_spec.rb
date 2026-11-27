@@ -80,10 +80,10 @@ RSpec.describe WarpEngine::ApplicationToken, "sync scope" do
     expect(described_class.authenticate(token.plain_token, required_scope: "upload")).to be_nil
   end
 
-  it "is not written to any pipeline" do
-    create(:pipeline)
+  it "is not written to any CI repository" do
+    create(:ci_repository)
     token = create(:application_token, scopes: [ "sync" ], owner: peer)
 
-    expect(WarpEngine::SecretSyncService.new(ci: WarpEngine.ci).pipelines_for_token(token)).to be_empty
+    expect(WarpEngine::SecretSyncService.new(ci: WarpEngine.ci).repositories_for_token(token)).to be_empty
   end
 end

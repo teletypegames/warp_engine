@@ -1,7 +1,8 @@
 module WarpEngine
   # Catalog view of a WarpEngine::Release: id, timestamps (see
   # WarpEngine::TimestampFields), software id, version, +channel+, the paths of the
-  # cartridge, source, HTML and docs assets, every asset as kind and path
+  # package (+packagePath+, and under its old name +cartridgePath+ for the
+  # clients of API 5), source, HTML and docs assets, every asset as kind and path
   # (and <tt>launch: false</tt> for a kind a client only downloads, see
   # WarpEngine::AssetKind),
   # +downloadCount+, and how it plays on the web: +playUrl+ (the page of the
@@ -105,7 +106,8 @@ module WarpEngine
     field(:softwareId)     { |r| r.software_id }
     field :version
     field :channel
-    field(:cartridgePath)  { |r| asset_path(r, "cartridge") }
+    field(:packagePath)    { |r| asset_path(r, "package") }
+    field(:cartridgePath)  { |r| asset_path(r, "package") }
     field(:sourcePath)     { |r| asset_path(r, "source") }
     field(:htmlFolderPath) { |r| asset_path(r, "html") }
     field(:docsFolderPath) { |r| asset_path(r, "docs") }

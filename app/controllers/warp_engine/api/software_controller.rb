@@ -8,7 +8,7 @@ module WarpEngine
         short "Software catalog"
       end
 
-      def_param_group :external_link do
+      def_param_group :software_link do
         property :ID, Integer, desc: "Link ID"
         property :softwareId, Integer, desc: "Parent software ID"
         property :label, String, desc: "Link label (e.g. GitHub)"
@@ -25,7 +25,8 @@ module WarpEngine
         property :ID, Integer, desc: "Release ID"
         property :softwareId, Integer, desc: "Parent software ID"
         property :version, String, desc: "Version string"
-        property :cartridgePath, String, desc: "Cartridge file path"
+        property :packagePath, String, desc: "Package file path"
+        property :cartridgePath, String, desc: "The package file path under its API 5 name"
         property :sourcePath, String, desc: "Source file path"
         property :htmlFolderPath, String, desc: "HTML playable folder path"
         property :docsFolderPath, String, desc: "Documentation folder path"
@@ -69,7 +70,7 @@ module WarpEngine
           property :highlighted, :boolean, desc: "Currently highlighted"
           property :disabledKinds, Array, of: String, desc: "The asset kinds the software turns off; web: no web play, stores: the store engines skip it"
           property :imageUrl, String, desc: "Default image URL"
-          property :externalLinks, Array, desc: "External links" do
+          property :links, Array, desc: "Links to pages of the software (its git repository is source)" do
             property :ID, Integer, desc: "Link ID"
             property :label, String, desc: "Link label"
             property :url, String, desc: "Link URL"
@@ -92,7 +93,7 @@ module WarpEngine
       def index
         render json: WarpEngine::SoftwareService.new.index(
           subject: current_subject, page: params[:page], per_page: params[:per_page], sort: params[:sort],
-          channel: params[:channel] == WarpEngine::Channels::BETA ? WarpEngine::Channels::BETA : WarpEngine::Channels::STABLE,
+          channel: params[:channel] == WarpEngine::ReleaseChannel::BETA ? WarpEngine::ReleaseChannel::BETA : WarpEngine::ReleaseChannel::STABLE,
           **catalog_filters
         )
       end

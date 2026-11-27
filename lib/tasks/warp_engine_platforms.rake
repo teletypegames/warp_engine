@@ -1,6 +1,6 @@
 namespace :warp_engine do
   namespace :platforms do
-    desc "Check that every platform agrees with its CI template, runtimes, store engines, shelves, the CI settings " \
+    desc "Check that every platform agrees with its CI template, runtimes, store engines, directories, the CI settings " \
          "and the catalog (PLATFORMS=c64,tic80 limits it; DATA=0 leaves the database alone; FORMAT=json; exits 1 on an error)"
     task check: :environment do
       names = ENV["PLATFORMS"].presence&.split(/[\s,]+/)

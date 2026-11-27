@@ -7,7 +7,7 @@ RSpec.describe WarpEngine::ReleaseLayoutService do
 
   before do
     allow(WarpEngine.config).to receive_messages(file_container_path: container, storage_adapter: :local)
-    allow(WarpEngine::Outlets).to receive(:refresh)
+    allow(WarpEngine::Feeds).to receive(:refresh)
     WarpEngine::Storage.reset!
   end
 
@@ -53,10 +53,10 @@ RSpec.describe WarpEngine::ReleaseLayoutService do
       expect(described_class.legacy_prefix("game-1.0-docs")).to eq("game-1.0")
     end
 
-    it "reserves the runtimes and the shelf roots" do
-      allow(WarpEngine.config).to receive(:outlets).and_return([ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG", name_length: 16 } ])
+    it "reserves the runtimes and the directory roots" do
+      allow(WarpEngine.config).to receive(:feeds).and_return([ { key: "c64", type: "directory", platform: "c64", kind: "package", path: "directories/C64", extension: ".PRG", name_length: 16 } ])
 
-      expect(described_class.reserved).to eq(%w[_runtimes shelves])
+      expect(described_class.reserved).to eq(%w[_runtimes directories])
     end
   end
 
@@ -67,7 +67,7 @@ RSpec.describe WarpEngine::ReleaseLayoutService do
       write("game-1.0.metadata.json")
       write("game-1.0/index.html", "<h1>hi</h1>")
       write("game-1.0.html.zip")
-      WarpEngine::ReleaseAsset.create!(release: game, kind: "cartridge", path: prg)
+      WarpEngine::ReleaseAsset.create!(release: game, kind: "package", path: prg)
       WarpEngine::ReleaseAsset.create!(release: game, kind: "html", path: File.join(container, "game-1.0"))
       WarpEngine::Download.create!(file_path: "game-1.0.prg", release: game, ip_address: "127.0.0.1")
       WarpEngine::Download.create!(file_path: "game-1.0/index.html", release: game, ip_address: "127.0.0.1")
@@ -82,18 +82,18 @@ RSpec.describe WarpEngine::ReleaseLayoutService do
       expect(Dir.children(File.join(container, "game", "1.0")).sort)
         .to eq(%w[game-1.0.html.zip game-1.0.metadata.json game-1.0.prg html])
       expect(game.release_assets.reload.pluck(:kind, :path)).to contain_exactly(
-        [ "cartridge", File.join(container, "game/1.0/game-1.0.prg") ], [ "html", File.join(container, "game/1.0/html") ]
+        [ "package", File.join(container, "game/1.0/game-1.0.prg") ], [ "html", File.join(container, "game/1.0/html") ]
       )
       expect(WarpEngine::Download.where(release: game).pluck(:file_path))
         .to contain_exactly("game/1.0/game-1.0.prg", "game/1.0/html/index.html")
-      expect(WarpEngine::Outlets).to have_received(:refresh)
+      expect(WarpEngine::Feeds).to have_received(:refresh)
     end
 
     it "moves a renamed software's files with its release" do
       rabbit = release("rabbitc64", "1.0.0")
       prg = write("rabbit-1.0.0.prg")
       write("rabbit-1.0.0.metadata.json")
-      WarpEngine::ReleaseAsset.create!(release: rabbit, kind: "cartridge", path: prg)
+      WarpEngine::ReleaseAsset.create!(release: rabbit, kind: "package", path: prg)
 
       service.restructure(dry_run: false)
 

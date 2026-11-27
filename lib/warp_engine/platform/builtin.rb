@@ -1,4 +1,4 @@
-require "warp_engine/platform/dos_shelf_folder"
+require "warp_engine/platform/dos_folder"
 
 module WarpEngine
   # The platforms the engine ships, each declared once with the Platform::Builder
@@ -18,7 +18,7 @@ module WarpEngine
 
     define :tic80 do
       label "TIC-80"
-      kind :cartridge, ext: ".tic", required: true
+      kind :package, ext: ".tic", required: true
       kind :source, ext: ".lua", always: true
       kind :html
       kind :docs, always: true
@@ -48,7 +48,7 @@ module WarpEngine
     { c64: [ "C64", "vice_x64sc", "VICE x64sc" ], plus4: [ "Plus/4", "vice_xplus4", "VICE xplus4" ] }.each do |machine, (name, core, core_name)|
       define machine do
         label name
-        kind :cartridge, ext: %w[.prg .d64], required: true
+        kind :package, ext: %w[.prg .d64], required: true
         kind :docs, optional: true
         kinds :win_x64, :linux_x64, :mac_arm64
         libretro core, name: core_name
@@ -113,19 +113,19 @@ module WarpEngine
 
     define :dos do
       label "DOS"
-      kind :cartridge, ext: ".zip", required: true
+      kind :package, ext: ".zip", required: true
       kind :win_x86, optional: true
       kind :docs, optional: true
       libretro "dosbox_pure", name: "DOSBox Pure"
       web :emulatorjs, core: :libretro, launcher: "dos", isolated: true
       release_rule :tag
-      shelf_folder DosShelfFolder
+      directory_folder DosFolder
     end
 
     { batocera: "Batocera", retroarch: "RetroArch" }.each do |host, name|
       define host do
         label name
-        kind :cartridge, ext: ".tar.gz", required: true
+        kind :package, ext: ".tar.gz", required: true
         kind :docs, optional: true
         release_rule :tag
         ci template: "store_engine", host: host.to_s

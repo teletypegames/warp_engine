@@ -15,8 +15,8 @@ require "warp_engine/admin_api/definitions/meta"
 require "warp_engine/admin_api/definitions/catalog"
 require "warp_engine/admin_api/definitions/vocabulary"
 require "warp_engine/admin_api/definitions/statistics"
-require "warp_engine/admin_api/definitions/outlets"
-require "warp_engine/admin_api/definitions/pipelines"
+require "warp_engine/admin_api/definitions/feeds"
+require "warp_engine/admin_api/definitions/ci_repositories"
 require "warp_engine/admin_api/definitions/files"
 require "warp_engine/admin_api/definitions/tokens"
 require "warp_engine/admin_api/definitions/runtimes"
@@ -29,7 +29,7 @@ require "warp_engine/admin_api/docs_page"
 
 module WarpEngine
   # The Admin API: everything the WarpEngine admin does, for programs, under
-  # <tt>/api/admin/v1</tt>. Operations are declared once in the Definitions modules
+  # <tt>/api/admin/v2</tt>. Operations are declared once in the Definitions modules
   # and served three ways: as JSON over HTTP, as an OpenAPI 3.1 document (OpenApi,
   # with an optional Redoc page from DocsPage) and as MCP tools (Mcp).
   #
@@ -45,7 +45,7 @@ module WarpEngine
   # (Scopes), or through the host's own Authenticator.
   module AdminApi
     # The major version of the Admin API, also in the URL prefix and the OpenAPI <tt>x-api-version</tt>.
-    VERSION = 1
+    VERSION = 2
 
     # The response header that carries the Admin API version.
     HEADER = "WarpEngine-Admin-Api".freeze

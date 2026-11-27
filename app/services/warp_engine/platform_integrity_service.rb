@@ -1,7 +1,7 @@
 module WarpEngine
   # Checks that every platform (WarpEngine::Platform) agrees with everything
   # that names it: its own definition, its CI template, its web runtimes, the
-  # store engines, the shelves, the host's CI and tooling settings and, unless
+  # store engines, the directories, the host's CI and tooling settings and, unless
   # told not to, the catalog's records. Each problem is a Finding; an +error+
   # is something that breaks (a pipeline that does not render, a store that
   # cannot install, a software on an unknown platform), a +warning+ something
@@ -55,7 +55,7 @@ module WarpEngine
       check_names_of_disabling
       check_labels(known)
       check_store_engines(known)
-      check_outlets(known)
+      check_feeds(known)
       check_host(known)
       check_softwares(known) if data
       Report.new(known, @findings)
@@ -200,7 +200,7 @@ module WarpEngine
     end
 
     def check_store_engines(names)
-      WarpEngine::StoreClients::ALL.each_value do |client|
+      WarpEngine::Clients::ALL.each_value do |client|
         client.config_template.fetch("platforms", {}).each do |name, spec|
           next if WarpEngine::Platform.exists?(name) && !names.include?(name)
 
@@ -233,23 +233,23 @@ module WarpEngine
       add(platform.name, :warning, "store_ext", "the #{client.label} store takes only #{ext}, the platform publishes #{allowed.join(', ')}")
     end
 
-    def check_outlets(names)
-      outlets = WarpEngine::Outlets.validate!
-      outlets.each do |outlet|
-        next unless outlet.respond_to?(:kinds)
+    def check_feeds(names)
+      feeds = WarpEngine::Feeds.validate!
+      feeds.each do |feed|
+        next unless feed.respond_to?(:kinds)
 
-        outlet.platforms.each do |name|
+        feed.platforms.each do |name|
           next unless names.include?(name)
 
           platform = WarpEngine::Platform.find!(name)
           published = variants(platform).flat_map(&:expected_kinds)
-          (outlet.kinds - published).each do |kind|
-            add(name, :error, "outlet_kind", "outlet #{outlet.key} carries #{kind}, a kind the platform does not publish")
+          (feed.kinds - published).each do |kind|
+            add(name, :error, "feed_kind", "feed #{feed.key} carries #{kind}, a kind the platform does not publish")
           end
         end
       end
     rescue WarpEngine::ConfigurationError => e
-      add("*", :error, "outlets", e.message)
+      add("*", :error, "feeds", e.message)
     end
 
     def check_host(names)

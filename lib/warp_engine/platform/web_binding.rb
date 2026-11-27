@@ -6,7 +6,7 @@ module WarpEngine
     #
     # [key]      the binding's name on the platform, unique there (default: the runtime name)
     # [runtime]  the runtime name
-    # [payload]  the asset kind the runtime plays (default +cartridge+)
+    # [payload]  the asset kind the runtime plays (default +package+)
     # [params]   the runtime parameters (a frozen Hash with Symbol keys)
     # [default]  the binding a release uses when its metadata names none
     # [enabled]  +false+ when the host switched it off
@@ -14,8 +14,8 @@ module WarpEngine
     #            a threaded core): it is served with COOP/COEP headers
     WebBinding = ::Data.define(:key, :runtime, :payload, :params, :default, :enabled, :isolated) do
       # Builds a binding with the defaults: keyed by the runtime, playing the
-      # cartridge, enabled, not the default, not isolated.
-      def self.build(runtime, as: nil, payload: :cartridge, default: false, enabled: true, isolated: false, **params)
+      # package, enabled, not the default, not isolated.
+      def self.build(runtime, as: nil, payload: :package, default: false, enabled: true, isolated: false, **params)
         new(key: (as || runtime).to_s, runtime: runtime.to_s, payload: payload.to_s, params: params.freeze,
             default: default, enabled: enabled, isolated: isolated)
       end
@@ -30,7 +30,7 @@ module WarpEngine
         found = runtime_object
         return [ "runtime #{runtime} is not defined" ] if found.nil?
 
-        problems = WarpEngine::AssetKinds::ALL.key?(payload) ? [] : [ "payload #{payload} is not an asset kind" ]
+        problems = WarpEngine::AssetKinds::ALL.key?(WarpEngine::AssetKinds.canonical(payload)) ? [] : [ "payload #{payload} is not an asset kind" ]
         problems + found.definition.param_errors(params)
       end
 

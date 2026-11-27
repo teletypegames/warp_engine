@@ -7,7 +7,7 @@ shared_examples "pipeline config built kinds" do |config_class|
     case kind
     when "html" then ".html.zip"
     when "docs" then "-docs.zip"
-    when "cartridge", "source" then nil
+    when "package", "source" then nil
     when /\Acli_/ then kind.delete_prefix("cli_").tr("_", "-")
     else kind.tr("_", "-")
     end
@@ -47,7 +47,7 @@ shared_examples "pipeline config built kinds" do |config_class|
 
   describe "#built_kinds" do
     it "answers with the kinds of a platform it has a builder for" do
-      expect(config_for("tic80").built_kinds("tic80")).to include("cartridge", "html", "win_x64")
+      expect(config_for("tic80").built_kinds("tic80")).to include("package", "html", "win_x64")
     end
 
     it "answers nil for a platform with no builder configured, so nothing is excused" do

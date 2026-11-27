@@ -12,7 +12,7 @@ module WarpEngine
     # web: ReleaseSerializer.play_url), the download totals from
     # +download_counts+ (release id => count) and the access of +subject+.
     # Returns a Hash.
-    def build_response(software, releases, download_counts, subject: nil, channel: WarpEngine::Channels::STABLE)
+    def build_response(software, releases, download_counts, subject: nil, channel: WarpEngine::ReleaseChannel::STABLE)
       sorted = releases.reject(&:dev?).sort_by { |r| r.created_at || Time.at(0) }.reverse
       latest = Release.latest(releases, channel: channel)
 

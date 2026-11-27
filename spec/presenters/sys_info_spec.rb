@@ -50,7 +50,7 @@ RSpec.describe WarpEngine::SysInfo do
   end
 
   it "describes every part of the configuration as a group with an icon" do
-    expect(info.tree.map(&:key)).to eq(%w[engine publishing adapters signin ci platforms runtimes outlets sync forks adminapi extras])
+    expect(info.tree.map(&:key)).to eq(%w[engine publishing adapters signin ci platforms runtimes feeds sync forks adminapi extras])
     expect(info.tree.map(&:icon)).to all(be_a(Symbol))
   end
 
@@ -92,7 +92,7 @@ RSpec.describe WarpEngine::SysInfo do
     platforms = group("platforms").children
 
     expect(platforms.map { |node| node.label.split(" · ").first }).to eq(WarpEngine::Platform.names)
-    expect(find("platforms.c64.accepts").chips).to include("cartridge")
+    expect(find("platforms.c64.accepts").chips).to include("package")
   end
 
   it "describes the CI server without its token and leaves the live check off when asked" do
@@ -138,42 +138,42 @@ RSpec.describe WarpEngine::SysInfo do
     expect(info).not_to be_live_available
   end
 
-  it "reports an invalid outlet configuration instead of failing" do
-    allow(WarpEngine::Outlets).to receive(:validate!).and_raise(WarpEngine::ConfigurationError, "two outlets share the key x")
+  it "reports an invalid feed configuration instead of failing" do
+    allow(WarpEngine::Feeds).to receive(:validate!).and_raise(WarpEngine::ConfigurationError, "two feeds share the key x")
 
-    expect(find("outlets.invalid")).to have_attributes(status: "error", hint: "two outlets share the key x")
-    expect(info.stats.find { |stat| stat.label == "Outlets" }.value).to eq("?")
+    expect(find("feeds.invalid")).to have_attributes(status: "error", hint: "two feeds share the key x")
+    expect(info.stats.find { |stat| stat.label == "Feeds" }.value).to eq("?")
   end
 
-  it "shows a shelf that is not built yet as one to check" do
+  it "shows a directory that is not built yet as one to check" do
     container = Dir.mktmpdir
     allow(WarpEngine.config).to receive_messages(
       file_container_path: container,
-      outlets: [ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG" } ]
+      feeds: [ { key: "c64", type: "directory", platform: "c64", kind: "package", path: "directories/C64", extension: ".PRG" } ]
     )
 
-    expect(find("outlets.c64.folder")).to have_attributes(status: "warn", chips: [ "not built yet" ])
-    expect(find("outlets.c64.urls").status).to eq("off")
-    expect(group("outlets").rolled_status).to eq("warn")
+    expect(find("feeds.c64.folder")).to have_attributes(status: "warn", chips: [ "not built yet" ])
+    expect(find("feeds.c64.urls").status).to eq("off")
+    expect(group("feeds").rolled_status).to eq("warn")
   ensure
     FileUtils.rm_rf(container)
   end
 
-  it "shows a title another shelf of the platform holds as info, not as left out" do
+  it "shows a title another directory of the platform holds as info, not as left out" do
     container = Dir.mktmpdir
     allow(WarpEngine.config).to receive_messages(
       file_container_path: container,
-      outlets: [ { key: "c64", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64", extension: ".PRG" },
-                 { key: "c64_disks", type: "shelf", platform: "c64", kind: "cartridge", path: "shelves/C64DISK", extension: ".D64" } ]
+      feeds: [ { key: "c64", type: "directory", platform: "c64", kind: "package", path: "directories/C64", extension: ".PRG" },
+                 { key: "c64_disks", type: "directory", platform: "c64", kind: "package", path: "directories/C64DISK", extension: ".D64" } ]
     )
     WarpEngine::SoftwareStatus.seed_defaults!
     software = create(:software, name: "prypjat", platform: "c64", status: "released")
     path = File.join(container, "prypjat-1.0.0.d64")
     File.binwrite(path, "disk")
-    WarpEngine::ReleaseAsset.create!(release: create(:release, software: software, version: "1.0.0"), kind: "cartridge", path: path)
+    WarpEngine::ReleaseAsset.create!(release: create(:release, software: software, version: "1.0.0"), kind: "package", path: path)
 
-    expect(find("outlets.c64.elsewhere")).to have_attributes(status: "info", chips: [ "prypjat → c64_disks" ])
-    expect(find("outlets.c64.skipped")).to be_nil
+    expect(find("feeds.c64.elsewhere")).to have_attributes(status: "info", chips: [ "prypjat → c64_disks" ])
+    expect(find("feeds.c64.skipped")).to be_nil
   ensure
     FileUtils.rm_rf(container)
   end

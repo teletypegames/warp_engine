@@ -3,11 +3,11 @@ module WarpEngine
   # value of WarpEngine::Software +status+), a display +label+ and +position+
   # (scope +ordered+), whether clients list it by default
   # (+default_visible+) and a +badge+ style hint. The table seeds itself with
-  # DEFAULTS when empty. Changes refresh every shelf.
+  # DEFAULTS when empty. Changes refresh every directory.
   class SoftwareStatus < ApplicationRecord
     self.table_name = "software_statuses"
 
-    include OutletRefreshing
+    include FeedRefreshing
 
     # Allowed characters of a status key: lower-case letters, digits,
     # underscore and hyphen.

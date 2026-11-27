@@ -16,7 +16,7 @@ RSpec.describe "GET /play/:name/:version", type: :request do
   before do
     allow(WarpEngine.config).to receive(:file_container_path).and_return(tmpdir)
     File.binwrite(File.join(tmpdir, "rabbit-1.0.0.prg"), "\x01\x08")
-    release.release_assets.create!(kind: "cartridge", path: File.join(tmpdir, "rabbit-1.0.0.prg"))
+    release.release_assets.create!(kind: "package", path: File.join(tmpdir, "rabbit-1.0.0.prg"))
   end
 
   after { FileUtils.rm_rf(tmpdir) }

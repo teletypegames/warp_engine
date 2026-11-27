@@ -1,7 +1,7 @@
 module WarpEngine
   module Admin
     # Admin API view of a WarpEngine::Download: id, file path, release and
-    # software ids, IP address, user agent, referer, outlet key, Client-Id and
+    # software ids, IP address, user agent, referer, feed key, Client-Id and
     # timestamps.
     class DownloadSerializer < Blueprinter::Base
       identifier :id
@@ -11,7 +11,7 @@ module WarpEngine
       field :ip_address, name: :ipAddress
       field :user_agent, name: :userAgent
       field :referer
-      field :outlet
+      field :feed
       field :client_id, name: :clientId
       include Timestamps
     end

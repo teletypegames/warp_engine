@@ -34,14 +34,14 @@ module WarpEngine
           base = {
             id: S.id, name: S.string, title: S.string, author: text, desc: text, story: text,
             license: text, platform: S.enum(WarpEngine::Platform.names), status: text, category: text,
-            highlighted: S.nullable(S.boolean), shelfName: text, ownerType: text, ownerId: S.nullable(S.integer),
+            highlighted: S.nullable(S.boolean), directoryName: text, ownerType: text, ownerId: S.nullable(S.integer),
             disabledKinds: S.array(S.string, "The asset kinds it turns off; web: the web play"),
             forksAllowed: S.boolean, forkOfEngine: text, forkOfName: text, forkOfVersion: text, forkOfRepo: text, **timestamps
           }
           included = {
             releases:      S.array(S.ref("Release"), "With include=releases"),
             images:        S.array(S.ref("SoftwareImage"), "With include=images"),
-            externalLinks: S.array(S.ref("ExternalLink"), "With include=externalLinks"),
+            links:         S.array(S.ref("SoftwareLink"), "With include=links"),
             extras:        S.object({}, description: "With include=extras: one key per additional resource", additional: true)
           }
           named("Software", base.merge(included), required: base.keys)
@@ -55,7 +55,7 @@ module WarpEngine
             status: S.nullable(S.string("A key from software_statuses")),
             category: S.nullable(S.string("A key from software_categories; a new word is registered for review")),
             highlighted: S.boolean,
-            shelfName: S.nullable(S.string("File name on a shelf (A-Z, 0-9, -); null uses the name")),
+            directoryName: S.nullable(S.string("File name on a directory (A-Z, 0-9, -); null uses the name")),
             disabledKinds: S.array(S.string, "The asset kinds it turns off: kinds the platform does not require, and web for the web play; [] turns them on"),
             forksAllowed: S.boolean("Whether the developer tools may offer a fork (needs a public source link)"),
             forkOfEngine: S.nullable(S.string("For a fork: the parent engine's base URL")),
@@ -66,7 +66,7 @@ module WarpEngine
 
         # The +Release+ schema, with its assets.
         def release
-          named("Release", { id: S.id, softwareId: S.integer, version: S.string, channel: S.enum(WarpEngine::Channels::ALL), commitSha: text,
+          named("Release", { id: S.id, softwareId: S.integer, version: S.string, channel: S.enum(WarpEngine::ReleaseChannel::ALL), commitSha: text,
                              assets: S.array(S.ref("ReleaseAsset")), **timestamps })
         end
 
@@ -84,7 +84,7 @@ module WarpEngine
         def scaffold
           named("Scaffold", { software: S.ref("Software"),
                               repository: S.object({ owner: S.string, name: S.string, htmlUrl: text, cloneUrl: text, sshUrl: text }),
-                              pipelineId: S.nullable(S.integer), warnings: S.array(S.string) })
+                              ciRepositoryId: S.nullable(S.integer), warnings: S.array(S.string) })
         end
 
         # The body of creating or changing a release.
@@ -101,29 +101,35 @@ module WarpEngine
           S.object({ kind: S.enum(WarpEngine::ReleaseAsset::KINDS), path: S.string("Absolute path in the artifact store") })
         end
 
-        # The +ExternalLink+ schema.
-        def external_link
-          named("ExternalLink", { id: S.id, softwareId: S.integer, label: S.string, url: S.string,
-                                  kind: S.enum(WarpEngine::ExternalLink::KINDS), ref: text, public: S.nullable(S.boolean),
-                                  verifiedAt: S.nullable(S.datetime), verifyError: text, **timestamps })
+        # The +SoftwareLink+ schema.
+        def software_link
+          named("SoftwareLink", { id: S.id, softwareId: S.integer, label: S.string, url: S.string, **timestamps })
         end
 
-        # The body of creating or changing an external link.
-        def external_link_body
-          S.object({ label: S.string, url: S.string,
-                     kind: S.enum(WarpEngine::ExternalLink::KINDS, "source: the git repository; one per software"),
-                     ref: S.nullable(S.string("Branch or tag of a source; null for the default branch")) })
+        # The body of creating or changing a link.
+        def software_link_body = S.object({ label: S.string, url: S.string })
+
+        # The +SoftwareSource+ schema: the git repository a software is built from.
+        def software_source
+          named("SoftwareSource", { id: S.id, softwareId: S.integer, url: S.string, ref: text, public: S.nullable(S.boolean),
+                                    verifiedAt: S.nullable(S.datetime), verifyError: text, **timestamps })
         end
 
-        # The +ForkLink+ schema: a fork another engine announced.
-        def fork_link
-          named("ForkLink", { id: S.id, softwareId: S.integer, softwareName: text, childEngine: S.string, childName: S.string,
-                              childTitle: text, status: S.enum(WarpEngine::ForkLink::STATUSES), checkedAt: S.nullable(S.datetime),
-                              lastError: text, **timestamps })
+        # The body of setting a source.
+        def software_source_body
+          S.object({ url: S.string("The git address: https://, ssh:// or user@host:path"),
+                     ref: S.nullable(S.string("Branch or tag; null for the default branch")) })
         end
 
-        # The body of moderating a fork link.
-        def fork_link_body = S.object({ status: S.enum(WarpEngine::ForkLink::STATUSES) })
+        # The +SoftwareFork+ schema: a fork another engine announced.
+        def software_fork
+          named("SoftwareFork", { id: S.id, softwareId: S.integer, softwareName: text, engineUrl: S.string, name: S.string,
+                                  title: text, status: S.enum(WarpEngine::SoftwareFork::STATUSES), checkedAt: S.nullable(S.datetime),
+                                  lastError: text, **timestamps })
+        end
+
+        # The body of moderating a fork.
+        def software_fork_body = S.object({ status: S.enum(WarpEngine::SoftwareFork::STATUSES) })
 
         # The +SoftwareImage+ schema.
         def software_image
@@ -156,16 +162,16 @@ module WarpEngine
                      position: S.integer(minimum: 0) })
         end
 
-        # The +StoreClient+ schema: what a host set for one of its store engines.
-        def store_client
-          named("StoreClient", { id: S.id, client: S.string, softwareName: text, name: text, storeKey: text,
+        # The +ClientConfig+ schema: what a host set for one of its store engines.
+        def client_config
+          named("ClientConfig", { id: S.id, client: S.string, softwareName: text, name: text, storeKey: text,
                                  subfolder: text, statuses: S.nullable(S.array(S.string)),
                                  logoUrls: S.nullable(S.array(S.string)), pinnedVersion: text, **timestamps })
         end
 
         # The body of creating or changing a store engine record.
-        def store_client_body
-          S.object({ client: S.enum(WarpEngine::StoreClients.keys), softwareName: text, name: text, storeKey: text,
+        def client_config_body
+          S.object({ client: S.enum(WarpEngine::Clients.keys), softwareName: text, name: text, storeKey: text,
                      subfolder: text, statuses: S.nullable(S.array(S.string)),
                      logoUrls: S.nullable(S.array(S.string)), pinnedVersion: text })
         end
@@ -197,7 +203,7 @@ module WarpEngine
         def download
           named("Download", { id: S.id, filePath: S.string, releaseId: S.nullable(S.integer),
                               softwareId: S.nullable(S.integer), ipAddress: text, userAgent: text, referer: text,
-                              outlet: S.nullable(S.string("Key of the outlet it came through; null for the catalog API")),
+                              feed: S.nullable(S.string("Key of the feed it came through; null for the catalog API")),
                               clientId: S.nullable(S.string("The caller's Client-Id header")),
                               **timestamps })
         end
@@ -227,18 +233,18 @@ module WarpEngine
           })
         end
 
-        # The +Pipeline+ schema, one CI repository.
-        def pipeline
-          named("Pipeline", { id: S.id, repoId: S.integer, repoOwner: S.string, repoName: S.string,
-                              fullName: S.string, platform: S.string, active: S.boolean,
-                              softwareId: S.nullable(S.integer), lastPipelineStatus: text,
-                              lastPipelineAt: S.nullable(S.datetime), **timestamps })
+        # The +CiRepository+ schema, one CI repository.
+        def ci_repository
+          named("CiRepository", { id: S.id, repoId: S.integer, repoOwner: S.string, repoName: S.string,
+                                  fullName: S.string, platform: S.string, active: S.boolean,
+                                  softwareId: S.nullable(S.integer), lastPipelineStatus: text,
+                                  lastPipelineAt: S.nullable(S.datetime), **timestamps })
         end
 
-        # The body of changing a pipeline's platform or software.
-        def pipeline_body
-          S.object({ platform: S.enum(WarpEngine::Platform.names + [ WarpEngine::Pipeline::UNKNOWN_PLATFORM ]),
-                     softwareId: S.nullable(S.integer("One pipeline per software: taking one moves it here")) })
+        # The body of changing a CI repository's platform or software.
+        def ci_repository_body
+          S.object({ platform: S.enum(WarpEngine::Platform.names + [ WarpEngine::CiRepository::UNKNOWN_PLATFORM ]),
+                     softwareId: S.nullable(S.integer("One CI repository per software: taking one moves it here")) })
         end
 
         # The +PipelineRun+ schema, one run on the CI server.
@@ -248,10 +254,10 @@ module WarpEngine
                                  ref: text })
         end
 
-        # The +PipelineSync+ schema: the pipelines a sync created, updated and deactivated.
-        def pipeline_sync
-          named("PipelineSync", { created: S.array(S.ref("Pipeline")), updated: S.array(S.ref("Pipeline")),
-                                  deactivated: S.array(S.ref("Pipeline")) })
+        # The +CiRepositorySync+ schema: the CI repositories a sync created, updated and deactivated.
+        def ci_repository_sync
+          named("CiRepositorySync", { created: S.array(S.ref("CiRepository")), updated: S.array(S.ref("CiRepository")),
+                                      deactivated: S.array(S.ref("CiRepository")) })
         end
 
         # The +RuntimeVersion+ schema, one installed version of a runtime.
@@ -303,7 +309,7 @@ module WarpEngine
                               transportOptions: S.object({}, additional: true, description: "The transport's settings, e.g. host"),
                               secretPrefix: S.nullable(S.string("The first characters of the secret")),
                               outboundEnabled: S.boolean, inboundEnabled: S.boolean,
-                              allowedChannels: S.array(S.enum(WarpEngine::Channels::ALL), "Narrows the outbound allowed_channels; empty: the global list"),
+                              allowedChannels: S.array(S.enum(WarpEngine::ReleaseChannel::ALL), "Narrows the outbound allowed_channels; empty: the global list"),
                               createdBy: S.nullable(S.object({ type: S.string, id: S.integer }, description: "Who paired it (sync_pairings)")),
                               inboundTokenPrefix: S.nullable(S.string("The token it pushes here with")),
                               lastSyncedAt: S.nullable(S.datetime), lastError: text, **timestamps })
@@ -315,26 +321,26 @@ module WarpEngine
                      transportOptions: S.object({}, additional: true, description: "The transport's settings (http: host)"),
                      secret: S.string("The transport's secret (http: the token the other engine issued); write-only, empty keeps the stored one"),
                      outboundEnabled: S.boolean("Push our releases to it"), inboundEnabled: S.boolean("Accept its pushes"),
-                     allowedChannels: S.array(S.enum(WarpEngine::Channels::ALL), "The channels pushed to it, within the outbound allowed_channels; empty: all of those") })
+                     allowedChannels: S.array(S.enum(WarpEngine::ReleaseChannel::ALL), "The channels pushed to it, within the outbound allowed_channels; empty: all of those") })
         end
 
-        # The +LocalComponent+ schema: a component a local engine can run.
-        def local_component
-          named("LocalComponent", { key: S.string, label: S.string, role: S.string, requires: S.array(S.string),
-                                    description: S.string, state: S.enum(WarpEngine::LocalComponent::STATES + %w[unavailable]),
+        # The +LocalProvider+ schema: a provider (git server, CI) a local engine can run.
+        def local_provider
+          named("LocalProvider", { key: S.string, label: S.string, role: S.string, requires: S.array(S.string),
+                                    description: S.string, state: S.enum(WarpEngine::LocalProvider::STATES + %w[unavailable]),
                                     message: text })
         end
 
-        # The +LocalOperation+ schema: a long task on the local components.
-        def local_operation
-          named("LocalOperation", { id: S.id, kind: S.enum(WarpEngine::LocalOperation::KINDS), target: S.string,
-                                    state: S.enum(WarpEngine::LocalOperation::STATES),
+        # The +LocalTask+ schema: a long task on the local providers.
+        def local_task
+          named("LocalTask", { id: S.id, kind: S.enum(WarpEngine::LocalTask::KINDS), target: S.string,
+                                    state: S.enum(WarpEngine::LocalTask::STATES),
                                     steps: S.array(S.object({ at: S.string, text: S.string })),
-                                    result: S.nullable(S.object({}, additional: true, description: "local_ci: pushUrl, remoteName, repoUrl, pipelineId, warnings")),
+                                    result: S.nullable(S.object({}, additional: true, description: "local_ci: pushUrl, remoteName, repoUrl, ciRepositoryId, warnings")),
                                     error: text, **timestamps })
         end
 
-        # The +LocalCredentials+ schema: a component's generated sign-in.
+        # The +LocalCredentials+ schema: a provider's generated sign-in.
         def local_credentials
           named("LocalCredentials", { url: S.string, user: S.string, password: S.string })
         end
@@ -378,7 +384,7 @@ module WarpEngine
           S.object({
             all: S.boolean("Every allowed release, oldest first (a full sync); default: the newest of each software"),
             filtered: S.boolean("Apply the configured filters (default true); without them every software and kind goes"),
-            channels: S.array(S.enum(WarpEngine::Channels::ALL), "Default: the configured allowed_channels"),
+            channels: S.array(S.enum(WarpEngine::ReleaseChannel::ALL), "Default: the configured allowed_channels"),
             softwares: list.call("Software names, * as a wildcard"), software: S.string("One software, by name"),
             platforms: list.call("Platform names"), categories: list.call("Category keys"), statuses: list.call("Status keys"),
             skipExisting: S.boolean("Leave out what the peer already has, asked when each push runs (default true)"),
@@ -432,18 +438,18 @@ module WarpEngine
                            value: { description: "An object, or an array of objects when multiple" } })
         end
 
-        # The +Outlet+ schema: one configured outlet.
-        def outlet
-          named("Outlet", { key: S.string, type: S.string, platforms: S.array(S.string, "Empty for every platform"),
-                            description: S.string, materialized: S.boolean("It writes files"),
-                            served: S.boolean("It answers requests"),
+        # The +Feed+ schema: one configured feed.
+        def feed
+          named("Feed", { key: S.string, type: S.string, platforms: S.array(S.string, "Empty for every platform"),
+                            description: S.string, static: S.boolean("It writes files"),
+                            dynamic: S.boolean("It answers requests"),
                             details: { type: "object", description: "The rest of the descriptor GET /api/service lists" } })
         end
 
-        # The +OutletCheck+ schema: what one outlet offers and leaves out.
-        def outlet_check
-          named("OutletCheck", {
-            key: S.string, type: S.string, offer: S.boolean("False for the catalog API, which decides per caller"),
+        # The +FeedCheck+ schema: what one feed offers and leaves out.
+        def feed_check
+          named("FeedCheck", {
+            key: S.string, type: S.string, selection: S.boolean("False for the catalog API, which decides per caller"),
             items: S.array(S.object({ softwareId: S.integer, name: S.string, title: S.string, version: S.string, kind: S.string },
                                     required: %i[softwareId name title version kind])),
             skipped: S.array(S.object({ softwareId: S.integer, name: S.string, reason: S.string },
@@ -453,11 +459,11 @@ module WarpEngine
 
         # Every Named component schema.
         def all
-          [ software, release, release_asset, external_link, fork_link, software_image, platform_link, store_client, software_status,
+          [ software, release, release_asset, software_link, software_source, software_fork, software_image, platform_link, client_config, software_status,
             software_category, download, download_summary, file_downloads, software_downloads,
-            software_download_stats, outlet, outlet_check, pipeline, pipeline_run, pipeline_sync, file_entry, file_path,
+            software_download_stats, feed, feed_check, ci_repository, pipeline_run, ci_repository_sync, file_entry, file_path,
             runtime_version, runtime_install, application_token, device_grant, principal, extra, scaffold,
-            local_component, local_operation, local_credentials, sync_peer, sync_pairing, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
+            local_provider, local_task, local_credentials, sync_peer, sync_pairing, sync_inbound_token, sync_status, sync_check, sync_push, sync_event ]
         end
       end
     end

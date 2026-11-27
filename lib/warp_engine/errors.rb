@@ -3,8 +3,8 @@ module WarpEngine
   # rescue it to catch them all; each part of the engine raises a subclass.
   class Error < StandardError; end
 
-  # A host configuration the engine cannot run with: a shelf, an outlet, a
-  # platform or the Admin API set up wrongly. WarpEngine::Outlets.validate!
+  # A host configuration the engine cannot run with: a directory, a feed, a
+  # platform or the Admin API set up wrongly. WarpEngine::Feeds.validate!
   # raises it at boot.
   class ConfigurationError < Error; end
 
