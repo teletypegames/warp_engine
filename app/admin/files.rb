@@ -168,7 +168,7 @@ ActiveAdmin.register_page "Files" do
 
   page_action :ajax_upload, method: :post do
     service = WarpEngine::FileManagerService.new
-    path = service.upload(params[:dir].to_s, params[:file])
+    path = service.upload(params[:dir].to_s, params[:file], create: params[:create] == "1")
     render json: { ok: true, path: path }
   rescue => e
     render json: { ok: false, error: e.message }, status: 422

@@ -1,6 +1,15 @@
 (function() {
   var PATH_INPUT_SELECTOR = 'input[id*="release_assets_attributes"][id$="_path"]:not([data-browse-added])';
   var _pickerTarget = null;
+  var _releaseDir = '';
+
+  function releaseDirFor(input) {
+    var nameInput = document.getElementById('software_name');
+    var versionInput = document.getElementById(input.id.replace(/_release_assets_attributes_.*$/, '_version'));
+    var name = nameInput ? nameInput.value.trim() : '';
+    var version = versionInput ? versionInput.value.trim() : '';
+    return name && version ? name + '/' + version : '';
+  }
 
   function addBrowseButtons() {
     var inputs = document.querySelectorAll(PATH_INPUT_SELECTOR);
@@ -13,7 +22,8 @@
       btn.addEventListener('click', function(e) {
         e.preventDefault();
         _pickerTarget = input;
-        openPicker('');
+        _releaseDir = releaseDirFor(input);
+        openPicker(_releaseDir);
       });
       input.parentNode.insertBefore(btn, input.nextSibling);
     });
@@ -45,6 +55,7 @@
     body.className = 'fm-modal-body';
     body.id = 'fm-picker-body';
     body.innerHTML = '<div class="fm-modal-loading">Loading...</div>';
+    body.addEventListener('click', handlePickerClick);
     modal.appendChild(body);
 
     overlay.appendChild(modal);
@@ -75,13 +86,13 @@
 
     fetch('/admin/files/list?dir=' + encodeURIComponent(dir))
       .then(function(r) { return r.json(); })
-      .then(function(data) { renderDir(data.entries || [], data.dir || '', data.root || '', data.rootName || 'files'); })
+      .then(function(data) { renderDir(data.entries || [], data.dir || '', data.root || '', data.rootName || 'files', !!data.error); })
       .catch(function(e) {
         body.innerHTML = '<div class="fm-modal-error">Error: ' + esc(e.message) + '</div>';
       });
   }
 
-  function renderDir(entries, dir, root, rootName) {
+  function renderDir(entries, dir, root, rootName, missing) {
     var body = document.getElementById('fm-picker-body');
     if (!body) return;
 
@@ -95,6 +106,10 @@
       html += '<a href="#" data-dir="' + esc(acc) + '">' + esc(parts[i]) + '/</a>';
     }
     html += '</div>';
+
+    if (missing && dir && dir === _releaseDir) {
+      html += '<div class="fm-modal-loading">The release folder does not exist yet; the first upload creates it.</div>';
+    }
 
     html += '<div class="fm-actions fm-dropzone" id="fm-picker-dropzone">';
     html += '<input type="file" id="fm-picker-file" />';
@@ -132,8 +147,6 @@
 
     html += '</tbody></table>';
     body.innerHTML = html;
-
-    body.addEventListener('click', handlePickerClick);
 
     var dropzone = document.getElementById('fm-picker-dropzone');
     if (dropzone) {
@@ -186,6 +199,7 @@
     var fd = new FormData();
     fd.append('file', file);
     fd.append('dir', dir);
+    if (dir && dir === _releaseDir) fd.append('create', '1');
 
     var hint = document.querySelector('.fm-drop-hint');
     if (hint) hint.textContent = 'Uploading ' + file.name + '...';
